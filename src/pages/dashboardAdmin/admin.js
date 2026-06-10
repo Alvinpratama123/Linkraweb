@@ -59,7 +59,7 @@ export default function DashboardAdmin() {
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
     { icon: <HiSun size={18} />, label: "Settings Tema" },
-    { icon: <HiShieldCheck size={18} />, label: "Settings Akun" },
+   
     { icon: <HiKey size={18} />, label: "Change Password" },
   ];
 
@@ -209,11 +209,6 @@ export default function DashboardAdmin() {
           <SettingsTema theme={theme} setTheme={setTheme} />
         )}
 
-        {selectedMenu === "Settings Akun" && (
-          <div className="p-6 md:p-8 font-bold text-lg md:text-xl">
-            Settings Akun
-          </div>
-        )}
 
         {selectedMenu === "Change Password" && <ChangePassword />}
       </main>

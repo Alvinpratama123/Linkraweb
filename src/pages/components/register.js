@@ -1,15 +1,66 @@
+
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleRegister = (e) => {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    role: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleRegister = async (e) => {
     e.preventDefault();
-    // nanti bisa tambah logic register di sini
-    router.push("/dashboardAdmin/admin");
+
+    if (form.password !== form.confirmPassword) {
+      alert("Password tidak sama!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          role: form.role,
+          password: form.password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Register gagal");
+        return;
+      }
+
+      alert("Register berhasil");
+      router.push("/");
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,32 +85,14 @@ export default function RegisterPage() {
           </h1>
 
           <p className="text-gray-200 text-lg leading-8 max-w-xl">
-            Create your account and get access to our secure enterprise
-            infrastructure and modern technology solutions.
+            Create your account and get access to secure enterprise systems.
           </p>
-
-          {/* STEPS */}
-          <div className="mt-10 space-y-4">
-            {[
-              "Fill in your personal information",
-              "Set a secure password",
-              "Start managing your projects",
-            ].map((step, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-blue-500/30 border border-blue-400 flex items-center justify-center text-sm font-bold text-blue-200">
-                  {i + 1}
-                </div>
-                <p className="text-gray-200 text-sm">{step}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
       {/* RIGHT SIDE */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#f5f7fb] px-6 py-10">
         <div className="w-full max-w-md bg-white p-10 rounded-3xl shadow-xl">
-          {/* LOGO */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-[#001d55]">
               Create Account
@@ -69,141 +102,88 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* FORM */}
           <form className="space-y-5" onSubmit={handleRegister}>
-            {/* FULL NAME */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                placeholder="Enter your full name"
-                className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-700"
-                required
-              />
-            </div>
+            {/* NAME */}
+            <input
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="Full Name"
+              className="w-full px-5 py-4 rounded-2xl border"
+              required
+            />
 
             {/* EMAIL */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-700"
-                required
-              />
-            </div>
+            <input
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              placeholder="Email"
+              className="w-full px-5 py-4 rounded-2xl border"
+              required
+            />
 
             {/* ROLE */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Role / Position
-              </label>
-              <select
-                className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-700 text-gray-700 bg-white"
-                required
-              >
-                <option value="">Select your role</option>
-                <option value="frontend">Frontend Developer</option>
-                <option value="backend">Backend Developer</option>
-                <option value="uiux">UI/UX Designer</option>
-                <option value="qa">QA Engineer</option>
-                <option value="pm">Project Manager</option>
-              </select>
-            </div>
+            <select
+              name="role"
+              value={form.role}
+              onChange={handleChange}
+              className="w-full px-5 py-4 rounded-2xl border"
+              required
+            >
+              <option value="">Select Role</option>
+              <option value="frontend">Frontend</option>
+              <option value="backend">Backend</option>
+              <option value="uiux">UI/UX</option>
+              <option value="qa">QA</option>
+              <option value="pm">PM</option>
+            </select>
 
             {/* PASSWORD */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a password"
-                  className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-700 pr-14"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-medium"
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
-              </div>
-            </div>
+            <input
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Password"
+              className="w-full px-5 py-4 rounded-2xl border"
+              required
+            />
 
             {/* CONFIRM PASSWORD */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showConfirm ? "text" : "password"}
-                  placeholder="Confirm your password"
-                  className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-700 pr-14"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-medium"
-                >
-                  {showConfirm ? "Hide" : "Show"}
-                </button>
-              </div>
-            </div>
-
-            {/* TERMS */}
-            <div className="flex items-start gap-3 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                className="mt-1 accent-[#001d55]"
-                required
-              />
-              <span>
-                I agree to the{" "}
-                <a href="#" className="text-blue-700 hover:text-blue-900 font-medium">
-                  Terms of Service
-                </a>{" "}
-                and{" "}
-                <a href="#" className="text-blue-700 hover:text-blue-900 font-medium">
-                  Privacy Policy
-                </a>
-              </span>
-            </div>
+            <input
+              name="confirmPassword"
+              type="password"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              placeholder="Confirm Password"
+              className="w-full px-5 py-4 rounded-2xl border"
+              required
+            />
 
             {/* BUTTON */}
             <button
               type="submit"
-              className="w-full bg-[#001d55] hover:bg-[#003cb3] transition text-white py-4 rounded-2xl font-semibold text-lg"
+              disabled={loading}
+              className="w-full bg-[#001d55] text-white py-4 rounded-2xl font-semibold disabled:opacity-50"
             >
-              Create Account
+              {loading ? "Creating..." : "Create Account"}
             </button>
           </form>
 
-          {/* LINK KE LOGIN */}
           <div className="mt-6 text-center text-sm text-gray-500">
             Already have an account?{" "}
             <button
               onClick={() => router.push("/")}
-              className="text-blue-700 hover:text-blue-900 font-semibold"
+              className="text-blue-700 font-semibold"
             >
-              Sign in here
+              Sign in
             </button>
-          </div>
-
-          {/* FOOTER */}
-          <div className="mt-6 text-center text-sm text-gray-500">
-            © 2026 PT Lintas Wahana Teknologi
           </div>
         </div>
       </div>
     </div>
   );
 }
+
