@@ -8,9 +8,25 @@ datasource db {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  name     String
-  email    String @unique
-  role     String
-  password String
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      String    @default("USER")
+  photo     String?   
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt @default(now())  // ✅ Tambah @default(now())
+  
+  loginTokens LoginToken[]
+}
+
+model LoginToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    String   // ✅ Diubah dari Int ke String (cocok dengan User.id)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
