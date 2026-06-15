@@ -54,7 +54,9 @@ export default async function handler(req, res) {
       }`
     );
 
-    return res.redirect("/dashboardAdmin/admin");
+    const redirectUrl =
+      loginToken.user.role === "admin" ? "/dashboardAdmin/admin" : "/memberDashboard/MemberDashboard";
+    return res.redirect(redirectUrl);
     
   } catch (error) {
     console.error("Verify token error:", error);

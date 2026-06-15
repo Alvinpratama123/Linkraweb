@@ -15,9 +15,22 @@ model User {
   role      String    @default("USER")
   photo     String?   
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt @default(now())  // ✅ Tambah @default(now())
+  updatedAt DateTime  @updatedAt @default(now())
   
   loginTokens LoginToken[]
+  member     Member?
+}
+
+model Member {
+  id        Int      @id @default(autoincrement())
+  userId    String   @unique
+  position  String
+  bio       String?
+  profile   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model LoginToken {

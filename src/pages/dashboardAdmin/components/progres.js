@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { sampleMembers } from "./memberData";
+import { sampleMembers } from "@/data/memberData";
 
 const formatDate = (iso) => {
   try {
