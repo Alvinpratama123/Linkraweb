@@ -30,3 +30,27 @@ model LoginToken {
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+model Project {
+  id          Int          @id @default(autoincrement())
+  name        String
+  position    String
+  repoLink    String?
+  date        String
+  progress    Int          @default(0)
+  decision    String       @default("pending")
+  finished    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt @default(now())
+  attachments Attachment[]
+}
+model Attachment {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  type      String
+  name      String
+  url       String
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
