@@ -1,114 +1,110 @@
 import { prisma } from "@/lib/prisma";
+import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-// import { sendWelcomeEmail } from "@/lib/email"; // Comment dulu jika email belum siap
+import crypto from "crypto";
+
+function getRandomPassword(length = 10) {
+  return crypto.randomBytes(length).toString("base64url").slice(0, length);
+}
+
+function generateEmail(name) {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, ".");
+  return `${slug}@mail.com`;
+}
+
+async function verifyAdmin(req, res) {
+  const token = req.cookies.auth_token;
+  if (!token) {
+    res.status(401).json({ success: false, message: "Unauthorized" });
+    return null;
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") {
+      res.status(403).json({ success: false, message: "Forbidden" });
+      return null;
+    }
+    return decoded;
+  } catch {
+    res.status(401).json({ success: false, message: "Invalid token" });
+    return null;
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
+    const admin = await verifyAdmin(req, res);
+    if (!admin) return;
+
     try {
-      const members = await prisma.user.findMany({
-        where: {
-          role: "MEMBER",
+      const members = await prisma.member.findMany({
+        include: {
+          user: {
+            select: { id: true, email: true, name: true, photo: true, role: true },
+          },
         },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          position: true,
-          profile: true,
-          role: true,
-          createdAt: true,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: { createdAt: "desc" },
       });
-      
-      return res.status(200).json({
-        success: true,
-        members: members,
-      });
+      return res.status(200).json({ success: true, members });
     } catch (error) {
       console.error("GET members error:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server Error" 
-      });
+      return res.status(500).json({ success: false, message: "Server Error" });
     }
   }
-  
+
   if (req.method === "POST") {
+    const admin = await verifyAdmin(req, res);
+    if (!admin) return;
+
     try {
-      const { name, email, password, position, profile } = req.body;
-      
-      // Validasi input
-      if (!name || !email || !password || !position) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Semua field wajib diisi" 
-        });
+      const { name, position } = req.body;
+
+      if (!name || !position) {
+        return res.status(400).json({ success: false, message: "Nama dan posisi wajib diisi" });
       }
-      
-      // Cek apakah email sudah terdaftar
-      const existingUser = await prisma.user.findUnique({
-        where: { email },
-      });
-      
-      if (existingUser) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Email sudah terdaftar" 
-        });
-      }
-      
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      // Buat user baru dengan role MEMBER
-      const newMember = await prisma.user.create({
+
+      const email = generateEmail(name);
+      const rawPassword = getRandomPassword();
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+      const user = await prisma.user.create({
         data: {
           name,
           email,
           password: hashedPassword,
-          position,
-          profile: profile || null,
-          role: "MEMBER",
+          role: position,
+          member: {
+            create: {
+              position,
+            },
+          },
+        },
+        include: {
+          member: true,
         },
       });
-      
-      // Kirim email notifikasi (opsional - comment dulu jika error)
-      /*
-      try {
-        await sendWelcomeEmail({ 
-          to: email, 
-          name: name, 
-          email: email, 
-          password: password 
-        });
-      } catch (emailError) {
-        console.error("Email send error:", emailError);
-        // Email gagal dikirim tapi user tetap terdaftar
-      }
-      */
-      
+
       return res.status(201).json({
         success: true,
         message: "Member berhasil ditambahkan",
         member: {
-          id: newMember.id,
-          name: newMember.name,
-          email: newMember.email,
-          position: newMember.position,
-          profile: newMember.profile,
+          id: user.member.id,
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+          position: user.member.position,
+          role: user.role,
+        },
+        credentials: {
+          email: user.email,
+          password: rawPassword,
         },
       });
     } catch (error) {
-      console.error("POST member error:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server Error" 
-      });
+      console.error("POST members error:", error);
+      return res.status(500).json({ success: false, message: "Server Error" });
     }
   }
-  
+
   return res.status(405).json({ message: "Method not allowed" });
 }
