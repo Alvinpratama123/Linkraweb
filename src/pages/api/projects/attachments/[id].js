@@ -21,7 +21,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Attachment not found" });
       }
       
-      // Hapus file dari disk
+      
       const filePath = path.join(process.cwd(), "public", attachment.url);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);

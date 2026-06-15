@@ -20,7 +20,7 @@ import {
 } from "react-icons/hi2";
 import toast, { Toaster } from "react-hot-toast";
 
-// Components untuk member
+// Components untuk member untuk melihat dashboard, projects, progress, revision, analytics
 import Dashboard from "../dashboardAdmin/components/dashboard";
 import UploadProjectPage from "../dashboardAdmin/components/project";
 import Progres from "../dashboardAdmin/components/progres";

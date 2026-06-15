@@ -22,7 +22,7 @@ export default async function handler(req, res) {
           createdAt: 'desc',
         },
       });
-      
+      //member berhasil diambil
       return res.status(200).json({
         success: true,
         members: members,
