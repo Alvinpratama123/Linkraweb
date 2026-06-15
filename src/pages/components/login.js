@@ -1,5 +1,5 @@
 // pages/login.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -10,6 +10,56 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+
+  // Cek apakah sudah login dan memiliki token verifikasi
+  useEffect(() => {
+    const checkVerification = async () => {
+      const { token } = router.query;
+      
+      if (token) {
+        setRedirecting(true);
+        toast.loading("Memverifikasi login...", { id: "verify" });
+        
+        try {
+          const response = await fetch(`/api/auth/verif/verify-login?token=${token}`);
+          const data = await response.json();
+          
+          toast.dismiss("verify");
+          
+          if (data.success) {
+            toast.success("Login berhasil!");
+            
+            // Simpan data user
+            if (data.user) {
+              localStorage.setItem("user", JSON.stringify(data.user));
+            }
+            
+            // Redirect berdasarkan role
+            setTimeout(() => {
+              if (data.user?.role === "ADMIN") {
+                router.push("/dashboardAdmin/admin");
+              } else {
+                router.push("/memberDashboard/MemberDashboard");
+              }
+            }, 1500);
+          } else {
+            toast.error(data.message || "Verifikasi gagal");
+            // Hapus token dari URL
+            router.replace("/components/login", undefined, { shallow: true });
+          }
+        } catch (error) {
+          console.error("Verification error:", error);
+          toast.error("Terjadi kesalahan saat verifikasi");
+          router.replace("/components/login", undefined, { shallow: true });
+        } finally {
+          setRedirecting(false);
+        }
+      }
+    };
+    
+    checkVerification();
+  }, [router.query, router]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -45,10 +95,13 @@ export default function LoginPage() {
         return;
       }
 
-      // ✅ TAMBAHKAN: Simpan data user ke localStorage
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-        console.log("User data saved:", data.user);
+      // Handle remember me
+      if (rememberMe) {
+        localStorage.setItem("rememberedEmail", email);
+        localStorage.setItem("rememberMe", "true");
+      } else {
+        localStorage.removeItem("rememberedEmail");
+        localStorage.removeItem("rememberMe");
       }
 
       toast.dismiss("login");
@@ -63,6 +116,18 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Loading saat redirecting
+  if (redirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Memverifikasi login...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (emailSent) {
     return (
@@ -86,8 +151,6 @@ export default function LoginPage() {
             <button
               onClick={() => {
                 setEmailSent(false);
-                setEmail("");
-                setPassword("");
                 toast.success("Kembali ke form login");
               }}
               className="text-blue-600 hover:text-blue-800 font-medium transition-all inline-flex items-center gap-2"
@@ -242,7 +305,27 @@ export default function LoginPage() {
                 </label>
                 <button
                   type="button"
-                  onClick={() => toast.info("Fitur dalam pengembangan", { icon: "🚧" })}
+                  onClick={() => {
+                    toast.custom((t) => (
+                      <div className="bg-white rounded-lg shadow-xl p-4 max-w-sm border-l-4 border-blue-600">
+                        <div className="flex items-start gap-3">
+                          <div className="text-2xl">🔐</div>
+                          <div>
+                            <h4 className="font-semibold text-gray-800">Lupa Password?</h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Silakan hubungi administrator untuk mereset password Anda.
+                            </p>
+                            <button
+                              onClick={() => toast.dismiss(t.id)}
+                              className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Tutup
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ), { duration: 5000 });
+                  }}
                   className="text-blue-600 hover:text-blue-800 font-medium transition-all hover:underline"
                 >
                   Forgot Password?

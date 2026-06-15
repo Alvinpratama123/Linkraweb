@@ -23,12 +23,12 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 
 // PAGES
-import Dashboard from "./components/dashboard";
-import UploadProjectPage from "./components/project";
-import Progres from "./components/progres";
-import Revision from "./components/revision";
-import MembersModul from "./components/membersModul";
-import Analytics from "./components/analytics";
+import Dashboard from "../dashboardAdmin/components/dashboard";
+import UploadProjectPage from "../dashboardAdmin/components/project";
+import Progres from "../dashboardAdmin/components/progres";
+import Revision from "../dashboardAdmin/components/revision";
+import MembersModul from "../dashboardAdmin/components/membersModul";
+import Analytics from "../dashboardAdmin/components/analytics";
 
 // SETTINGS
 import SettingsTema from "../settings/settingsTema";
@@ -62,21 +62,32 @@ export default function DashboardAdmin() {
 
         if (!response.ok) {
           console.error("Failed to fetch user:", data.message);
-          router.push("/login");
+          router.push("/components/login");
           return;
         }
 
         if (data.success && data.user) {
           setUserData(data.user);
           localStorage.setItem("user", JSON.stringify(data.user));
+          
+          // Jika user adalah MEMBER, redirect ke halaman member dashboard
+          if (data.user.role === "MEMBER") {
+            router.push("/memberDashboard/MemberDashboard");
+          }
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
-          setUserData(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          setUserData(parsedUser);
+          
+          // Jika user adalah MEMBER, redirect ke halaman member dashboard
+          if (parsedUser.role === "MEMBER") {
+            router.push("/memberDashboard/MemberDashboard");
+          }
         } else {
-          router.push("/login");
+          router.push("/components/login");
         }
       } finally {
         setLoading(false);
@@ -147,28 +158,31 @@ export default function DashboardAdmin() {
         toast.error("Logout gagal");
       }
       
-      // ✅ PERBAIKAN: Redirect ke /login
+      // Redirect ke login
       router.push("/components/login");
       
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Terjadi kesalahan saat logout");
       clearAllStorage();
-      // ✅ PERBAIKAN: Redirect ke /login
       router.push("/components/login");
     } finally {
       setLoggingOut(false);
     }
   };
 
-  const menus = [
+  // Menu untuk ADMIN saja
+  const adminMenus = [
     { icon: <MdDashboard size={22} />, label: "Dashboard" },
     { icon: <MdFolder size={22} />, label: "Projects" },
     { icon: <MdTask size={22} />, label: "Progress" },
     { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
-    { icon: <MdPeople size={22} />, label: "MEMBER & MODUL" },
+    { icon: <MdPeople size={22} />, label: "MEMBER & MODUL" }, // Hanya untuk ADMIN
     { icon: <MdAnalytics size={22} />, label: "Analytics" },
   ];
+
+  // Pilih menu berdasarkan role
+  const menus = adminMenus; // Admin selalu dapat menu lengkap
 
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
@@ -319,7 +333,7 @@ export default function DashboardAdmin() {
             </button>
           </div>
 
-          {/* USER PROFILE - Menampilkan Nama User dengan Foto */}
+          {/* USER PROFILE */}
           <div className="border-t border-white/10 p-3 md:p-4">
             <div className="flex items-center gap-3">
               {userData?.photo ? (
@@ -339,7 +353,7 @@ export default function DashboardAdmin() {
                     {userData?.name || "Administrator"}
                   </h3>
                   <p className="text-xs text-blue-300">
-                    {userData?.role === "ADMIN" ? "Super Admin" : userData?.role || "Admin"}
+                    {userData?.role === "ADMIN" ? "Administrator" : "Member"}
                   </p>
                 </div>
               )}
@@ -349,13 +363,7 @@ export default function DashboardAdmin() {
 
         {/* CONTENT */}
         <main className="flex-1 overflow-auto p-3 md:p-6">
-          {/* Header Welcome */}
-          <div className="mb-6">
-           
-            
-          </div>
-
-          {/* Menu Content */}
+          {/* Menu Content - Hanya untuk ADMIN */}
           {selectedMenu === "Dashboard" && <Dashboard />}
           {selectedMenu === "Projects" && <UploadProjectPage />}
           {selectedMenu === "Progress" && <Progres />}
@@ -363,6 +371,7 @@ export default function DashboardAdmin() {
           {selectedMenu === "MEMBER & MODUL" && <MembersModul />}
           {selectedMenu === "Analytics" && <Analytics />}
 
+          {/* Settings */}
           {selectedMenu === "Settings Profile" && <SettingsProfile userData={userData} onUpdate={setUserData} />}
           {selectedMenu === "Settings Tema" && (
             <SettingsTema theme={theme} setTheme={setTheme} />

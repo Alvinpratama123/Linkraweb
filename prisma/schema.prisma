@@ -12,10 +12,12 @@ model User {
   email     String    @unique
   password  String
   name      String
-  role      String    @default("USER")
+  role      String    @default("MEMBER")  // ADMIN, MEMBER (ubah dari USER ke MEMBER)
+  position  String?   // Frontend, Backend, Fullstack, UI/UX, DevOps, QA, PM
+  profile   String?   // Link profile/github/portfolio
   photo     String?   
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt @default(now())  // ✅ Tambah @default(now())
+  updatedAt DateTime  @updatedAt
   
   loginTokens LoginToken[]
 }
@@ -23,13 +25,14 @@ model User {
 model LoginToken {
   id        Int      @id @default(autoincrement())
   token     String   @unique
-  userId    String   // ✅ Diubah dari Int ke String (cocok dengan User.id)
+  userId    String
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
 model Project {
   id          Int          @id @default(autoincrement())
   name        String
@@ -40,13 +43,15 @@ model Project {
   decision    String       @default("pending")
   finished    Boolean      @default(false)
   createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt @default(now())
+  updatedAt   DateTime     @updatedAt
+  
   attachments Attachment[]
 }
+
 model Attachment {
   id        Int      @id @default(autoincrement())
   projectId Int
-  type      String
+  type      String   // image, module, link
   name      String
   url       String
   status    String   @default("pending")
