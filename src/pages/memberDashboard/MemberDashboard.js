@@ -9,7 +9,18 @@ import {
 } from "react-icons/hi2";
 import { MdDashboard, MdFolder } from "react-icons/md";
 
-export default function MemberDashboard() {
+// Components untuk member untuk melihat dashboard, projects, progress, revision, analytics
+import Dashboard from "../dashboardAdmin/components/dashboard";
+import UploadProjectPage from "../dashboardAdmin/components/project";
+import Progres from "../dashboardAdmin/components/progres";
+import Revision from "../dashboardAdmin/components/revision";
+import Analytics from "../dashboardAdmin/components/analytics";
+// Settings
+import SettingsProfile from "../settings/profile";
+import SettingsTema from "../settings/settingsTema";
+import ChangePassword from "../settings/changepassword";
+
+export default function MembersDashboard() {
   const [collapsed, setCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");

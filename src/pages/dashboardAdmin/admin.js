@@ -166,6 +166,7 @@ export default function DashboardAdmin() {
       toast.error("Terjadi kesalahan saat logout");
       clearAllStorage();
       router.push("/components/login");
+      
     } finally {
       setLoggingOut(false);
     }

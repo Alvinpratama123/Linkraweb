@@ -45,7 +45,11 @@ export default async function handler(req, res) {
         },
         orderBy: { createdAt: "desc" },
       });
-      return res.status(200).json({ success: true, members });
+      //member berhasil diambil
+      return res.status(200).json({
+        success: true,
+        members: members,
+      });
     } catch (error) {
       console.error("GET members error:", error);
       return res.status(500).json({ success: false, message: "Server Error" });

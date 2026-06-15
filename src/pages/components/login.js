@@ -16,7 +16,7 @@ export default function LoginPage() {
   useEffect(() => {
     const checkVerification = async () => {
       const { token } = router.query;
-      
+      //user
       if (token) {
         setRedirecting(true);
         toast.loading("Memverifikasi login...", { id: "verify" });
