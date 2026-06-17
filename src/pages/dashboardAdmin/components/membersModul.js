@@ -2,9 +2,39 @@ import React, { useState } from 'react'
 import { sampleMembers } from './memberData'
 
 export default function MembersModul({ members = null }) {
-  const [listMembers, setListMembers] = useState(members || sampleMembers)
-  const [showForm, setShowForm] = useState(false)
-  const [newMember, setNewMember] = useState({ name: '', position: '', email: '', password: '', profile: '' })
+  const [listMembers, setListMembers] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [newMember, setNewMember] = useState({ 
+    name: '', 
+    position: '', 
+    email: '', 
+    password: '', 
+    profile: '' 
+  });
+  
+
+  // Fetch members from database
+  const fetchMembers = async () => {
+    try {
+      const response = await fetch('/api/members');
+      const data = await response.json();
+      if (data.success) {
+        setListMembers(data.members);
+      } else {
+        // Fallback ke sample data jika API error
+        setListMembers(members || sampleMembers);
+      }
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      setListMembers(members || sampleMembers);
+    }
+  };
+
+  useEffect(() => {
+    fetchMembers();
+  }, []);
 
   const counts = listMembers.reduce((acc, m) => {
     acc[m.position] = (acc[m.position] || 0) + 1

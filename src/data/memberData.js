@@ -40,3 +40,4 @@ export const sampleMembers = [
     bio: 'PM — handles projects',
   },
 ];
+

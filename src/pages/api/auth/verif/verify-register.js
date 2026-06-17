@@ -17,6 +17,7 @@ export default async function handler(req, res) {
     console.log("Email:", email);
     console.log("OTP received:", otp);
 
+    
     // Validasi input
     if (!name || !email || !role || !password || !otp) {
       return res.status(400).json({
