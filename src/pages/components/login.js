@@ -2,64 +2,54 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import toast, { Toaster } from "react-hot-toast";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Cek apakah sudah login dan memiliki token verifikasi
+  // Load remembered email
   useEffect(() => {
-    const checkVerification = async () => {
-      const { token } = router.query;
-      //user
-      if (token) {
-        setRedirecting(true);
-        toast.loading("Memverifikasi login...", { id: "verify" });
+    const rememberedEmail = localStorage.getItem("rememberedEmail");
+    const rememberMeChecked = localStorage.getItem("rememberMe") === "true";
+    
+    if (rememberedEmail && rememberMeChecked) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
+  // Cek apakah sudah login (punya token di cookie)
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/check", {
+          method: "GET",
+          credentials: "include",
+        });
         
-        try {
-          const response = await fetch(`/api/auth/verif/verify-login?token=${token}`);
+        if (response.ok) {
           const data = await response.json();
-          
-          toast.dismiss("verify");
-          
-          if (data.success) {
-            toast.success("Login berhasil!");
-            
-            // Simpan data user
-            if (data.user) {
-              localStorage.setItem("user", JSON.stringify(data.user));
+          if (data.isAuthenticated) {
+            // Sudah login, redirect sesuai role
+            if (data.user?.role === "admin") {
+              router.push("/dashboardAdmin/admin");
+            } else {
+              router.push("/memberDashboard/MemberDashboard");
             }
-            
-            // Redirect berdasarkan role
-            setTimeout(() => {
-              if (data.user?.role === "ADMIN") {
-                router.push("/dashboardAdmin/admin");
-              } else {
-                router.push("/memberDashboard/MemberDashboard");
-              }
-            }, 1500);
-          } else {
-            toast.error(data.message || "Verifikasi gagal");
-            // Hapus token dari URL
-            router.replace("/components/login", undefined, { shallow: true });
           }
-        } catch (error) {
-          console.error("Verification error:", error);
-          toast.error("Terjadi kesalahan saat verifikasi");
-          router.replace("/components/login", undefined, { shallow: true });
-        } finally {
-          setRedirecting(false);
         }
+      } catch (error) {
+        console.error("Auth check error:", error);
       }
     };
     
-    checkVerification();
-  }, [router.query, router]);
+    checkAuth();
+  }, [router]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -75,22 +65,32 @@ export default function LoginPage() {
       return;
     }
 
+    if (password.length < 8) {
+      toast.error("Password minimal 8 karakter!");
+      return;
+    }
+
     try {
       setLoading(true);
-      toast.loading("Mengirim permintaan login...", { id: "login" });
+      toast.loading("Memproses login...", { id: "login" });
 
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: email.trim(), 
+          password 
+        }),
+        credentials: "include",
       });
 
       const data = await response.json();
 
+      toast.dismiss("login");
+
       if (!response.ok) {
-        toast.dismiss("login");
         toast.error(data.message || "Login gagal");
         return;
       }
@@ -104,9 +104,23 @@ export default function LoginPage() {
         localStorage.removeItem("rememberMe");
       }
 
-      toast.dismiss("login");
-      toast.success("Email verifikasi terkirim!");
-      setEmailSent(true);
+      // Simpan data user di localStorage (opsional)
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
+      toast.success("Login berhasil! Mengalihkan...");
+
+      // Redirect berdasarkan role
+      setTimeout(() => {
+        if (data.redirect) {
+          router.push(data.redirect);
+        } else if (data.user?.role === "admin") {
+          router.push("/dashboardAdmin/admin");
+        } else {
+          router.push("/memberDashboard/MemberDashboard");
+        }
+      }, 1000);
 
     } catch (error) {
       console.error("Login error:", error);
@@ -116,52 +130,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  // Loading saat redirecting
-  if (redirecting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Memverifikasi login...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (emailSent) {
-    return (
-      <>
-        <Toaster position="top-center" />
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 px-4 animate-fadeIn">
-          <div className="w-full max-w-md bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-2xl text-center animate-slideUp">
-            <div className="text-7xl mb-6 animate-bounce">📧</div>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-900 to-blue-600 bg-clip-text text-transparent mb-4">
-              Cek Email Anda!
-            </h2>
-            <p className="text-gray-600 mb-3">
-              Kami telah mengirimkan link verifikasi ke
-            </p>
-            <p className="text-lg font-semibold text-blue-700 bg-blue-50 py-2 px-4 rounded-full inline-block mb-6 break-all">
-              {email}
-            </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 mb-6">
-              <span className="font-bold">⏱ Link verifikasi hanya berlaku selama 15 menit</span>
-            </div>
-            <button
-              onClick={() => {
-                setEmailSent(false);
-                toast.success("Kembali ke form login");
-              }}
-              className="text-blue-600 hover:text-blue-800 font-medium transition-all inline-flex items-center gap-2"
-            >
-              <span>←</span> Kembali ke Login
-            </button>
-          </div>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>
@@ -194,10 +162,12 @@ export default function LoginPage() {
       <div className="min-h-screen flex flex-col lg:flex-row animate-fadeIn">
         {/* LEFT SIDE - Hero Section */}
         <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden animate-slideLeft">
-          <img
+          <Image
             src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop"
             alt="Digital transformation"
-            className="w-full h-full object-cover scale-105 transition-transform duration-700 hover:scale-110"
+            fill
+            className="object-cover transition-transform duration-700 hover:scale-110"
+            priority
           />
           <div className="absolute inset-0 bg-gradient-to-br from-[#001d55]/95 to-[#001d55]/80" />
           <div className="absolute inset-0 flex flex-col justify-center px-16 text-white">
@@ -281,14 +251,30 @@ export default function LoginPage() {
                     </svg>
                   </div>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-gray-50 focus:bg-white"
+                    className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-gray-50 focus:bg-white"
                     required
                     disabled={loading}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -344,7 +330,7 @@ export default function LoginPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Mengirim Email...
+                    Signing In...
                   </div>
                 ) : (
                   "Sign In"
@@ -357,7 +343,7 @@ export default function LoginPage() {
               Don&apos;t have an account?{" "}
               <button
                 type="button"
-                onClick={() => router.push("/register")}
+                onClick={() => router.push("/components/register")}
                 className="text-blue-600 hover:text-blue-800 font-semibold transition-all hover:underline ml-1"
               >
                 Register here

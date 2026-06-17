@@ -7,16 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
   id        String    @id @default(cuid())
   email     String    @unique
   password  String
   name      String
-  role      String    @default("MEMBER")  // ADMIN, MEMBER (ubah dari USER ke MEMBER)
-  position  String?   // Frontend, Backend, Fullstack, UI/UX, DevOps, QA, PM
-  profile   String?   // Link profile/github/portfolio
-  photo     String?   
+
+  role      String    @default("MEMBER")
+  position  String?
+  profile   String?
+  photo     String?
+
+  isVerified Boolean  @default(false)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt @default(now())
   
@@ -36,39 +39,53 @@ model Member {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model LoginToken {
-  id        Int      @id @default(autoincrement())
-  token     String   @unique
-  userId    String
+model RegisterOtp {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
   expiresAt DateTime
   used      Boolean  @default(false)
+  usedAt    DateTime?  // Tambahkan field ini (opsional)
   createdAt DateTime @default(now())
-  
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+
+  @@index([email])
+  @@index([code])
 }
 
 model Project {
   id          Int          @id @default(autoincrement())
+
   name        String
   position    String
+
   repoLink    String?
+
   date        String
+
   progress    Int          @default(0)
+
   decision    String       @default("pending")
   finished    Boolean      @default(false)
+
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  
+
   attachments Attachment[]
 }
 
 model Attachment {
   id        Int      @id @default(autoincrement())
+
   projectId Int
-  type      String   // image, module, link
+
+  type      String
   name      String
   url       String
+
   status    String   @default("pending")
+
   createdAt DateTime @default(now())
 
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
