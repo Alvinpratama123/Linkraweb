@@ -17,6 +17,7 @@ export default async function handler(req, res) {
       });
     }
 
+    
     // Test send email
     if (req.method === 'POST') {
       const { targetRole, email } = req.body;

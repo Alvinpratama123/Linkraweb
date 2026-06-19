@@ -22,6 +22,7 @@ export default async function handler(req, res) {
           { description: { contains: search } },
         ];
       }
+      
 
       const [reports, total] = await Promise.all([
         prisma.revisionReport.findMany({

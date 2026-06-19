@@ -46,6 +46,7 @@ export default function MembersDashboard() {
           router.push("/components/login");
           return;
         }
+        
 
         if (data.success && data.user) {
           setUserData(data.user);

@@ -18,6 +18,7 @@ export const ROLE_COLORS = {
   DEVOPS:   { bg: "bg-slate-100",  text: "text-slate-700"  },
 };
 
+
 // Siapa bisa kirim ke siapa
 export const SENDER_TARGET_MAP = {
   QA:       ["FRONTEND", "BACKEND", "PM", "UIUX", "DEVOPS"],
