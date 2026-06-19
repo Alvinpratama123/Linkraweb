@@ -10,6 +10,8 @@ export default function UploadProjectPage() {
   const [progress, setProgress] = useState(75);
   const [imageFile, setImageFile] = useState(null);
   const [imageData, setImageData] = useState("");
+  const [imageDescription, setImageDescription] = useState(""); // Tambahan
+  const [imageDescription2, setImageDescription2] = useState(""); // Tambahan
   const [moduleFile, setModuleFile] = useState(null);
   const [moduleFileName, setModuleFileName] = useState("Belum ada file terpilih");
   const [savedMessage, setSavedMessage] = useState("");
@@ -57,6 +59,8 @@ export default function UploadProjectPage() {
       formData.append("repoLink", repoLink);
       formData.append("date", inputDate);
       formData.append("progress", progress);
+      formData.append("imageDescription", imageDescription); // Tambahan
+      formData.append("imageDescription2", imageDescription2); // Tambahan
       if (imageFile) formData.append("imageFile", imageFile);
       if (moduleFile) formData.append("moduleFile", moduleFile);
 
@@ -79,6 +83,8 @@ export default function UploadProjectPage() {
       setProgress(75);
       setImageFile(null);
       setImageData("");
+      setImageDescription(""); // Reset
+      setImageDescription2(""); // Reset
       setModuleFile(null);
       setModuleFileName("Belum ada file terpilih");
 
@@ -195,13 +201,17 @@ export default function UploadProjectPage() {
               <div className="space-y-3">
                 <input
                   type="text"
-                  placeholder="Keterangan Gambar..."
-                  className="w-full h-12 border rounded-xl px-4"
+                  placeholder="Keterangan Gambar 1..."
+                  value={imageDescription}
+                  onChange={(e) => setImageDescription(e.target.value)}
+                  className="w-full h-12 border rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <input
                   type="text"
-                  placeholder="Keterangan Gambar..."
-                  className="w-full h-12 border rounded-xl px-4"
+                  placeholder="Keterangan Gambar 2..."
+                  value={imageDescription2}
+                  onChange={(e) => setImageDescription2(e.target.value)}
+                  className="w-full h-12 border rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
             </div>

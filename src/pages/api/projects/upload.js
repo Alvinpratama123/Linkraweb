@@ -49,6 +49,8 @@ export default async function handler(req, res) {
       const repoLink = Array.isArray(fields.repoLink) ? fields.repoLink[0] : fields.repoLink;
       const date = Array.isArray(fields.date) ? fields.date[0] : fields.date;
       const progress = parseInt(Array.isArray(fields.progress) ? fields.progress[0] : fields.progress) || 0;
+      const imageDescription = Array.isArray(fields.imageDescription) ? fields.imageDescription[0] : fields.imageDescription || "";
+      const imageDescription2 = Array.isArray(fields.imageDescription2) ? fields.imageDescription2[0] : fields.imageDescription2 || "";
 
       // Validasi required fields
       if (!name || !position || !date) {
@@ -118,6 +120,7 @@ export default async function handler(req, res) {
         // Pindahkan file
         fs.renameSync(imageFile.filepath, newPath);
 
+        // Simpan deskripsi pertama sebagai description
         const attachment = await prisma.attachment.create({
           data: {
             projectId: project.id,
@@ -125,9 +128,26 @@ export default async function handler(req, res) {
             name: imageFile.originalFilename || fileName,
             url: `/uploads/${fileName}`,
             status: "pending",
+            description: imageDescription || null, // Simpan deskripsi pertama
           },
         });
         attachments.push(attachment);
+
+        // Jika ada deskripsi kedua, buat attachment tambahan (tanpa file)
+        if (imageDescription2 && imageDescription2.trim()) {
+          const attachment2 = await prisma.attachment.create({
+            data: {
+              projectId: project.id,
+              type: "image",
+              name: `Keterangan tambahan untuk ${imageFile.originalFilename || fileName}`,
+              url: `/uploads/${fileName}`, // URL sama dengan gambar utama
+              status: "pending",
+              description: imageDescription2, // Simpan deskripsi kedua
+              isAdditionalDescription: true, // Flag untuk membedakan
+            },
+          });
+          attachments.push(attachment2);
+        }
       }
 
       // Handle module upload
@@ -201,4 +221,3 @@ export default async function handler(req, res) {
     }
   });
 }
-//upload selesai
