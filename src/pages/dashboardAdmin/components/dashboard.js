@@ -39,10 +39,10 @@ export default function Dashboard({ userData }) {
   const finishedProjects = projects.filter((p) => p.finished).length;
 
   const stats = [
-    { title: "Total Projects", value: String(totalProjects), icon: "📁", trend: `+${totalProjects}` },
-    { title: "Approved", value: String(approvedProjects), icon: "✅", trend: `+${approvedProjects}` },
-    { title: "Pending", value: String(pendingProjects), icon: "⚠️", trend: `${pendingProjects}` },
-    { title: "Finished", value: String(finishedProjects), icon: "🏁", trend: `+${finishedProjects}` },
+    { title: "Total Projects", value: String(totalProjects), color: "text-blue-600" },
+    { title: "Approved", value: String(approvedProjects), color: "text-green-600" },
+    { title: "Pending", value: String(pendingProjects), color: "text-yellow-600" },
+    { title: "Finished", value: String(finishedProjects), color: "text-purple-600" },
   ];
 
   // Chart posisi dari projects
@@ -142,14 +142,8 @@ export default function Dashboard({ userData }) {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
           {stats.map((item) => (
             <div key={item.title} className="group bg-white rounded-xl shadow-sm p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">{item.icon}</span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.trend.startsWith("+") ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-                  {item.trend}
-                </span>
-              </div>
-              <p className="text-gray-500 text-sm">{item.title}</p>
-              <h2 className="text-3xl font-bold mt-1 bg-gradient-to-r from-[#001d55] to-[#003d9e] bg-clip-text text-transparent">
+              <p className="text-gray-500 text-sm mb-2">{item.title}</p>
+              <h2 className={`text-3xl font-bold mt-1 ${item.color}`}>
                 {loading ? "..." : item.value}
               </h2>
             </div>

@@ -56,6 +56,7 @@ export default function Progres() {
       status: item.status || "pending",
       label: item.name || (item.type === "image" ? `Gambar ${index + 1}` : item.type === "link" ? `Link ${index + 1}` : `PDF ${index + 1}`),
       data: item.url || null,
+      description: item.description || null, // Tambahan untuk deskripsi
     }));
 
     if (project.repoLink) {
@@ -68,6 +69,7 @@ export default function Progres() {
         url: project.repoLink,
         createdAt: project.date || project.createdAt || "",
         status: "pending",
+        description: null,
       });
     }
 
@@ -424,6 +426,12 @@ export default function Progres() {
                                                 {item.status || "pending"}
                                               </span>
                                             </div>
+                                            {/* TAMPILKAN KETERANGAN */}
+                                            {item.description && (
+                                              <div className="text-xs text-gray-600 mt-1 bg-gray-50 p-1 rounded">
+                                                📝 {item.description}
+                                              </div>
+                                            )}
                                           </div>
                                         </button>
                                         <div className="flex-none flex gap-2">
@@ -491,6 +499,14 @@ export default function Progres() {
                           const approvalLabel = attachment.status || "pending";
                           return (
                             <div className="flex flex-col gap-4">
+                              {/* TAMPILKAN KETERANGAN DI ATAS GAMBAR */}
+                              {attachment.description && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                                  <p className="text-sm text-blue-800">
+                                    <span className="font-semibold">Keterangan:</span> {attachment.description}
+                                  </p>
+                                </div>
+                              )}
                               {attachment.type === "image" ? (
                                 <img
                                   src={attachmentUrl}

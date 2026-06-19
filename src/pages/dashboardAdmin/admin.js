@@ -1,3 +1,4 @@
+// src/pages/dashboardAdmin/DashboardAdmin.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -99,13 +100,11 @@ export default function DashboardAdmin() {
 
   // Fungsi untuk menghapus SEMUA data di storage
   const clearAllStorage = () => {
-    // Hapus item spesifik
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
     
-    // Hapus semua key yang mengandung kata tertentu
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -115,7 +114,6 @@ export default function DashboardAdmin() {
     }
     keysToRemove.forEach(key => localStorage.removeItem(key));
     
-    // Hapus sessionStorage
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
       if (key && (key.includes("auth") || key.includes("token") || key.includes("user"))) {
@@ -123,7 +121,6 @@ export default function DashboardAdmin() {
       }
     }
     
-    // Hapus semua cookie
     document.cookie.split(";").forEach(cookie => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
@@ -148,7 +145,6 @@ export default function DashboardAdmin() {
         },
       });
 
-      // Bersihkan semua storage
       clearAllStorage();
       setUserData(null);
 
@@ -158,7 +154,6 @@ export default function DashboardAdmin() {
         toast.error("Logout gagal");
       }
       
-      // Redirect ke login
       router.push("/components/login");
       
     } catch (error) {
@@ -178,12 +173,11 @@ export default function DashboardAdmin() {
     { icon: <MdFolder size={22} />, label: "Projects" },
     { icon: <MdTask size={22} />, label: "Progress" },
     { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
-    { icon: <MdPeople size={22} />, label: "MEMBER & MODUL" }, // Hanya untuk ADMIN
+    { icon: <MdPeople size={22} />, label: "MEMBER & MODUL" },
     { icon: <MdAnalytics size={22} />, label: "Analytics" },
   ];
 
-  // Pilih menu berdasarkan role
-  const menus = adminMenus; // Admin selalu dapat menu lengkap
+  const menus = adminMenus;
 
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
@@ -354,7 +348,7 @@ export default function DashboardAdmin() {
                     {userData?.name || "Administrator"}
                   </h3>
                   <p className="text-xs text-blue-300">
-                    {userData?.role === "ADMIN" ? "Administrator" : "Member"}
+                    {userData?.role === "ADMIN" ? "Administrator" : userData?.role || "Member"}
                   </p>
                 </div>
               )}
@@ -364,16 +358,23 @@ export default function DashboardAdmin() {
 
         {/* CONTENT */}
         <main className="flex-1 overflow-auto p-3 md:p-6">
-          {/* Menu Content - Hanya untuk ADMIN */}
+          {/* 🔥 PERBAIKAN: Kirim props userRole dan userName ke Revision */}
           {selectedMenu === "Dashboard" && <Dashboard />}
           {selectedMenu === "Projects" && <UploadProjectPage />}
           {selectedMenu === "Progress" && <Progres />}
-          {selectedMenu === "Revision Issues" && <Revision />}
+          {selectedMenu === "Revision Issues" && (
+            <Revision 
+              userRole={userData?.role || "ADMIN"} 
+              userName={userData?.name || "Administrator"} 
+            />
+          )}
           {selectedMenu === "MEMBER & MODUL" && <MembersModul />}
           {selectedMenu === "Analytics" && <Analytics />}
 
           {/* Settings */}
-          {selectedMenu === "Settings Profile" && <SettingsProfile userData={userData} onUpdate={setUserData} />}
+          {selectedMenu === "Settings Profile" && (
+            <SettingsProfile userData={userData} onUpdate={setUserData} />
+          )}
           {selectedMenu === "Settings Tema" && (
             <SettingsTema theme={theme} setTheme={setTheme} />
           )}

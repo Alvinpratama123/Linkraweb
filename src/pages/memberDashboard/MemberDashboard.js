@@ -1,3 +1,4 @@
+// src/pages/memberDashboard/MemberDashboard.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,7 +21,7 @@ import {
 } from "react-icons/hi2";
 import toast, { Toaster } from "react-hot-toast";
 
-// Components untuk member untuk melihat dashboard, projects, progress, revision, analytics
+// Components
 import Dashboard from "../dashboardAdmin/components/dashboard";
 import UploadProjectPage from "../dashboardAdmin/components/project";
 import Progres from "../dashboardAdmin/components/progres";
@@ -65,7 +66,6 @@ export default function MembersDashboard() {
           setUserData(data.user);
           localStorage.setItem("user", JSON.stringify(data.user));
           
-          // Jika user adalah ADMIN, redirect ke halaman admin dashboard
           if (data.user.role === "ADMIN") {
             router.push("/dashboardAdmin/admin");
           }
@@ -77,7 +77,6 @@ export default function MembersDashboard() {
           const parsedUser = JSON.parse(storedUser);
           setUserData(parsedUser);
           
-          // Jika user adalah ADMIN, redirect ke halaman admin dashboard
           if (parsedUser.role === "ADMIN") {
             router.push("/dashboardAdmin/admin");
           }
@@ -153,10 +152,10 @@ export default function MembersDashboard() {
     }
   };
 
-  // Menu untuk MEMBER (dengan Projects tapi read only)
+  // Menu untuk MEMBER
   const memberMenus = [
     { icon: <MdDashboard size={22} />, label: "Dashboard" },
-    { icon: <MdFolder size={22} />, label: "Projects" }, // Member bisa lihat projects
+    { icon: <MdFolder size={22} />, label: "Projects" },
     { icon: <MdTask size={22} />, label: "Progress" },
     { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
     { icon: <MdAnalytics size={22} />, label: "Analytics" },
@@ -230,7 +229,7 @@ export default function MembersDashboard() {
             </button>
           </div>
 
-          {/* MENU - Khusus Member */}
+          {/* MENU */}
           <div className="flex-1 px-2 md:px-3 py-3 md:py-5 overflow-y-auto">
             {memberMenus.map((menu) => (
               <button
@@ -287,7 +286,7 @@ export default function MembersDashboard() {
             </div>
           </div>
 
-          {/* LOGOUT BUTTON */}
+          {/* LOGOUT */}
           <div className="px-3 pb-3 mt-4">
             <button
               onClick={handleLogout}
@@ -330,7 +329,9 @@ export default function MembersDashboard() {
                   <h3 className="font-semibold text-sm md:text-base truncate">
                     {userData?.name || "Member"}
                   </h3>
-                  <p className="text-xs text-blue-300">Member</p>
+                  <p className="text-xs text-blue-300">
+                    {userData?.role || "Member"}
+                  </p>
                 </div>
               )}
             </div>
@@ -339,15 +340,22 @@ export default function MembersDashboard() {
 
         {/* CONTENT */}
         <main className="flex-1 overflow-auto p-3 md:p-6">
-          {/* Menu Content - Hanya untuk MEMBER */}
+          {/* 🔥 PERBAIKAN: Kirim props userRole dan userName ke Revision */}
           {selectedMenu === "Dashboard" && <Dashboard />}
           {selectedMenu === "Progress" && <Progres />}
-          {selectedMenu === "Revision Issues" && <Revision />}
+          {selectedMenu === "Revision Issues" && (
+            <Revision 
+              userRole={userData?.role || "FRONTEND"} 
+              userName={userData?.name || "User"} 
+            />
+          )}
           {selectedMenu === "Analytics" && <Analytics />}
-          {selectedMenu === "Projects" && <UploadProjectPage />} {/* Halaman projects untuk member, bisa lihat tapi tidak edit */}
+          {selectedMenu === "Projects" && <UploadProjectPage />}
 
           {/* Settings */}
-          {selectedMenu === "Settings Profile" && <SettingsProfile userData={userData} onUpdate={setUserData} />}
+          {selectedMenu === "Settings Profile" && (
+            <SettingsProfile userData={userData} onUpdate={setUserData} />
+          )}
           {selectedMenu === "Settings Tema" && (
             <SettingsTema theme={theme} setTheme={setTheme} />
           )}
