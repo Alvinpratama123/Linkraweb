@@ -1,14 +1,10 @@
 // pages/api/members.js
 import { prisma } from "@/lib/prisma";
-import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 export default async function handler(req, res) {
   // GET - Ambil semua user kecuali admin
   if (req.method === "GET") {
-    const admin = await verifyAdmin(req, res);
-    if (!admin) return;
-
     try {
       // 🔥 AMBIL SEMUA USER KECUALI ADMIN
       const members = await prisma.user.findMany({
@@ -29,7 +25,6 @@ export default async function handler(req, res) {
         orderBy: {
           createdAt: 'desc',
         },
-        orderBy: { createdAt: "desc" },
       });
 
       // 🔥 Format response: jika position null, gunakan role sebagai fallback
@@ -55,14 +50,15 @@ export default async function handler(req, res) {
   
   // POST - Tambah member baru
   if (req.method === "POST") {
-    const admin = await verifyAdmin(req, res);
-    if (!admin) return;
-
     try {
-      const { name, position } = req.body;
-
-      if (!name || !position) {
-        return res.status(400).json({ success: false, message: "Nama dan posisi wajib diisi" });
+      const { name, email, password, position, profile } = req.body;
+      
+      // Validasi input
+      if (!name || !email || !password || !position) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Semua field wajib diisi" 
+        });
       }
       
       // Validasi email

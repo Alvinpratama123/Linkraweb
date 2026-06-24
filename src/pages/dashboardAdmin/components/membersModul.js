@@ -1,4 +1,3 @@
-
 // src/pages/dashboardAdmin/components/membersModul.js
 import React, { useState, useEffect } from 'react';
 
@@ -14,7 +13,6 @@ export default function MembersModul({ theme = "light" }) {
     password: '',
     profile: ''
   });
-  
 
   const isDark = theme === "dark";
 
@@ -70,12 +68,13 @@ export default function MembersModul({ theme = "light" }) {
   };
 
   const handleChange = (field, value) => {
-    setNewMember((prev) => ({ ...prev, [field]: value }))
-  }
+    setNewMember((prev) => ({ ...prev, [field]: value }));
+  };
 
-  const handleAddMember = (event) => {
-    event.preventDefault()
-    const nextId = listMembers.length ? Math.max(...listMembers.map((m) => m.id)) + 1 : 1
+  const handleAddMember = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
 
     if (newMember.password.length < 6) {
       setMessage({ type: 'error', text: 'Password minimal 6 karakter' });
@@ -260,6 +259,7 @@ export default function MembersModul({ theme = "light" }) {
                     : 'bg-white border-gray-300 text-gray-900'
                 }`}
                 required
+                minLength="6"
               />
               <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
                 Minimal 6 karakter
@@ -417,5 +417,5 @@ export default function MembersModul({ theme = "light" }) {
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -13,11 +13,13 @@ import {
 import { RiGitPullRequestLine } from "react-icons/ri";
 import {
   HiCog6Tooth,
-  HiChevronDown,
   HiArrowRightOnRectangle,
+  HiChevronDown,
+  HiUserCircle,
+  HiSun,
+  HiKey,
 } from "react-icons/hi2";
-import { MdDashboard, MdFolder } from "react-icons/md";
-
+import toast, { Toaster } from "react-hot-toast";
 
 // Components
 import Dashboard from "../dashboardAdmin/components/dashboard";
@@ -31,6 +33,7 @@ import ChangePassword from "../settings/changepassword";
 
 export default function MembersDashboard() {
   const [collapsed, setCollapsed] = useState(false);
+  const [selectedMenu, setSelectedMenu] = useState("Dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState("light");
   const [loggingOut, setLoggingOut] = useState(false);
@@ -57,7 +60,6 @@ export default function MembersDashboard() {
           router.push("/components/login");
           return;
         }
-        
 
         if (data.success && data.user) {
           setUserData(data.user);
@@ -130,13 +132,21 @@ export default function MembersDashboard() {
   ];
 
   const settingsSubMenus = [
-    { label: "Profile" },
-    { label: "Change Password" },
+    { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
+    { icon: <HiSun size={18} />, label: "Settings Tema" },
+    { icon: <HiKey size={18} />, label: "Change Password" },
   ];
 
-  const handleLogout = () => {
-    console.log("logout");
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading member dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const SidebarContent = ({ isMobile = false }) => (
     <div className={`flex flex-col h-full ${isMobile ? "pt-4" : ""}`}>
@@ -295,33 +305,6 @@ export default function MembersDashboard() {
           {selectedMenu === "Change Password" && <ChangePassword theme={theme} setTheme={setTheme} />}
         </main>
       </div>
-
-      {/* LOGOUT */}
-      <div className="p-3">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-red-500/20"
-        >
-          <HiArrowRightOnRectangle />
-          {!collapsed && <span>Logout</span>}
-        </button>
-      </div>
-
-      {/* USER */}
-      <div className="border-t border-white/10 p-4">
-        <div className="flex items-center gap-3">
-          <FaUserCircle size={36} />
-
-          {!collapsed && (
-            <div>
-              <h3 className="font-semibold">Member</h3>
-              <p className="text-xs text-blue-200">
-                User
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </aside>
+    </>
   );
 }

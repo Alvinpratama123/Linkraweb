@@ -157,7 +157,7 @@ export default function DashboardAdmin() {
     <div className={`flex flex-col h-full ${isMobile ? "pt-4" : ""}`}>
       <div className={`h-16 md:h-20 px-4 md:px-5 border-b border-white/10 flex items-center justify-between ${isMobile ? "mb-2" : ""}`}>
         {(!collapsed || isMobile) && (
-          <h1 className="font-bold text-lg md:text-xl"><img src="images/logo.png" alt="Logo" className="h-full w-auto" /></h1>
+          <h1 className="font-bold text-lg md:text-xl"><img src="/images/oip.png" alt="Logo" className="h-full w-auto" /></h1>
         )}
         {isMobile ? (
           <button onClick={() => setMobileSidebarOpen(false)} className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white">
