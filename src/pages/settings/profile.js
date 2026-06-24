@@ -4,7 +4,7 @@ import { HiCamera, HiCheckCircle } from "react-icons/hi2";
 import { MdEmail, MdPerson, MdEdit } from "react-icons/md";
 import toast, { Toaster } from "react-hot-toast";
 
-export default function Profile({ userData, onUpdate }) {
+export default function Profile({ userData, onUpdate, theme = "light", setTheme }) {
   const fileInputRef = useRef(null);
   const [preview, setPreview] = useState(null);
   const [saved, setSaved] = useState(false);
@@ -24,6 +24,28 @@ export default function Profile({ userData, onUpdate }) {
       setPreview(userData.photo || null);
     }
   }, [userData]);
+
+  // 🔥 FUNGSI UNTUK MENDAPATKAN DISPLAY POSISI
+  const getDisplayRole = (user) => {
+    if (!user) return "Member";
+    
+    // Jika user adalah admin
+    if (user.role?.toUpperCase() === "ADMIN") {
+      return "Administrator";
+    }
+    
+    // 🔥 PRIORITAS: Jika user memiliki position, tampilkan position
+    if (user.position) {
+      return user.position; // Frontend, UI/UX, Backend, dll
+    }
+    
+    // Fallback ke role
+    if (user.role) {
+      return user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase();
+    }
+    
+    return "Member";
+  };
 
   const initials = form.fullName
     .split(" ")
@@ -47,7 +69,6 @@ export default function Profile({ userData, onUpdate }) {
       return;
     }
 
-    // Preview dulu sebelum upload
     const reader = new FileReader();
     reader.onloadend = () => setPreview(reader.result);
     reader.readAsDataURL(file);
@@ -73,7 +94,6 @@ export default function Profile({ userData, onUpdate }) {
       if (!response.ok) {
         toast.dismiss("upload-photo");
         toast.error(data.message || "Gagal mengupload foto");
-        // Kembalikan preview ke foto lama jika gagal
         setPreview(userData?.photo || null);
         return;
       }
@@ -84,14 +104,12 @@ export default function Profile({ userData, onUpdate }) {
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
         if (onUpdate) onUpdate(data.user);
-        // Update preview dengan URL foto dari server
         setPreview(data.user.photo);
       }
     } catch (error) {
       console.error("Upload photo error:", error);
       toast.dismiss("upload-photo");
       toast.error("Terjadi kesalahan saat mengupload foto");
-      // Kembalikan preview ke foto lama
       setPreview(userData?.photo || null);
     } finally {
       setUploading(false);
@@ -105,7 +123,6 @@ export default function Profile({ userData, onUpdate }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Cek apakah ada perubahan
     if (form.fullName === userData?.name && form.email === userData?.email) {
       toast("Tidak ada perubahan yang dilakukan");
       return;
@@ -147,11 +164,6 @@ export default function Profile({ userData, onUpdate }) {
         if (onUpdate) onUpdate(data.user);
       }
 
-      // Optional: reload setelah 1.5 detik (komentar jika tidak perlu)
-      // setTimeout(() => {
-      //   window.location.reload();
-      // }, 1500);
-
     } catch (error) {
       console.error("Update profile error:", error);
       toast.dismiss("update-profile");
@@ -161,28 +173,63 @@ export default function Profile({ userData, onUpdate }) {
     }
   };
 
+  // Warna berdasarkan tema
+  const isDark = theme === 'dark';
+  const bgColor = isDark ? 'bg-[#1a1a2e]' : 'bg-[#eef2f7]';
+  const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
+  const cardBorder = isDark ? 'border-gray-700' : 'border-gray-100';
+  const textPrimary = isDark ? 'text-white' : 'text-[#001d55]';
+  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
+  const textMuted = isDark ? 'text-gray-500' : 'text-gray-400';
+  const textLabel = isDark ? 'text-gray-300' : 'text-gray-600';
+  const inputBg = isDark ? 'bg-gray-700' : 'bg-white';
+  const inputBorder = isDark ? 'border-gray-600' : 'border-gray-200';
+  const inputText = isDark ? 'text-white' : 'text-gray-800';
+  const inputPlaceholder = isDark ? 'placeholder-gray-400' : 'placeholder-gray-400';
+  const iconColor = isDark ? 'text-gray-500' : 'text-gray-400';
+  const borderDivider = isDark ? 'border-gray-700' : 'border-gray-100';
+  const buttonPrimary = isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[#001d55] hover:bg-[#003cb3]';
+  const buttonBorder = isDark ? 'border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-gray-900' : 'border-[#001d55] text-[#001d55] hover:bg-[#001d55] hover:text-white';
+  const roleBadge = isDark ? 'bg-[#001d55]/20 text-blue-300' : 'bg-[#001d55]/10 text-[#001d55]';
+  const gradientCard = isDark ? 'from-gray-800 to-gray-700' : 'from-[#001d55] to-[#003cb3]';
+  const infoText = isDark ? 'text-gray-400' : 'text-blue-200';
+  const iconWrapper = isDark ? 'bg-white/10' : 'bg-white/10';
+
+  // 🔥 Dapatkan display role yang benar
+  const displayRole = getDisplayRole(userData);
+
   return (
     <>
-      <Toaster position="top-right" />
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: isDark ? '#1a1a2e' : '#363636',
+            color: '#fff',
+            borderRadius: '12px',
+            padding: '16px',
+          },
+        }}
+      />
       
-      <div className="min-h-screen bg-[#eef2f7] p-6 md:p-10">
+      <div className={`min-h-screen ${bgColor} p-6 md:p-10 transition-colors duration-200`}>
         <div className="max-w-3xl mx-auto space-y-6">
 
           {/* HEADER */}
           <div>
-            <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">
+            <p className={`text-xs font-semibold tracking-widest ${textMuted} uppercase`}>
               Settings
             </p>
-            <h1 className="text-3xl font-bold text-[#001d55] mt-1">
+            <h1 className={`text-3xl font-bold ${textPrimary} mt-1`}>
               Profile Settings
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className={`text-sm ${textSecondary} mt-1`}>
               Manage your personal information and account details.
             </p>
           </div>
 
           {/* CARD AVATAR */}
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col sm:flex-row items-center gap-6">
+          <div className={`${cardBg} ${cardBorder} rounded-3xl border shadow-sm p-6 flex flex-col sm:flex-row items-center gap-6 transition-colors duration-200`}>
             <div className="relative flex-shrink-0">
               <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#001d55]/10 bg-gradient-to-br from-[#001d55] to-[#003cb3] flex items-center justify-center">
                 {preview ? (
@@ -220,10 +267,11 @@ export default function Profile({ userData, onUpdate }) {
             </div>
 
             <div className="text-center sm:text-left">
-              <h2 className="text-xl font-bold text-[#001d55]">{form.fullName || "User"}</h2>
-              <p className="text-sm text-gray-500 mt-1">{form.email}</p>
-              <span className="inline-block mt-2 px-3 py-1 bg-[#001d55]/10 text-[#001d55] text-xs font-semibold rounded-full">
-                {userData?.role === "ADMIN" ? "Super Admin" : userData?.role || "User"}
+              <h2 className={`text-xl font-bold ${textPrimary}`}>{form.fullName || "User"}</h2>
+              <p className={`text-sm ${textSecondary} mt-1`}>{form.email}</p>
+              {/* 🔥 PERBAIKAN: Tampilkan position bukan role */}
+              <span className={`inline-block mt-2 px-3 py-1 ${roleBadge} text-xs font-semibold rounded-full`}>
+                {displayRole}
               </span>
             </div>
 
@@ -232,7 +280,7 @@ export default function Profile({ userData, onUpdate }) {
                 type="button"
                 onClick={() => fileInputRef.current.click()}
                 disabled={uploading}
-                className="flex items-center gap-2 px-5 py-2.5 border-2 border-[#001d55] text-[#001d55] hover:bg-[#001d55] hover:text-white transition rounded-xl text-sm font-semibold disabled:opacity-50"
+                className={`flex items-center gap-2 px-5 py-2.5 border-2 ${buttonBorder} transition rounded-xl text-sm font-semibold disabled:opacity-50`}
               >
                 <HiCamera size={16} />
                 {uploading ? "Uploading..." : "Upload Photo"}
@@ -241,23 +289,23 @@ export default function Profile({ userData, onUpdate }) {
           </div>
 
           {/* FORM CARD */}
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+          <div className={`${cardBg} ${cardBorder} rounded-3xl border shadow-sm p-6 md:p-8 transition-colors duration-200`}>
             <div className="flex items-center gap-2 mb-6">
-              <MdEdit size={20} className="text-[#001d55]" />
-              <h3 className="text-lg font-bold text-[#001d55]">
+              <MdEdit size={20} className={isDark ? 'text-blue-400' : 'text-[#001d55]'} />
+              <h3 className={`text-lg font-bold ${textPrimary}`}>
                 Personal Information
               </h3>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">
+                <label className={`block text-sm font-medium ${textLabel} mb-2`}>
                   Full Name
                 </label>
                 <div className="relative">
                   <MdPerson
                     size={18}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    className={`absolute left-4 top-1/2 -translate-y-1/2 ${iconColor}`}
                   />
                   <input
                     type="text"
@@ -265,20 +313,20 @@ export default function Profile({ userData, onUpdate }) {
                     value={form.fullName}
                     onChange={handleChange}
                     placeholder="Enter your full name"
-                    className="w-full pl-11 pr-5 py-3.5 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#001d55]/40 text-gray-800 text-sm"
+                    className={`w-full pl-11 pr-5 py-3.5 rounded-2xl border ${inputBorder} ${inputBg} ${inputText} ${inputPlaceholder} focus:outline-none focus:ring-2 focus:ring-[#001d55]/40 text-sm transition-colors duration-200`}
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">
+                <label className={`block text-sm font-medium ${textLabel} mb-2`}>
                   Email Address
                 </label>
                 <div className="relative">
                   <MdEmail
                     size={18}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    className={`absolute left-4 top-1/2 -translate-y-1/2 ${iconColor}`}
                   />
                   <input
                     type="email"
@@ -286,14 +334,14 @@ export default function Profile({ userData, onUpdate }) {
                     value={form.email}
                     onChange={handleChange}
                     placeholder="Enter your email"
-                    className="w-full pl-11 pr-5 py-3.5 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#001d55]/40 text-gray-800 text-sm"
+                    className={`w-full pl-11 pr-5 py-3.5 rounded-2xl border ${inputBorder} ${inputBg} ${inputText} ${inputPlaceholder} focus:outline-none focus:ring-2 focus:ring-[#001d55]/40 text-sm transition-colors duration-200`}
                     required
                   />
                 </div>
               </div>
 
-              <div className="border-t border-gray-100 pt-5 flex items-center justify-between flex-wrap gap-4">
-                <p className="text-xs text-gray-400">
+              <div className={`border-t ${borderDivider} pt-5 flex items-center justify-between flex-wrap gap-4`}>
+                <p className={`text-xs ${textMuted}`}>
                   Last updated: {new Date().toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "long",
@@ -307,7 +355,7 @@ export default function Profile({ userData, onUpdate }) {
                   className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm transition-all duration-300 ${
                     saved
                       ? "bg-green-500 text-white"
-                      : "bg-[#001d55] hover:bg-[#003cb3] text-white"
+                      : `${buttonPrimary} text-white`
                   } disabled:opacity-50`}
                 >
                   {loading ? (
@@ -331,13 +379,14 @@ export default function Profile({ userData, onUpdate }) {
             </form>
           </div>
 
-          <div className="bg-gradient-to-r from-[#001d55] to-[#003cb3] rounded-3xl p-6 text-white flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <MdEmail size={18} className="text-blue-200" />
+          {/* INFO CARD */}
+          <div className={`bg-gradient-to-r ${gradientCard} rounded-3xl p-6 text-white flex items-start gap-4 transition-colors duration-200`}>
+            <div className={`w-10 h-10 rounded-full ${iconWrapper} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+              <MdEmail size={18} className={isDark ? 'text-gray-400' : 'text-blue-200'} />
             </div>
             <div>
               <p className="font-semibold text-sm">Informasi Profile</p>
-              <p className="text-blue-200 text-xs mt-1 leading-relaxed">
+              <p className={`${infoText} text-xs mt-1 leading-relaxed`}>
                 • Nama dan email dapat diubah kapan saja<br />
                 • Foto profile maksimal 2MB dengan format JPG, PNG, atau GIF<br />
                 • Perubahan akan langsung tampil di dashboard

@@ -1,7 +1,9 @@
+// pages/api/auth/login.js
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+// ✅ PASTIKAN ADA export default
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -13,7 +15,9 @@ export default async function handler(req, res) {
   try {
     const { email, password } = req.body;
 
-    // Validasi input
+    console.log("=== LOGIN ===");
+    console.log("📝 Login:", { email });
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -21,43 +25,43 @@ export default async function handler(req, res) {
       });
     }
 
-    // Cari user di database
+    const emailLower = email.toLowerCase().trim();
+
     const user = await prisma.user.findUnique({
-      where: {
-        email: email.toLowerCase().trim(),
-      },
+      where: { email: emailLower },
     });
 
-    // Jika user tidak ditemukan
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Email atau password salah",
+        message: "Email tidak ditemukan",
       });
     }
 
-    // Verifikasi password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: "Email atau password salah",
+        message: "Password salah",
       });
     }
 
-    // Generate JWT Token
     const token = jwt.sign(
       {
         userId: user.id,
         email: user.email,
         role: user.role,
+        position: user.position,
         name: user.name,
       },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "7d",
-      }
+      process.env.JWT_SECRET || "your-secret-key-change-in-production",
+      { expiresIn: "7d" }
     );
+
+    const redirectPath = user.role === "admin" 
+      ? "/dashboardAdmin/admin" 
+      : "/memberDashboard/MemberDashboard";
 
     // Set cookie
     res.setHeader(
@@ -67,18 +71,6 @@ export default async function handler(req, res) {
       }`
     );
 
-    // Tentukan redirect berdasarkan role
-    const redirectMap = {
-      admin: "/dashboardAdmin/admin",
-      member: "/memberDashboard/MemberDashboard",
-      frontend: "/memberDashboard/MemberDashboard",
-      backend: "/memberDashboard/MemberDashboard",
-      uiux: "/memberDashboard/MemberDashboard",
-      qa: "/memberDashboard/MemberDashboard",
-      pm: "/memberDashboard/MemberDashboard",
-      user: "/dashboard/user",
-    };
-
     return res.status(200).json({
       success: true,
       message: "Login berhasil",
@@ -87,15 +79,16 @@ export default async function handler(req, res) {
         name: user.name,
         email: user.email,
         role: user.role,
+        position: user.position,
       },
-      redirect: redirectMap[user.role] || "/memberDashboard/MemberDashboard",
+      redirect: redirectPath,
     });
 
   } catch (error) {
-    console.error("LOGIN ERROR:", error);
+    console.error("❌ LOGIN ERROR:", error);
     return res.status(500).json({
       success: false,
-      message: "Terjadi kesalahan server. Silakan coba lagi.",
+      message: "Terjadi kesalahan pada server",
     });
   }
 }

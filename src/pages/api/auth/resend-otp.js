@@ -1,4 +1,4 @@
-// pages/api/auth/register.js
+// pages/api/auth/resend-otp.js
 import { prisma } from "@/lib/prisma";
 import { sendRegisterOtpEmail } from "@/lib/mailer";
 
@@ -21,68 +21,48 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { name, email, role, password } = req.body;
+    const { email } = req.body;
 
-    console.log("=== REGISTER API ===");
-    console.log("📝 Register:", { name, email, role });
+    console.log("=== RESEND OTP ===");
+    console.log("📝 Email:", email);
 
-    // Validasi
-    if (!name || !email || !role || !password) {
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: "Semua field wajib diisi",
-      });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Format email tidak valid",
-      });
-    }
-
-    const validRoles = ["admin", "member", "user", "frontend", "backend", "uiux", "qa", "pm", "devops", "fullstack"];
-    if (!validRoles.includes(role.toLowerCase())) {
-      return res.status(400).json({
-        success: false,
-        message: "Role tidak valid",
-      });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "Password minimal 8 karakter",
+        message: "Email wajib diisi",
       });
     }
 
     const emailLower = email.toLowerCase().trim();
 
-    // Cek user sudah ada
-    const userExist = await prisma.user.findUnique({
+    // Cek apakah user sudah terverifikasi
+    const existingUser = await prisma.user.findUnique({
       where: { email: emailLower },
     });
 
-    if (userExist) {
+    if (existingUser && existingUser.isVerified) {
       return res.status(400).json({
         success: false,
-        message: "Email sudah terdaftar",
+        message: "Email sudah terverifikasi. Silakan login.",
       });
     }
 
-    // Generate OTP
-    const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-    console.log(`📧 OTP untuk ${emailLower}: ${otp}`);
-
-    // Hapus OTP lama
+    // Hapus OTP lama yang belum digunakan
     await prisma.registerOtp.deleteMany({
-      where: { email: emailLower, used: false },
+      where: {
+        email: emailLower,
+        used: false,
+      },
     });
 
-    // Simpan OTP
+    // Generate OTP baru
+    const otp = generateOTP();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 menit
+
+    console.log(`📧 OTP baru untuk ${emailLower}: ${otp}`);
+    console.log(`⏰ OTP berlaku hingga: ${expiresAt}`);
+
+    // Simpan OTP baru
     await prisma.registerOtp.create({
       data: {
         email: emailLower,
@@ -96,25 +76,23 @@ export default async function handler(req, res) {
     try {
       await sendRegisterOtpEmail({
         to: emailLower,
-        name: name,
+        name: existingUser?.name || "User",
         code: otp,
       });
       console.log(`✅ Email OTP terkirim ke ${emailLower}`);
     } catch (emailError) {
       console.error('❌ Error sending email:', emailError);
       // Email gagal tapi OTP tetap tersimpan
-      // Bisa return error atau tetap lanjut
     }
 
     return res.status(200).json({
       success: true,
-      message: "OTP berhasil dikirim ke email Anda",
-      email: emailLower,
+      message: "OTP baru telah dikirim ke email Anda",
       otp: process.env.NODE_ENV === 'development' ? otp : undefined
     });
 
   } catch (error) {
-    console.error("❌ REGISTER ERROR:", error);
+    console.error("❌ RESEND OTP ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Terjadi kesalahan pada server: " + error.message,

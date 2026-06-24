@@ -1,3 +1,4 @@
+// pages/components/register.js
 "use client";
 
 import React, { useState } from "react";
@@ -20,6 +21,7 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false); // Ganti showOtpInfo
 
   // Validasi form
   const validateForm = () => {
@@ -63,7 +65,6 @@ export default function RegisterPage() {
       ...prev,
       [name]: value,
     }));
-    // Hapus error untuk field yang sedang diisi
     if (errors[name]) {
       setErrors((prev) => ({
         ...prev,
@@ -81,21 +82,29 @@ export default function RegisterPage() {
 
     try {
       setLoading(true);
+      setShowSuccess(false);
+      setErrors({});
+
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.toLowerCase().trim(),
+        role: form.role,
+        password: form.password,
+      };
+
+      console.log("📝 Register payload:", { ...payload, password: "********" });
 
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.toLowerCase().trim(),
-          role: form.role,
-          password: form.password,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
+
+      console.log("📥 Register response:", data);
 
       if (!res.ok) {
         throw new Error(data.message || "Gagal mengirim OTP");
@@ -113,13 +122,23 @@ export default function RegisterPage() {
         })
       );
 
-      // Redirect ke halaman verifikasi OTP
-      router.push(
-        `/componentsOtp/verify-register?email=${encodeURIComponent(form.email.toLowerCase().trim())}`
-      );
+      // Hanya log OTP di console (tidak ditampilkan di UI)
+      if (data.otp) {
+        console.log(`📧 OTP untuk ${form.email}: ${data.otp}`);
+      }
+
+      // Tampilkan sukses tanpa OTP
+      setShowSuccess(true);
+
+      // Redirect ke halaman verifikasi OTP setelah 2 detik
+      setTimeout(() => {
+        router.push(
+          `/componentsOtp/verify-register?email=${encodeURIComponent(form.email.toLowerCase().trim())}`
+        );
+      }, 2000);
+
     } catch (error) {
-      console.error("Register error:", error);
-      // Tampilkan error dengan lebih baik
+      console.error("❌ Register error:", error);
       setErrors((prev) => ({
         ...prev,
         submit: error.message || "Terjadi kesalahan server",
@@ -128,6 +147,18 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  // Role options dengan mapping ke position
+  const roleOptions = [
+    { value: "frontend", label: "Frontend Developer", position: "Frontend" },
+    { value: "backend", label: "Backend Developer", position: "Backend" },
+    { value: "fullstack", label: "Fullstack Developer", position: "Fullstack" },
+    { value: "uiux", label: "UI/UX Designer", position: "UI/UX" },
+    { value: "devops", label: "DevOps Engineer", position: "DevOps" },
+    { value: "qa", label: "QA Engineer", position: "QA" },
+    { value: "pm", label: "Project Manager", position: "PM" },
+    { value: "admin", label: "Administrator", position: "Administrator" },
+  ];
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -205,12 +236,31 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {/* Success Info - Tanpa OTP */}
+          {showSuccess && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+              <p className="text-sm text-green-700 font-medium">
+                ✅ OTP berhasil dikirim ke email Anda!
+              </p>
+              <p className="text-xs text-green-600 mt-2">
+                ⏳ Mengalihkan ke halaman verifikasi...
+              </p>
+            </div>
+          )}
+
+          {/* Submit Error */}
+          {errors.submit && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm text-red-600">{errors.submit}</p>
+            </div>
+          )}
+
           {/* Form */}
           <form className="space-y-4" onSubmit={handleRegister}>
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
+                Full Name *
               </label>
               <input
                 type="text"
@@ -231,7 +281,7 @@ export default function RegisterPage() {
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
+                Email Address *
               </label>
               <input
                 type="email"
@@ -252,7 +302,7 @@ export default function RegisterPage() {
             {/* Role */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role
+                Role *
               </label>
               <select
                 name="role"
@@ -264,13 +314,15 @@ export default function RegisterPage() {
                 disabled={loading}
               >
                 <option value="">Select your role</option>
-                <option value="frontend">Frontend Developer</option>
-                <option value="backend">Backend Developer</option>
-                <option value="uiux">UI/UX Designer</option>
-                <option value="qa">QA Engineer</option>
-                <option value="pm">Product Manager</option>
-                <option value="admin">Administrator</option>
+                {roleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
+              <p className="mt-1 text-xs text-gray-400">
+                Pilih role sesuai dengan posisi Anda di perusahaan
+              </p>
               {errors.role && (
                 <p className="mt-1 text-sm text-red-500">{errors.role}</p>
               )}
@@ -279,7 +331,7 @@ export default function RegisterPage() {
             {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                Password *
               </label>
               <div className="relative">
                 <input
@@ -287,7 +339,7 @@ export default function RegisterPage() {
                   name="password"
                   value={form.password}
                   onChange={handleChange}
-                  placeholder="Create a password"
+                  placeholder="Create a password (min 8 characters)"
                   className={`w-full px-4 py-3 rounded-xl border ${
                     errors.password ? "border-red-500" : "border-gray-300"
                   } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition pr-12`}
@@ -310,6 +362,9 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
+              <p className="mt-1 text-xs text-gray-400">
+                Minimal 8 karakter, mengandung huruf besar, kecil, dan angka
+              </p>
               {errors.password && (
                 <p className="mt-1 text-sm text-red-500">{errors.password}</p>
               )}
@@ -318,7 +373,7 @@ export default function RegisterPage() {
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
+                Confirm Password *
               </label>
               <div className="relative">
                 <input
@@ -354,10 +409,12 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Submit Error */}
-            {errors.submit && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                <p className="text-sm text-red-600">{errors.submit}</p>
+            {/* Development Mode Info - Tanpa OTP */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                <p className="text-xs text-yellow-700">
+                  🛠️ Development Mode: OTP akan muncul di console (F12)
+                </p>
               </div>
             )}
 
@@ -386,7 +443,7 @@ export default function RegisterPage() {
             <p className="text-sm text-gray-500">
               Already have an account?{" "}
               <Link
-                href="/"
+                href="/components/login"
                 className="text-[#001d55] font-semibold hover:underline"
               >
                 Sign In
