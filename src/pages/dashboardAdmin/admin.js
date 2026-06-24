@@ -359,7 +359,7 @@ export default function DashboardAdmin() {
         {/* CONTENT */}
         <main className="flex-1 overflow-auto p-3 md:p-6">
           {/* 🔥 PERBAIKAN: Kirim props userRole dan userName ke Revision */}
-          {selectedMenu === "Dashboard" && <Dashboard />}
+          {selectedMenu === "Dashboard" && <Dashboard userData={userData} />}
           {selectedMenu === "Projects" && <UploadProjectPage />}
           {selectedMenu === "Progress" && <Progres />}
           {selectedMenu === "Revision Issues" && (

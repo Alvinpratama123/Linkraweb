@@ -4,20 +4,21 @@ import { FaSearch, FaBell } from "react-icons/fa";
 export default function Dashboard({ userData }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const userName = userData?.name ||
-    (typeof window !== "undefined" && JSON.parse(localStorage.getItem("user") || "{}")?.name) ||
-    "Administrator";
+  let userName = userData?.name || "Administrator";
+  let userPhoto = userData?.photo || null;
+  let userRole = userData?.role || "USER";
 
-  const userPhoto = userData?.photo ||
-    (typeof window !== "undefined" && JSON.parse(localStorage.getItem("user") || "{}")?.photo) ||
-    null;
-
-  const userRole = userData?.role ||
-    (typeof window !== "undefined" && JSON.parse(localStorage.getItem("user") || "{}")?.role) ||
-    "USER";
+  if (!userData?.name && isMounted) {
+    const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+    userName = localUser?.name || "Administrator";
+    userPhoto = localUser?.photo || null;
+    userRole = localUser?.role || "USER";
+  }
 
   useEffect(() => {
+    setIsMounted(true);
     const fetchProjects = async () => {
       try {
         const res = await fetch("/api/projects");

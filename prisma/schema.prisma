@@ -8,40 +8,50 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String
-  name      String
-  role      String    @default("MEMBER")
-  position  String?
-  profile   String?
-  photo     String?
-
-  isVerified Boolean  @default(false)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  registerOtps    RegisterOtp[]
-  sentRevisions   RevisionReport[] @relation("SentBy")
+  id               String            @id @default(cuid())
+  email            String            @unique
+  password         String
+  name             String
+  role             String            @default("MEMBER")
+  photo            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  isVerified       Boolean           @default(false)
+  position         String?
+  profile          String?
+  registerOtps     RegisterOtp[]
   revisionComments RevisionComment[]
+  sentRevisions    RevisionReport[]  @relation("SentBy")
 }
 
 model RegisterOtp {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   email     String
   code      String
   expiresAt DateTime
-  used      Boolean  @default(false)
+  used      Boolean   @default(false)
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now())
   userId    String?
+  user      User?     @relation(fields: [userId], references: [id])
+
+  @@index([email])
+  @@index([code])
+  @@index([userId], map: "RegisterOtp_userId_fkey")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([email])
   @@index([code])
 }
-
 
 model Project {
   id          Int          @id @default(autoincrement())
@@ -54,56 +64,50 @@ model Project {
   finished    Boolean      @default(false)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-
   attachments Attachment[]
 
   @@unique([name, position])
 }
 
 model Attachment {
-  id          Int      @id @default(autoincrement())
-  projectId   Int
-  type        String   // "image", "module", "link"
-  name        String
-  url         String
-  status      String   @default("pending") // "pending", "approved", "rejected"
-  description String?
+  id                      Int      @id @default(autoincrement())
+  projectId               Int
+  type                    String
+  name                    String
+  url                     String
+  status                  String   @default("pending")
+  createdAt               DateTime @default(now())
+  description             String?
   isAdditionalDescription Boolean? @default(false)
-  createdAt   DateTime @default(now())
-
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project                 Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
 }
 
 model RevisionReport {
-  id             String   @id @default(cuid())
+  id             String            @id @default(cuid())
   projectName    String
-  issueType      String   @default("MODUL")
-  description    String?  @db.Text        // ← hapus @default(""), jadikan nullable
-  progress       String   @default("BELUM_DILAKUKAN")
-  approval       String   @default("PENDING")
-  approvalNote   String?  @db.Text
-
+  issueType      String            @default("MODUL")
+  description    String?           @db.Text
+  progress       String            @default("BELUM_DILAKUKAN")
+  approval       String            @default("PENDING")
+  approvalNote   String?           @db.Text
   senderRole     String
   targetRole     String
-
   sentById       String?
-  sentBy         User?    @relation("SentBy", fields: [sentById], references: [id])
-
   attachmentName String?
   attachmentUrl  String?
-  attachmentData String?  @db.LongText
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
+  attachmentData String?           @db.LongText
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
   comments       RevisionComment[]
+  sentBy         User?             @relation("SentBy", fields: [sentById], references: [id])
 
   @@index([targetRole])
   @@index([senderRole])
   @@index([approval])
   @@index([createdAt])
+  @@index([sentById], map: "RevisionReport_sentById_fkey")
 }
 
 model RevisionComment {
@@ -111,11 +115,10 @@ model RevisionComment {
   content   String         @db.Text
   authorId  String
   reportId  String
-
+  createdAt DateTime       @default(now())
   author    User           @relation(fields: [authorId], references: [id])
   report    RevisionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime       @default(now())
-
   @@index([reportId])
+  @@index([authorId], map: "RevisionComment_authorId_fkey")
 }

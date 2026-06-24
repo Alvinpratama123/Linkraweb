@@ -1,6 +1,7 @@
 // pages/login.js
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import Image from "next/image";
 
@@ -289,33 +290,12 @@ export default function LoginPage() {
                   />
                   <span className="group-hover:text-gray-800 transition-colors">Remember me</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    toast.custom((t) => (
-                      <div className="bg-white rounded-lg shadow-xl p-4 max-w-sm border-l-4 border-blue-600">
-                        <div className="flex items-start gap-3">
-                          <div className="text-2xl">🔐</div>
-                          <div>
-                            <h4 className="font-semibold text-gray-800">Lupa Password?</h4>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Silakan hubungi administrator untuk mereset password Anda.
-                            </p>
-                            <button
-                              onClick={() => toast.dismiss(t.id)}
-                              className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              Tutup
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ), { duration: 5000 });
-                  }}
+                <Link
+                  href="/auth/forgot-password"
                   className="text-blue-600 hover:text-blue-800 font-medium transition-all hover:underline"
                 >
                   Forgot Password?
-                </button>
+                </Link>
               </div>
 
               {/* Submit Button */}
