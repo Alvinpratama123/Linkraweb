@@ -114,7 +114,7 @@ export default function PTLintasWahanaLanding() {
       <section className="relative h-screen overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="/images/Li.jpg"
+            src="/images/AA.png"
             alt="hero"
             className="w-full h-full object-cover object-center transform scale-105 transition-transform duration-10000 animate-slowZoom"
           />
@@ -202,7 +202,7 @@ export default function PTLintasWahanaLanding() {
             <div className="relative animate-slideInRight">
               <div className="relative rounded-3xl overflow-hidden shadow-2xl">
                 <img
-                  src="/images/oo.png"
+                  src="/images/Li.jpg"
                   alt="office"
                   className="w-full h-[500px] object-cover object-center transition-transform duration-700 hover:scale-110"
                 />

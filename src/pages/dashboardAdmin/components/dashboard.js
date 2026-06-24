@@ -1,226 +1,524 @@
+/**
+ * ============================================================
+ * DASHBOARD COMPONENT — Project Management System
+ * ============================================================
+ */
+ 
 import React, { useEffect, useState } from "react";
-import { FaSearch, FaBell } from "react-icons/fa";
-
-export default function Dashboard({ userData }) {
+import { FaSearch, FaBell, FaUsers } from "react-icons/fa";
+import { HiSparkles, HiFolder, HiCheckCircle, HiClock, HiFlag } from "react-icons/hi2";
+ 
+export default function Dashboard({ userData = {}, theme = "light" }) {
   const [projects, setProjects] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const userName = userData?.name ||
-    (typeof window !== "undefined" && JSON.parse(localStorage.getItem("user") || "{}")?.name) ||
-    "Administrator";
-
-  const userPhoto = userData?.photo ||
-    (typeof window !== "undefined" && JSON.parse(localStorage.getItem("user") || "{}")?.photo) ||
-    null;
-
-  const userRole = userData?.role ||
-    (typeof window !== "undefined" && JSON.parse(localStorage.getItem("user") || "{}")?.role) ||
-    "USER";
-
+ 
+  // ─── TEMA ───────────────────────────────────────────────────
+  const isDark = theme === "dark";
+ 
+  // ─── DATA USER ──────────────────────────────────────────────
+  const safeParseUser = () => {
+    try {
+      return typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("user") || "{}")
+        : {};
+    } catch {
+      return {};
+    }
+  };
+  const localUser = safeParseUser();
+ 
+  const userName  = userData?.name  || localUser?.name  || "User";
+  const userPhoto = userData?.photo || localUser?.photo || null;
+  const userRole  = userData?.role  || localUser?.role  || "USER";
+  const userPosition = userData?.position || localUser?.position || null;
+ 
+  // ─── FUNGSI GET DISPLAY ROLE ──────────────────────────────
+  const getDisplayRole = (role, position) => {
+    // Jika ada position, tampilkan position (prioritas)
+    if (position) {
+      return position; // Frontend, UI/UX, Backend, dll
+    }
+    
+    // Jika tidak ada position, cek role
+    const map = { 
+      ADMIN: "Super Admin", 
+      USER: "User", 
+      FRONTEND: "Frontend",
+      BACKEND: "Backend", 
+      FULLSTACK: "Fullstack", 
+      QA: "QA",
+      MEMBER: "Member"
+    };
+    return map[role] || role || "User";
+  };
+ 
+  // ─── FETCH DATA ─────────────────────────────────────────────
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("/api/projects");
-        const data = await res.json();
-        if (data.success) setProjects(data.projects);
+        setLoading(true);
+        
+        // Fetch projects
+        const projectsRes = await fetch("/api/projects");
+        const projectsData = await projectsRes.json();
+        if (projectsData.success) {
+          setProjects(projectsData.projects || []);
+        }
+
+        // Fetch members
+        try {
+          const membersRes = await fetch("/api/members");
+          const membersData = await membersRes.json();
+          console.log("📊 Members data:", membersData);
+          if (membersData.success && membersData.members) {
+            setMembers(membersData.members);
+          } else {
+            console.warn("No members data found");
+            setMembers([]);
+          }
+        } catch (memberError) {
+          console.error("Error fetching members:", memberError);
+          setMembers([]);
+        }
+
       } catch (error) {
-        console.error("Fetch projects error:", error);
+        console.error("Fetch data error:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchProjects();
+    fetchData();
   }, []);
-
-  // Stats dinamis dari projects
-  const totalProjects = projects.length;
+ 
+  // ─── STATISTIK ──────────────────────────────────────────────
+  const totalProjects    = projects.length;
   const approvedProjects = projects.filter((p) => p.decision === "approved").length;
-  const pendingProjects = projects.filter((p) => !p.decision || p.decision === "pending").length;
+  const pendingProjects  = projects.filter((p) => !p.decision || p.decision === "pending").length;
   const finishedProjects = projects.filter((p) => p.finished).length;
-
+  const totalMembers     = members.length;
+ 
+  /**
+   * STATS CARDS CONFIG
+   */
   const stats = [
-    { title: "Total Projects", value: String(totalProjects), color: "text-blue-600" },
-    { title: "Approved", value: String(approvedProjects), color: "text-green-600" },
-    { title: "Pending", value: String(pendingProjects), color: "text-yellow-600" },
-    { title: "Finished", value: String(finishedProjects), color: "text-purple-600" },
+    {
+      title: "Total Projects",
+      value: String(totalProjects),
+      lightText:   "text-blue-700",
+      darkText:    "text-blue-300",
+      lightBg:     "bg-blue-50",
+      darkBg:      "bg-blue-950",
+      lightBorder: "border-blue-200",
+      darkBorder:  "border-blue-800",
+      lightIcon:   "bg-blue-100",
+      darkIcon:    "bg-blue-900",
+      icon: <HiFolder size={22} className="text-blue-500" />,
+    },
+    {
+      title: "Total Members",
+      value: String(totalMembers),
+      lightText:   "text-purple-700",
+      darkText:    "text-purple-300",
+      lightBg:     "bg-purple-50",
+      darkBg:      "bg-purple-950",
+      lightBorder: "border-purple-200",
+      darkBorder:  "border-purple-800",
+      lightIcon:   "bg-purple-100",
+      darkIcon:    "bg-purple-900",
+      icon: <FaUsers size={22} className="text-purple-500" />,
+    },
+    {
+      title: "Approved",
+      value: String(approvedProjects),
+      lightText:   "text-emerald-700",
+      darkText:    "text-emerald-300",
+      lightBg:     "bg-emerald-50",
+      darkBg:      "bg-emerald-950",
+      lightBorder: "border-emerald-200",
+      darkBorder:  "border-emerald-800",
+      lightIcon:   "bg-emerald-100",
+      darkIcon:    "bg-emerald-900",
+      icon: <HiCheckCircle size={22} className="text-emerald-500" />,
+    },
+    {
+      title: "Pending",
+      value: String(pendingProjects),
+      lightText:   "text-amber-700",
+      darkText:    "text-amber-300",
+      lightBg:     "bg-amber-50",
+      darkBg:      "bg-amber-950",
+      lightBorder: "border-amber-200",
+      darkBorder:  "border-amber-800",
+      lightIcon:   "bg-amber-100",
+      darkIcon:    "bg-amber-900",
+      icon: <HiClock size={22} className="text-amber-500" />,
+    },
   ];
-
-  // Chart posisi dari projects
-  const positionCounts = projects.reduce((acc, project) => {
-    const pos = project.position || "Lainnya";
+ 
+  // ─── CHART: MEMBER ANALYTICS ──────────────────────────────
+  const memberPositionCounts = members.reduce((acc, member) => {
+    const pos = member.position || "Lainnya";
     acc[pos] = (acc[pos] || 0) + 1;
     return acc;
   }, {});
 
-  const programStats = Object.entries(positionCounts).map(([label, count]) => ({ label, count }));
-  const maxProgram = Math.max(...programStats.map((item) => item.count), 1);
+  const memberStats = Object.entries(memberPositionCounts)
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+  const maxMember = Math.max(...memberStats.map((item) => item.count), 1);
 
-  // Top 5 projects by progress
-  const topProjects = [...projects]
-    .sort((a, b) => b.progress - a.progress)
-    .slice(0, 5);
-
-  // Kategori project berdasarkan nama (IoT, Website, Mobile, API, dll)
+  console.log("📊 Member Stats:", memberStats);
+ 
+  // ─── CHART: PROGRAM ANALYTICS ──────────────────────────────
   const categoryKeywords = {
-    IoT: ["iot", "sensor", "arduino", "raspberry"],
-    Website: ["web", "website", "landing", "portal", "dashboard", "erp", "hr", "cms"],
+    IoT:          ["iot", "sensor", "arduino", "raspberry"],
+    Website:      ["web", "website", "landing", "portal", "dashboard", "erp", "hr", "cms"],
     "Mobile App": ["mobile", "android", "ios", "flutter", "react native", "app"],
-    API: ["api", "backend", "service", "rest", "graphql"],
+    API:          ["api", "backend", "service", "rest", "graphql"],
   };
-
+ 
   const categoryCounts = Object.entries(categoryKeywords).reduce((acc, [cat, keywords]) => {
     acc[cat] = projects.filter((p) =>
       keywords.some((kw) => p.name?.toLowerCase().includes(kw))
     ).length;
     return acc;
   }, {});
-
+ 
   const otherCount = projects.filter((p) => {
-    const allKeywords = Object.values(categoryKeywords).flat();
-    return !allKeywords.some((kw) => p.name?.toLowerCase().includes(kw));
+    const allKw = Object.values(categoryKeywords).flat();
+    return !allKw.some((kw) => p.name?.toLowerCase().includes(kw));
   }).length;
-
   if (otherCount > 0) categoryCounts["Lainnya"] = otherCount;
-
+ 
   const categoryStats = Object.entries(categoryCounts)
     .filter(([, count]) => count > 0)
     .map(([label, count]) => ({ label, count }));
-
   const maxCategory = Math.max(...categoryStats.map((item) => item.count), 1);
+ 
+  // ─── CHART: POSISI PROJECT ANALYTICS ────────────────────────
+  const positionCounts = projects.reduce((acc, project) => {
+    const pos = project.position || "Lainnya";
+    acc[pos] = (acc[pos] || 0) + 1;
+    return acc;
+  }, {});
+  const projectPositionStats = Object.entries(positionCounts)
+    .map(([label, count]) => ({ label, count }));
+  const maxProjectPosition = Math.max(...projectPositionStats.map((item) => item.count), 1);
+ 
+  // ─── PROJECT PROGRESS ────────────────────────────────────────
+  const topProjects = [...projects].sort((a, b) => b.progress - a.progress).slice(0, 5);
+ 
+  // ─── DISPLAY ROLE ──────────────────────────────────────────
+  const displayRole = getDisplayRole(userRole, userPosition);
+ 
+  /**
+   * WARNA GRAFIK
+   */
+  const barGradient = isDark
+    ? "linear-gradient(180deg, #0051d3 0%, #01316c 100%)"
+    : "linear-gradient(180deg, #003d9e 0%, #001d55 100%)";
+ 
+  const progressGradient = isDark
+    ? "linear-gradient(90deg, #01316c 0%, #0051d3 100%)"
+    : "linear-gradient(90deg, #003d9e 0%, #001d55 100%)";
 
+  // Color mapping untuk grafik
+  const colorMap = {
+    IoT: { bg: 'bg-blue-600', stroke: '#2563eb' },
+    Website: { bg: 'bg-green-600', stroke: '#16a34a' },
+    'Mobile App': { bg: 'bg-orange-500', stroke: '#f97316' },
+    API: { bg: 'bg-purple-600', stroke: '#7c3aed' },
+    'Lainnya': { bg: 'bg-gray-500', stroke: '#6b7280' },
+    Frontend: { bg: 'bg-sky-500', stroke: '#0ea5e9' },
+    Backend: { bg: 'bg-cyan-600', stroke: '#0891b2' },
+    Fullstack: { bg: 'bg-green-600', stroke: '#16a34a' },
+    'UI/UX': { bg: 'bg-violet-500', stroke: '#8b5cf6' },
+    DevOps: { bg: 'bg-orange-500', stroke: '#f97316' },
+    QA: { bg: 'bg-amber-500', stroke: '#f59e0b' },
+    PM: { bg: 'bg-purple-600', stroke: '#7c3aed' },
+  };
+ 
+  // ─────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* WELCOME BANNER */}
-      <div className="bg-gradient-to-r from-[#001d55] via-[#002a6e] to-[#003d9e] px-6 py-5 text-white shadow-lg rounded-b-2xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">Selamat Datang, {userName}! 👋</h1>
-            <p className="text-blue-200 text-sm">Semoga harimu menyenangkan. Berikut ringkasan aktivitas hari ini.</p>
-          </div>
-          <div className="hidden md:block">
-            <div className="w-14 h-14 bg-white/15 rounded-full flex items-center justify-center backdrop-blur-sm">
-              <span className="text-2xl">🎯</span>
-            </div>
+    <div className={`min-h-screen transition-all duration-300 ${
+      isDark ? "bg-slate-950" : "bg-gradient-to-br from-gray-50 to-gray-100"
+    }`}>
+ 
+      {/* ── HEADER ────────────────────────────────────────────── */}
+      <header className={`sticky top-0 z-10 px-6 py-3 flex items-center justify-between shadow-sm border-b transition-all duration-300 ${
+        isDark
+          ? "bg-slate-900 border-slate-800"
+          : "bg-white/95 backdrop-blur-md border-gray-100"
+      }`}>
+        <div className="flex items-center gap-4">
+          <div className={`hidden md:flex items-center px-4 py-2 rounded-xl border w-80 transition-all duration-300 ${
+            isDark ? "bg-slate-800 border-slate-700" : "bg-gray-50 border-gray-200"
+          }`}>
+            <FaSearch className={isDark ? "text-slate-500" : "text-gray-400"} />
+            <input
+              type="text"
+              placeholder="Search..."
+              className={`bg-transparent outline-none ml-3 w-full text-sm ${
+                isDark ? "text-white placeholder-slate-600" : "text-gray-700 placeholder-gray-400"
+              }`}
+            />
           </div>
         </div>
-      </div>
-
-      {/* HEADER */}
-      <header className="bg-white/95 backdrop-blur-md px-6 py-3 flex items-center justify-between shadow-sm border-b border-gray-100 sticky top-0 z-10">
+ 
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 w-80">
-            <FaSearch className="text-gray-400" />
-            <input type="text" placeholder="Search..." className="bg-transparent outline-none ml-3 w-full text-sm" />
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="relative w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-all group">
-            <FaBell className="text-gray-600 group-hover:text-[#001d55] transition-colors" />
+          <button className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group ${
+            isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
+          }`}>
+            <FaBell className={isDark ? "text-slate-400 group-hover:text-blue-400" : "text-gray-600 group-hover:text-[#001d55]"} />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
-          <div className="flex items-center gap-3 cursor-pointer group">
+ 
+          <div className={`flex items-center gap-3 cursor-pointer transition-all duration-300 rounded-xl px-3 py-1.5 ${
+            isDark ? "hover:bg-slate-800" : "hover:bg-gray-50"
+          }`}>
             {userPhoto ? (
-              <img src={userPhoto} alt="Profile" className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/20 group-hover:ring-blue-500/50 transition-all" />
+              <img src={userPhoto} alt="Profile"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/20" />
             ) : (
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#001d55] to-[#003d9e] flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{userName?.charAt(0)?.toUpperCase() || "A"}</span>
+                <span className="text-white font-bold text-sm">
+                  {userName?.charAt(0)?.toUpperCase() || "U"}
+                </span>
               </div>
             )}
             <div className="hidden md:block">
-              <h3 className="font-semibold text-gray-800 text-sm">{userName}</h3>
-              <p className="text-xs text-gray-500">
-                {userRole === "ADMIN" ? "Super Admin" : userRole === "USER" ? "User" : userRole}
+              <h3 className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-800"}`}>
+                {userName}
+              </h3>
+              {/* 🔥 PERBAIKAN: Tampilkan position bukan role */}
+              <p className={`text-xs ${isDark ? "text-blue-400" : "text-gray-500"}`}>
+                {displayRole}
               </p>
             </div>
           </div>
         </div>
       </header>
-
-      {/* BODY */}
-      <div className="p-6">
-        {/* STATS CARDS */}
+ 
+      {/* ── WELCOME BANNER ────────────────────────────────────── */}
+      <div className={`mx-6 mt-5 mb-6 relative overflow-hidden px-6 py-5 rounded-2xl shadow-lg transition-all duration-300 ${
+        isDark
+          ? "bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border border-slate-700"
+          : "bg-gradient-to-r from-[#001d55] via-[#002a6e] to-[#003d9e]"
+      }`}>
+        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full blur-2xl pointer-events-none bg-blue-500/10" />
+        <div className="absolute -bottom-8 right-20 w-24 h-24 rounded-full blur-2xl pointer-events-none bg-blue-300/10" />
+        <div className="flex items-center justify-between relative z-10">
+          <div>
+            <p className={`text-xs font-semibold mb-0.5 uppercase tracking-widest ${
+              isDark ? "text-slate-400" : "text-sky-300/80"
+            }`}>
+              Dashboard {displayRole}
+            </p>
+            <h1 className="text-xl font-bold text-white">
+              Selamat Datang, {userName}!
+            </h1>
+            <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-sky-200/70"}`}>
+              Semoga harimu menyenangkan. Berikut ringkasan aktivitas hari ini.
+            </p>
+          </div>
+          <div className={`hidden md:flex w-11 h-11 rounded-full items-center justify-center backdrop-blur-sm flex-shrink-0 border ${
+            isDark ? "bg-white/5 border-white/10" : "bg-white/10 border-white/10"
+          }`}>
+            <HiSparkles size={22} className={isDark ? "text-slate-300" : "text-white"} />
+          </div>
+        </div>
+      </div>
+ 
+      {/* ── BODY ────────────────────────────────────────────────── */}
+      <div className="px-6 pb-6">
+ 
+        {/* ── STATS CARDS ─────────────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
           {stats.map((item) => (
-            <div key={item.title} className="group bg-white rounded-xl shadow-sm p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
-              <p className="text-gray-500 text-sm mb-2">{item.title}</p>
-              <h2 className={`text-3xl font-bold mt-1 ${item.color}`}>
-                {loading ? "..." : item.value}
+            <div
+              key={item.title}
+              className={`group rounded-2xl p-5 border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                isDark
+                  ? `${item.darkBg} ${item.darkBorder} hover:shadow-slate-900`
+                  : `bg-white ${item.lightBorder} hover:shadow-md`
+              }`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <p className={`text-sm font-semibold ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  {item.title}
+                </p>
+                <div className={`p-2 rounded-xl ${isDark ? item.darkIcon : item.lightIcon}`}>
+                  {item.icon}
+                </div>
+              </div>
+              <h2 className={`text-3xl font-bold ${isDark ? item.darkText : item.lightText}`}>
+                {loading ? (
+                  <span className={`inline-block w-10 h-8 rounded-lg animate-pulse ${
+                    isDark ? "bg-slate-700" : "bg-gray-200"
+                  }`} />
+                ) : item.value}
               </h2>
+              <p className={`text-xs mt-1 font-medium ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                {item.title === "Total Projects" && "semua proyek"}
+                {item.title === "Total Members" && "anggota terdaftar"}
+                {item.title === "Approved"       && "disetujui"}
+                {item.title === "Pending"        && "menunggu keputusan"}
+              </p>
             </div>
           ))}
         </div>
-
-        {/* CHARTS */}
+ 
+        {/* ── CHARTS ────────────────────────────────────────────── */}
         <div className="grid lg:grid-cols-2 gap-6 mb-6">
-          {/* Kategori Project Chart */}
-          <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-lg transition-all duration-300 border border-gray-100">
+ 
+          {/* Chart 1: Program Analytics */}
+          <div className={`rounded-2xl p-6 border transition-all duration-300 hover:shadow-lg ${
+            isDark
+              ? "bg-slate-900 border-slate-800 hover:shadow-slate-950"
+              : "bg-white border-gray-100 hover:shadow-md"
+          }`}>
             <div className="flex items-start justify-between mb-6">
               <div>
-                <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Program Analytics</p>
-                <h2 className="mt-1 text-2xl font-bold bg-gradient-to-r from-[#001d55] to-[#003d9e] bg-clip-text text-transparent">
+                <p className={`text-sm font-semibold uppercase tracking-wider ${
+                  isDark ? "text-slate-500" : "text-gray-400"
+                }`}>
+                  Program Analytics
+                </p>
+                <h2 className={`mt-1 text-2xl font-bold ${isDark ? "text-white" : "text-[#001d55]"}`}>
                   {totalProjects} Program
                 </h2>
+                <p className={`text-xs mt-0.5 ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                  Dikategorikan dari nama project
+                </p>
               </div>
-              <div className="rounded-full bg-gradient-to-r from-[#001d55] to-[#003d9e] px-3 py-1 text-white text-xs font-semibold shadow-md">Total</div>
+              <div className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
+                isDark
+                  ? "bg-blue-900 text-blue-300 border border-blue-800"
+                  : "bg-gradient-to-r from-[#001d55] to-[#003d9e] text-white"
+              }`}>
+                Total
+              </div>
             </div>
+ 
             {loading ? (
-              <div className="h-64 flex items-center justify-center text-gray-400">Memuat...</div>
+              <div className={`h-64 flex items-center justify-center text-sm ${
+                isDark ? "text-slate-600" : "text-gray-400"
+              }`}>Memuat...</div>
             ) : categoryStats.length === 0 ? (
-              <div className="h-64 flex items-center justify-center text-gray-400">Belum ada data</div>
+              <div className={`h-64 flex items-center justify-center text-sm ${
+                isDark ? "text-slate-600" : "text-gray-400"
+              }`}>Belum ada data program</div>
             ) : (
               <div className="mt-6 flex items-end justify-between gap-3 h-64">
                 {categoryStats.map((item) => {
+                  const color = colorMap[item.label] || { bg: 'bg-gray-500' };
                   const heightPercent = (item.count / maxCategory) * 100;
                   return (
                     <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full group">
-                      <span className="text-sm font-bold text-gray-700 group-hover:scale-110 transition-transform">{item.count}</span>
-                      <div className="relative w-full bg-gray-100 rounded-xl overflow-hidden flex items-end flex-1 group cursor-pointer">
+                      <span className={`text-sm font-bold transition-transform group-hover:scale-110 ${
+                        isDark ? "text-blue-300" : "text-gray-700"
+                      }`}>
+                        {item.count}
+                      </span>
+                      <div className={`relative w-full rounded-xl overflow-hidden flex items-end flex-1 ${
+                        isDark ? "bg-slate-800" : "bg-gray-100"
+                      }`}>
                         <div
                           className="absolute bottom-0 left-0 w-full transition-all duration-500 group-hover:opacity-90 rounded-xl"
-                          style={{ height: `${heightPercent}%`, background: "linear-gradient(180deg, #003d9e 0%, #001d55 100%)" }}
+                          style={{ height: `${heightPercent}%`, background: barGradient }}
                         >
-                          <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-xl"></div>
+                          <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-xl" />
                         </div>
                       </div>
-                      <span className="text-xs font-medium text-gray-600 text-center">{item.label}</span>
+                      <span className={`text-xs font-medium text-center leading-tight ${
+                        isDark ? "text-slate-500" : "text-gray-600"
+                      }`}>
+                        {item.label}
+                      </span>
                     </div>
                   );
                 })}
               </div>
             )}
           </div>
-
-          {/* Posisi Member Chart */}
-          <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-lg transition-all duration-300 border border-gray-100">
+ 
+          {/* Chart 2: Member Analytics */}
+          <div className={`rounded-2xl p-6 border transition-all duration-300 hover:shadow-lg ${
+            isDark
+              ? "bg-slate-900 border-slate-800 hover:shadow-slate-950"
+              : "bg-white border-gray-100 hover:shadow-md"
+          }`}>
             <div className="flex items-start justify-between mb-6">
               <div>
-                <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Posisi Analytics</p>
-                <h2 className="mt-1 text-2xl font-bold bg-gradient-to-r from-[#001d55] to-[#003d9e] bg-clip-text text-transparent">
-                  {programStats.length} Posisi
+                <p className={`text-sm font-semibold uppercase tracking-wider ${
+                  isDark ? "text-slate-500" : "text-gray-400"
+                }`}>
+                  Member Analytics
+                </p>
+                <h2 className={`mt-1 text-2xl font-bold ${isDark ? "text-white" : "text-[#001d55]"}`}>
+                  {totalMembers} Member
                 </h2>
+                <p className={`text-xs mt-0.5 ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                  Berdasarkan posisi member terdaftar
+                </p>
               </div>
-              <div className="rounded-full bg-gradient-to-r from-[#001d55] to-[#003d9e] px-3 py-1 text-white text-xs font-semibold shadow-md">Total</div>
+              <div className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
+                isDark
+                  ? "bg-purple-900 text-purple-300 border border-purple-800"
+                  : "bg-gradient-to-r from-[#001d55] to-[#003d9e] text-white"
+              }`}>
+                Total
+              </div>
             </div>
+ 
             {loading ? (
-              <div className="h-64 flex items-center justify-center text-gray-400">Memuat...</div>
-            ) : programStats.length === 0 ? (
-              <div className="h-64 flex items-center justify-center text-gray-400">Belum ada data</div>
+              <div className={`h-64 flex items-center justify-center text-sm ${
+                isDark ? "text-slate-600" : "text-gray-400"
+              }`}>Memuat...</div>
+            ) : memberStats.length === 0 ? (
+              <div className={`h-64 flex items-center justify-center text-sm ${
+                isDark ? "text-slate-600" : "text-gray-400"
+              }`}>
+                <div className="text-center">
+                  <p>Belum ada data member</p>
+                  <p className="text-xs mt-1">Tambahkan member melalui halaman Member Modul</p>
+                </div>
+              </div>
             ) : (
               <div className="mt-6 flex items-end justify-between gap-3 h-64">
-                {programStats.map((item) => {
-                  const heightPercent = (item.count / maxProgram) * 100;
+                {memberStats.map((item) => {
+                  const color = colorMap[item.label] || { bg: 'bg-gray-500' };
+                  const heightPercent = (item.count / maxMember) * 100;
                   return (
                     <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full group">
-                      <span className="text-sm font-bold text-gray-700 group-hover:scale-110 transition-transform">{item.count}</span>
-                      <div className="relative w-full bg-gray-100 rounded-xl overflow-hidden flex items-end flex-1 group cursor-pointer">
+                      <span className={`text-sm font-bold transition-transform group-hover:scale-110 ${
+                        isDark ? "text-purple-300" : "text-gray-700"
+                      }`}>
+                        {item.count}
+                      </span>
+                      <div className={`relative w-full rounded-xl overflow-hidden flex items-end flex-1 ${
+                        isDark ? "bg-slate-800" : "bg-gray-100"
+                      }`}>
                         <div
                           className="absolute bottom-0 left-0 w-full transition-all duration-500 group-hover:opacity-90 rounded-xl"
-                          style={{ height: `${heightPercent}%`, background: "linear-gradient(180deg, #003d9e 0%, #001d55 100%)" }}
+                          style={{ 
+                            height: `${heightPercent}%`, 
+                            background: isDark 
+                              ? "linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%)"
+                              : "linear-gradient(180deg, #7c3aed 0%, #4f46e5 100%)"
+                          }}
                         >
-                          <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-xl"></div>
+                          <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-xl" />
                         </div>
                       </div>
-                      <span className="text-xs font-medium text-gray-600 text-center">{item.label}</span>
+                      <span className={`text-xs font-medium text-center leading-tight ${
+                        isDark ? "text-slate-500" : "text-gray-600"
+                      }`}>
+                        {item.label}
+                      </span>
                     </div>
                   );
                 })}
@@ -228,49 +526,85 @@ export default function Dashboard({ userData }) {
             )}
           </div>
         </div>
-
-        {/* PROJECT PROGRESS - dynamic dari API */}
-        <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-lg transition-all duration-300 border border-gray-100">
+ 
+        {/* ── PROJECT PROGRESS ────────────────────────────────────── */}
+        <div className={`rounded-2xl p-6 border transition-all duration-300 hover:shadow-lg ${
+          isDark
+            ? "bg-slate-900 border-slate-800 hover:shadow-slate-950"
+            : "bg-white border-gray-100 hover:shadow-md"
+        }`}>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="font-bold text-xl bg-gradient-to-r from-[#001d55] to-[#003d9e] bg-clip-text text-transparent">Project Progress</h2>
-              <p className="text-sm text-gray-500 mt-1">Status perkembangan proyek aktif</p>
+              <h2 className={`font-bold text-xl ${isDark ? "text-white" : "text-[#001d55]"}`}>
+                Project Progress
+              </h2>
+              <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+                Top 5 proyek berdasarkan progress tertinggi
+              </p>
             </div>
-            <div className="px-3 py-1 bg-blue-50 rounded-full">
-              <span className="text-xs font-semibold text-[#001d55]">{totalProjects} Projects</span>
+            <div className={`px-3 py-1 rounded-full ${
+              isDark ? "bg-blue-900 border border-blue-800" : "bg-blue-50"
+            }`}>
+              <span className={`text-xs font-semibold ${isDark ? "text-blue-300" : "text-[#001d55]"}`}>
+                {totalProjects} Projects
+              </span>
             </div>
           </div>
-
+ 
           {loading ? (
-            <div className="text-center py-8 text-gray-400">Memuat data...</div>
+            <div className={`text-center py-8 text-sm ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+              Memuat data...
+            </div>
           ) : topProjects.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">Belum ada project</div>
+            <div className={`text-center py-8 text-sm ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+              Belum ada project
+            </div>
           ) : (
             <div className="space-y-5">
               {topProjects.map((p) => (
                 <div key={p.id} className="group">
-                  <div className="flex justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-800">{p.name}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{p.position}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${p.decision === "approved" ? "bg-green-100 text-green-700" : p.decision === "rejected" ? "bg-red-100 text-red-700" : "bg-yellow-50 text-yellow-700"}`}>
+                  <div className="flex justify-between mb-2 flex-wrap gap-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-800"}`}>
+                        {p.name}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                        isDark
+                          ? "bg-slate-800 text-slate-400 border-slate-700"
+                          : "bg-gray-100 text-gray-500 border-gray-200"
+                      }`}>
+                        {p.position}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        p.decision === "approved"
+                          ? isDark ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                                   : "bg-green-100 text-green-700"
+                          : p.decision === "rejected"
+                          ? isDark ? "bg-red-950 text-red-400 border border-red-800"
+                                   : "bg-red-100 text-red-700"
+                          : isDark ? "bg-amber-950 text-amber-400 border border-amber-800"
+                                   : "bg-yellow-50 text-yellow-700"
+                      }`}>
                         {p.decision || "pending"}
                       </span>
                     </div>
-                    <div className="text-sm font-bold text-[#001d55]">{p.progress}%</div>
+                    <div className={`text-sm font-bold ${isDark ? "text-blue-400" : "text-[#001d55]"}`}>
+                      {p.progress}%
+                    </div>
                   </div>
-                  <div className="relative w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                  <div className={`relative w-full h-2 rounded-full overflow-hidden ${
+                    isDark ? "bg-slate-800" : "bg-gray-100"
+                  }`}>
                     <div
                       className="absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out"
-                      style={{ width: `${p.progress}%`, background: "linear-gradient(90deg, #003d9e 0%, #001d55 100%)" }}
+                      style={{ width: `${p.progress}%`, background: progressGradient }}
                     >
-                      <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent"></div>
+                      <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" />
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            
           )}
         </div>
       </div>

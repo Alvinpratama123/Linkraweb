@@ -27,17 +27,24 @@ const formatDate = (iso) => {
   }
 };
 
-const approvalColor = (a) =>
-  a === "APPROVED" ? "bg-emerald-100 text-emerald-700"
-  : a === "REJECTED" ? "bg-red-100 text-red-700"
-  : "bg-amber-100 text-amber-700";
+const approvalColor = (a, theme) =>
+  a === "APPROVED" 
+    ? theme === 'dark' ? "bg-emerald-900 text-emerald-300" : "bg-emerald-100 text-emerald-700"
+    : a === "REJECTED" 
+      ? theme === 'dark' ? "bg-red-900 text-red-300" : "bg-red-100 text-red-700"
+      : theme === 'dark' ? "bg-amber-900 text-amber-300" : "bg-amber-100 text-amber-700";
 
 // ─── Komponen kecil ───────────────────────────────────────────────────────────
 
-function RoleBadge({ role, size = "sm" }) {
+function RoleBadge({ role, size = "sm", theme = "light" }) {
   const c = ROLE_COLORS[role] ?? { bg: "bg-gray-100", text: "text-gray-600" };
+  const darkStyles = theme === 'dark' ? {
+    bg: c.bg.replace('bg-gray-100', 'bg-gray-700').replace('bg-blue-100', 'bg-blue-900').replace('bg-green-100', 'bg-green-900').replace('bg-red-100', 'bg-red-900').replace('bg-purple-100', 'bg-purple-900').replace('bg-indigo-100', 'bg-indigo-900').replace('bg-pink-100', 'bg-pink-900').replace('bg-yellow-100', 'bg-yellow-900'),
+    text: c.text.replace('text-gray-600', 'text-gray-300').replace('text-blue-700', 'text-blue-300').replace('text-green-700', 'text-green-300').replace('text-red-700', 'text-red-300').replace('text-purple-700', 'text-purple-300').replace('text-indigo-700', 'text-indigo-300').replace('text-pink-700', 'text-pink-300').replace('text-yellow-700', 'text-yellow-300')
+  } : c;
+  
   return (
-    <span className={`inline-flex items-center rounded-full font-semibold ${c.bg} ${c.text} ${
+    <span className={`inline-flex items-center rounded-full font-semibold ${darkStyles.bg} ${darkStyles.text} ${
       size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm"
     }`}>
       {role}
@@ -74,7 +81,7 @@ async function apiFetch(url, options) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function Revision({ userRole = "QA", userName = "User" }) {
+export default function Revision({ userRole = "QA", userName = "User", theme = "light", setTheme }) {
   const myRole = userRole;
 
   // Tab
@@ -163,7 +170,6 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
       setSentReports(json.data || []);
     } catch (err) {
       console.error("Fetch sent error:", err);
-      // 🔥 Jangan tampilkan error ke user, cukup log
       setSentReports([]);
     } finally {
       setSentLoading(false);
@@ -268,7 +274,6 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
       setIssueType("MODUL");
       if (fileRef.current) fileRef.current.value = "";
       
-      // 🔥 Refresh sent dengan error handling
       try {
         await fetchSent();
       } catch (fetchError) {
@@ -314,7 +319,6 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
           prev.map((r) => r.id === id ? { ...r, ...result.data } : r)
         );
         
-        // 🔥 Refresh data dengan error handling
         setTimeout(async () => {
           try {
             if (activeTab === "inbox") {
@@ -374,13 +378,13 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f4f7fb] p-4 md:p-8">
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#1a1a2e]' : 'bg-[#f4f7fb]'} p-4 md:p-8 transition-colors duration-200`}>
       <Toaster 
         position="top-right"
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#363636',
+            background: theme === 'dark' ? '#1a1a2e' : '#363636',
             color: '#fff',
             borderRadius: '12px',
             padding: '16px',
@@ -407,32 +411,32 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-widest text-gray-500 uppercase">
+            <p className={`text-xs font-semibold tracking-widest ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} uppercase`}>
               Revision Issue
             </p>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#001d55] mt-1">
+            <h1 className={`text-3xl md:text-4xl font-bold ${theme === 'dark' ? 'text-white' : 'text-[#001d55]'} mt-1`}>
               Halaman Revision
             </h1>
-            <p className="mt-1 text-gray-500 text-sm">
+            <p className={`mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} text-sm`}>
               Laporan masalah modul/project berdasarkan role tim.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <span className="text-sm font-semibold text-gray-600">Role saya:</span>
-            <RoleBadge role={myRole} size="md" />
-            <span className="text-sm text-gray-500 border-l border-gray-200 pl-3">
+          <div className={`flex items-center gap-3 rounded-2xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} px-4 py-3 shadow-sm transition-colors duration-200`}>
+            <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Role saya:</span>
+            <RoleBadge role={myRole} size="md" theme={theme} />
+            <span className={`text-sm ${theme === 'dark' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'} border-l pl-3`}>
               {userName}
             </span>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-2 border-b border-gray-200 overflow-x-auto">
+        <div className={`mb-6 flex gap-2 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} overflow-x-auto`}>
           {[
-            { key: "inbox", label: "📥 Inbox",        count: inboxMeta.total },
-            { key: "sent",  label: "📤 Terkirim",     count: sentReports.length },
-            { key: "new",   label: "✏️ Buat Revisi",  count: null },
+            { key: "inbox", label: "Inbox",        count: inboxMeta.total },
+            { key: "sent",  label: "Terkirim",     count: sentReports.length },
+            { key: "new",   label: "Buat Revisi",  count: null },
           ].map((tab) => (
             <button 
               key={tab.key} 
@@ -444,13 +448,15 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
               className={`pb-3 px-4 text-sm font-semibold transition border-b-2 whitespace-nowrap ${
                 activeTab === tab.key
                   ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-800"
+                  : `border-transparent ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`
               }`}
             >
               {tab.label}
               {tab.count !== null && (
                 <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
-                  activeTab === tab.key ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"
+                  activeTab === tab.key 
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" 
+                    : theme === 'dark' ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600"
                 }`}>
                   {tab.count}
                 </span>
@@ -462,18 +468,18 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
         {/* ══ TAB INBOX ══ */}
         {activeTab === "inbox" && (
           <section className="space-y-5">
-            <div className="flex flex-wrap gap-3 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className={`flex flex-wrap gap-3 rounded-3xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} p-4 shadow-sm transition-colors duration-200`}>
               <input
                 type="text"
                 value={filterSearch}
                 onChange={(e) => { setFilterSearch(e.target.value); setInboxPage(1); }}
                 placeholder="Cari nama project atau deskripsi..."
-                className="flex-1 min-w-[200px] h-10 rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className={`flex-1 min-w-[200px] h-10 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'} px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors duration-200`}
               />
               <select
                 value={filterApproval}
                 onChange={(e) => { setFilterApproval(e.target.value); setInboxPage(1); }}
-                className="h-10 rounded-xl border border-gray-200 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className={`h-10 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-200 bg-white text-gray-900'} px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors duration-200`}
               >
                 <option value="">Semua status</option>
                 <option value="PENDING">Pending</option>
@@ -482,27 +488,27 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
               </select>
               <button
                 onClick={fetchInbox}
-                className="h-10 rounded-xl border border-gray-200 px-3 text-sm text-gray-600 hover:bg-gray-50 transition"
+                className={`h-10 rounded-xl border ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'} px-3 text-sm transition`}
               >
-                🔄 Refresh
+                Refresh
               </button>
             </div>
 
             {inboxLoading && (
-              <div className="rounded-3xl border bg-white p-10 text-center text-gray-400">
+              <div className={`rounded-3xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border bg-white text-gray-400'} p-10 text-center`}>
                 Memuat laporan...
               </div>
             )}
             {inboxError && (
-              <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <div className={`rounded-3xl border ${theme === 'dark' ? 'border-red-700 bg-red-900/30 text-red-300' : 'border-red-200 bg-red-50 text-red-700'} p-4 text-sm`}>
                 ⚠️ {inboxError}
               </div>
             )}
             {!inboxLoading && !inboxError && inboxReports.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
+              <div className={`rounded-3xl border border-dashed ${theme === 'dark' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-gray-300 bg-white text-gray-500'} p-12 text-center`}>
                 <p className="text-4xl mb-3">📭</p>
-                <p className="font-semibold text-gray-700">Belum ada laporan masuk</p>
-                <p className="text-sm mt-1">
+                <p className={`font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Belum ada laporan masuk</p>
+                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                   Laporan yang ditujukan ke <strong>{ROLE_LABELS[myRole] || myRole}</strong> akan muncul di sini.
                 </p>
               </div>
@@ -510,38 +516,38 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
 
             <div className="space-y-4">
               {inboxReports.map((report) => (
-                <div key={report.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div key={report.id} className={`rounded-3xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} p-5 shadow-sm transition-colors duration-200`}>
                   <div className="flex flex-wrap gap-2 items-start justify-between mb-3">
                     <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-base font-bold text-gray-900">{report.projectName}</span>
-                      <RoleBadge role={report.senderRole} />
-                      <span className="text-xs text-gray-400">→</span>
-                      <RoleBadge role={report.targetRole} />
-                      <span className="rounded-full bg-indigo-100 text-indigo-700 px-2.5 py-0.5 text-xs font-semibold">
+                      <span className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{report.projectName}</span>
+                      <RoleBadge role={report.senderRole} theme={theme} />
+                      <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>→</span>
+                      <RoleBadge role={report.targetRole} theme={theme} />
+                      <span className={`rounded-full ${theme === 'dark' ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'} px-2.5 py-0.5 text-xs font-semibold`}>
                         {ISSUE_TYPE_LABELS[report.issueType] ?? report.issueType}
                       </span>
                     </div>
-                    <div className="flex gap-2 items-center">
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${approvalColor(report.approval)}`}>
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${approvalColor(report.approval, theme)}`}>
                         {APPROVAL_LABELS[report.approval] ?? report.approval}
                       </span>
-                      <span className="text-xs text-gray-400">{formatDate(report.createdAt)}</span>
+                      <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{formatDate(report.createdAt)}</span>
                     </div>
                   </div>
 
-                  <p className="text-sm text-gray-600 mb-4">
-                    {report.description || <span className="italic text-gray-400">Tidak ada deskripsi.</span>}
+                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+                    {report.description || <span className={`italic ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada deskripsi.</span>}
                   </p>
 
                   <div className="grid gap-3 md:grid-cols-3">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      <label className={`block text-xs font-semibold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-1.5`}>
                         Ubah Progress
                       </label>
                       <select
                         value={report.progress}
                         onChange={(e) => updateReport(report.id, { progress: e.target.value })}
-                        className="w-full h-10 rounded-xl border border-gray-200 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className={`w-full h-10 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-200 bg-white text-gray-900'} px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors duration-200`}
                       >
                         <option value="BELUM_DILAKUKAN">Belum dilakukan</option>
                         <option value="SEDANG_DIKERJAKAN">Sedang dikerjakan</option>
@@ -550,7 +556,7 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      <label className={`block text-xs font-semibold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-1.5`}>
                         Approval
                       </label>
                       <div className="flex gap-2">
@@ -568,7 +574,7 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
                         </button>
                         <button
                           onClick={() => updateReport(report.id, { approval: "PENDING" })}
-                          className="h-10 px-3 rounded-xl border border-gray-200 text-gray-600 text-xs hover:bg-gray-50 transition"
+                          className={`h-10 px-3 rounded-xl border ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'} text-xs transition`}
                         >
                           ↩
                         </button>
@@ -577,7 +583,7 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
 
                     <div className="flex flex-col gap-2">
                       {(report.attachmentData || report.attachmentUrl) && (
-                        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-3 flex items-center justify-center min-h-[56px]">
+                        <div className={`rounded-2xl border border-dashed ${theme === 'dark' ? 'border-gray-600 bg-gray-700/50' : 'border-gray-200 bg-gray-50'} p-3 flex items-center justify-center min-h-[56px] transition-colors duration-200`}>
                           {report.attachmentData && isImageFile(report.attachmentName) ? (
                             <button onClick={() => setPreviewImage(report.attachmentData)}>
                               <img src={report.attachmentData} alt="attachment"
@@ -585,13 +591,13 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
                             </button>
                           ) : report.attachmentData && isPdfFile(report.attachmentName) ? (
                             <a href={report.attachmentData} download={report.attachmentName}
-                              className="text-sm text-blue-600 hover:underline flex items-center gap-2">
-                              <span className="rounded bg-red-100 text-red-700 px-1.5 py-0.5 text-xs font-bold">PDF</span>
+                              className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'} flex items-center gap-2`}>
+                              <span className={`rounded ${theme === 'dark' ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700'} px-1.5 py-0.5 text-xs font-bold`}>PDF</span>
                               {report.attachmentName}
                             </a>
                           ) : report.attachmentUrl ? (
                             <a href={report.attachmentUrl} target="_blank" rel="noreferrer"
-                              className="text-sm text-blue-600 hover:underline">
+                              className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'}`}>
                               {report.attachmentName ?? "Buka lampiran"}
                             </a>
                           ) : null}
@@ -599,7 +605,7 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
                       )}
                       <button
                         onClick={() => deleteReport(report.id, "inbox")}
-                        className="h-9 rounded-2xl border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition"
+                        className={`h-9 rounded-2xl border ${theme === 'dark' ? 'border-red-700 bg-red-900/30 text-red-300 hover:bg-red-900/50' : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'} text-xs font-semibold transition`}
                       >
                         Hapus laporan
                       </button>
@@ -607,9 +613,9 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
                   </div>
 
                   {report.sentBy && (
-                    <p className="mt-3 text-xs text-gray-400">
+                    <p className={`mt-3 text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
                       Dikirim oleh{" "}
-                      <span className="font-semibold text-gray-600">{report.sentBy.name}</span>
+                      <span className={`font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{report.sentBy.name}</span>
                     </p>
                   )}
                 </div>
@@ -621,17 +627,17 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
                 <button
                   disabled={inboxPage === 1}
                   onClick={() => setInboxPage((p) => p - 1)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50"
+                  className={`px-4 py-2 rounded-xl border ${theme === 'dark' ? 'border-gray-700 text-gray-300 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'} text-sm disabled:opacity-40 transition`}
                 >
                   ← Sebelumnya
                 </button>
-                <span className="px-4 py-2 text-sm text-gray-500">
+                <span className={`px-4 py-2 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                   {inboxPage} / {inboxMeta.totalPages}
                 </span>
                 <button
                   disabled={inboxPage >= inboxMeta.totalPages}
                   onClick={() => setInboxPage((p) => p + 1)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-sm disabled:opacity-40 hover:bg-gray-50"
+                  className={`px-4 py-2 rounded-xl border ${theme === 'dark' ? 'border-gray-700 text-gray-300 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'} text-sm disabled:opacity-40 transition`}
                 >
                   Berikutnya →
                 </button>
@@ -644,46 +650,48 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
         {activeTab === "sent" && (
           <section className="space-y-4">
             {sentLoading && (
-              <div className="rounded-3xl border bg-white p-10 text-center text-gray-400">Memuat...</div>
+              <div className={`rounded-3xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border bg-white text-gray-400'} p-10 text-center`}>
+                Memuat...
+              </div>
             )}
             {!sentLoading && sentReports.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
+              <div className={`rounded-3xl border border-dashed ${theme === 'dark' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-gray-300 bg-white text-gray-500'} p-12 text-center`}>
                 <p className="text-4xl mb-3">📤</p>
-                <p className="font-semibold text-gray-700">Belum ada laporan terkirim</p>
-                <p className="text-sm mt-1">Buat laporan di tab <strong>Buat Revisi</strong>.</p>
+                <p className={`font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Belum ada laporan terkirim</p>
+                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Buat laporan di tab <strong>Buat Revisi</strong>.</p>
               </div>
             )}
             {sentReports.map((report) => (
-              <div key={report.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div key={report.id} className={`rounded-3xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} p-5 shadow-sm transition-colors duration-200`}>
                 <div className="flex flex-wrap gap-2 items-center justify-between mb-2">
                   <div className="flex flex-wrap gap-2 items-center">
-                    <span className="font-bold text-gray-900">{report.projectName}</span>
-                    <span className="text-xs text-gray-400">→</span>
-                    <RoleBadge role={report.targetRole} />
-                    <span className="rounded-full bg-indigo-100 text-indigo-700 px-2.5 py-0.5 text-xs font-semibold">
+                    <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{report.projectName}</span>
+                    <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>→</span>
+                    <RoleBadge role={report.targetRole} theme={theme} />
+                    <span className={`rounded-full ${theme === 'dark' ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'} px-2.5 py-0.5 text-xs font-semibold`}>
                       {ISSUE_TYPE_LABELS[report.issueType] ?? report.issueType}
                     </span>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${approvalColor(report.approval)}`}>
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${approvalColor(report.approval, theme)}`}>
                       {APPROVAL_LABELS[report.approval] ?? report.approval}
                     </span>
-                    <span className="text-xs text-gray-400">{formatDate(report.createdAt)}</span>
+                    <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{formatDate(report.createdAt)}</span>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 mb-2">
-                  {report.description || <span className="italic text-gray-400">Tidak ada deskripsi.</span>}
+                <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-2`}>
+                  {report.description || <span className={`italic ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada deskripsi.</span>}
                 </p>
                 <div className="flex gap-2 items-center">
-                  <span className="text-xs rounded-full bg-gray-100 text-gray-600 px-2.5 py-1 font-medium">
+                  <span className={`text-xs rounded-full ${theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'} px-2.5 py-1 font-medium`}>
                     {PROGRESS_LABELS[report.progress] ?? report.progress}
                   </span>
                   {!!report._count?.comments && (
-                    <span className="text-xs text-gray-400">💬 {report._count.comments} komentar</span>
+                    <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>💬 {report._count.comments} komentar</span>
                   )}
                   <button
                     onClick={() => deleteReport(report.id, "sent")}
-                    className="ml-auto h-8 px-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-xs hover:bg-red-100 transition"
+                    className={`ml-auto h-8 px-3 rounded-xl border ${theme === 'dark' ? 'border-red-700 bg-red-900/30 text-red-300 hover:bg-red-900/50' : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'} text-xs transition`}
                   >
                     Hapus
                   </button>
@@ -695,33 +703,33 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
 
         {/* ══ TAB NEW ══ */}
         {activeTab === "new" && (
-          <section className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm">
+          <section className={`${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl border p-6 shadow-sm transition-colors duration-200`}>
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">Buat Revisi Baru</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Laporan dikirim dari <RoleBadge role={myRole} /> ke role tujuan yang dipilih.
+              <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Buat Revisi Baru</h2>
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                Laporan dikirim dari <RoleBadge role={myRole} theme={theme} /> ke role tujuan yang dipilih.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="grid gap-5">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-semibold text-gray-700">Nama Project *</span>
+                  <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Nama Project *</span>
                   <input
                     type="text"
                     value={projectName}
                     required
                     onChange={(e) => setProjectName(e.target.value)}
                     placeholder="Nama project..."
-                    className="mt-2 w-full h-11 rounded-xl border border-gray-300 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`mt-2 w-full h-11 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200`}
                   />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-semibold text-gray-700">Ditujukan ke *</span>
+                  <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Ditujukan ke *</span>
                   <select
                     value={targetRole}
                     onChange={(e) => setTargetRole(e.target.value)}
-                    className="mt-2 w-full h-11 rounded-xl border border-gray-300 px-4 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`mt-2 w-full h-11 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200`}
                   >
                     {(SENDER_TARGET_MAP[myRole] || ["FRONTEND", "BACKEND", "QA"]).map((r) => (
                       <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
@@ -732,11 +740,11 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-semibold text-gray-700">Tipe Masalah</span>
+                  <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Tipe Masalah</span>
                   <select
                     value={issueType}
                     onChange={(e) => setIssueType(e.target.value)}
-                    className="mt-2 w-full h-11 rounded-xl border border-gray-300 px-4 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`mt-2 w-full h-11 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200`}
                   >
                     {ISSUE_TYPES.map((t) => (
                       <option key={t} value={t}>{ISSUE_TYPE_LABELS[t]}</option>
@@ -744,11 +752,11 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-sm font-semibold text-gray-700">Label Progress</span>
+                  <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Label Progress</span>
                   <select
                     value={progress}
                     onChange={(e) => setProgress(e.target.value)}
-                    className="mt-2 w-full h-11 rounded-xl border border-gray-300 px-4 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`mt-2 w-full h-11 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200`}
                   >
                     <option value="BELUM_DILAKUKAN">Belum dilakukan</option>
                     <option value="SEDANG_DIKERJAKAN">Sedang dikerjakan</option>
@@ -758,39 +766,39 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
               </div>
 
               <label className="block">
-                <span className="text-sm font-semibold text-gray-700">Keterangan</span>
+                <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Keterangan</span>
                 <textarea
                   value={description}
                   rows={4}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Jelaskan masalah, lokasi modul, dan detail lainnya..."
-                  className="mt-2 w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className={`mt-2 w-full rounded-2xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-colors duration-200`}
                 />
               </label>
 
               <div>
-                <span className="text-sm font-semibold text-gray-700">Lampiran (max 5MB)</span>
-                <div className="mt-2 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Lampiran (max 5MB)</span>
+                <div className={`mt-2 rounded-2xl border border-dashed ${theme === 'dark' ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-50'} p-4 transition-colors duration-200`}>
                   <input
                     ref={fileRef}
                     type="file"
                     onChange={handleFileChange}
                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                    className="text-sm text-gray-600 w-full"
+                    className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} w-full`}
                   />
                   {attachmentName && (
-                    <p className="mt-2 text-xs text-gray-500">✅ {attachmentName}</p>
+                    <p className={`mt-2 text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>✅ {attachmentName}</p>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-800">
+              <div className={`rounded-2xl ${theme === 'dark' ? 'bg-blue-900/30 border-blue-700 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-800'} border px-4 py-3 text-sm`}>
                 Laporan ini akan dikirim dari <strong>{ROLE_LABELS[myRole] || myRole}</strong> ke{" "}
                 <strong>{ROLE_LABELS[targetRole] || targetRole}</strong>.
               </div>
 
               {submitError && (
-                <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                <div className={`rounded-2xl ${theme === 'dark' ? 'bg-red-900/30 border-red-700 text-red-300' : 'bg-red-50 border-red-200 text-red-700'} border px-4 py-3 text-sm`}>
                   ⚠️ {submitError}
                 </div>
               )}
@@ -810,16 +818,16 @@ export default function Revision({ userRole = "QA", userName = "User" }) {
       {/* Modal preview gambar */}
       {previewImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className={`fixed inset-0 z-50 flex items-center justify-center ${theme === 'dark' ? 'bg-black/80' : 'bg-black/70'} p-4`}
           onClick={() => setPreviewImage("")}
         >
           <div
-            className="relative max-w-4xl w-full rounded-3xl overflow-hidden bg-white shadow-2xl"
+            className={`relative max-w-4xl w-full rounded-3xl overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-2xl`}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setPreviewImage("")}
-              className="absolute right-4 top-4 z-10 h-9 w-9 rounded-full bg-white/90 text-gray-800 shadow text-lg font-bold hover:bg-white"
+              className={`absolute right-4 top-4 z-10 h-9 w-9 rounded-full ${theme === 'dark' ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-white/90 text-gray-800 hover:bg-white'} shadow text-lg font-bold transition`}
             >
               ×
             </button>

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FaBars, FaUserCircle } from "react-icons/fa";
+import { FaBars, FaTimes } from "react-icons/fa";
 import {
   MdDashboard,
   MdFolder,
@@ -12,7 +12,6 @@ import {
   MdPeople,
 } from "react-icons/md";
 import { RiGitPullRequestLine } from "react-icons/ri";
-
 import {
   HiCog6Tooth,
   HiArrowRightOnRectangle,
@@ -23,15 +22,13 @@ import {
 } from "react-icons/hi2";
 import toast, { Toaster } from "react-hot-toast";
 
-// PAGES
-import Dashboard from "../dashboardAdmin/components/dashboard";
-import UploadProjectPage from "../dashboardAdmin/components/project";
-import Progres from "../dashboardAdmin/components/progres";
-import Revision from "../dashboardAdmin/components/revision";
-import MembersModul from "../dashboardAdmin/components/membersModul";
-import Analytics from "../dashboardAdmin/components/analytics";
-
-// SETTINGS
+// Components
+import Dashboard from "./components/dashboard";
+import UploadProjectPage from "./components/project";
+import Progres from "./components/progres";
+import Revision from "./components/revision";
+import Analytics from "./components/analytics";
+import MembersModul from "./components/membersModul";
 import SettingsTema from "../settings/settingsTema";
 import SettingsProfile from "../settings/profile";
 import ChangePassword from "../settings/changepassword";
@@ -44,25 +41,26 @@ export default function DashboardAdmin() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const router = useRouter();
+  const isDark = theme === "dark";
 
-  // Ambil data user dari API saat load
+  const getDisplayRole = (user) => {
+    if (!user) return "Member";
+    if (user.role?.toUpperCase() === "ADMIN") return "Administrator";
+    if (user.position) return user.position; // 🔥 Tampilkan position
+    return user.role || "Member";
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
+        const response = await fetch("/api/auth/me");
         const data = await response.json();
 
         if (!response.ok) {
-          console.error("Failed to fetch user:", data.message);
           router.push("/components/login");
           return;
         }
@@ -71,20 +69,16 @@ export default function DashboardAdmin() {
           setUserData(data.user);
           localStorage.setItem("user", JSON.stringify(data.user));
           
-          // Jika user adalah MEMBER, redirect ke halaman member dashboard
-          if (data.user.role === "MEMBER") {
+          if (data.user.role?.toUpperCase() !== "ADMIN") {
             router.push("/memberDashboard/MemberDashboard");
           }
         }
       } catch (error) {
-        console.error("Error fetching user data:", error);
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
           setUserData(parsedUser);
-          
-          // Jika user adalah MEMBER, redirect ke halaman member dashboard
-          if (parsedUser.role === "MEMBER") {
+          if (parsedUser.role?.toUpperCase() !== "ADMIN") {
             router.push("/memberDashboard/MemberDashboard");
           }
         } else {
@@ -98,76 +92,41 @@ export default function DashboardAdmin() {
     fetchUserData();
   }, [router]);
 
-  // Fungsi untuk menghapus SEMUA data di storage
   const clearAllStorage = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
     
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.includes("auth") || key.includes("token") || key.includes("user"))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && (key.includes("auth") || key.includes("token") || key.includes("user"))) {
-        sessionStorage.removeItem(key);
-      }
-    }
-    
-    document.cookie.split(";").forEach(cookie => {
+    document.cookie.split(";").forEach((cookie) => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
       document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;";
-      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=localhost";
     });
   };
 
-  // Fungsi logout
   const handleLogout = async () => {
-    const confirm = window.confirm("Apakah Anda yakin ingin logout?");
-    if (!confirm) return;
+    if (!confirm("Apakah Anda yakin ingin logout?")) return;
 
     try {
       setLoggingOut(true);
       toast.loading("Logging out...", { id: "logout" });
 
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
+      await fetch("/api/auth/logout", { method: "POST" });
       clearAllStorage();
       setUserData(null);
-
-      if (response.ok) {
-        toast.success("Logout berhasil!");
-      } else {
-        toast.error("Logout gagal");
-      }
-      
+      toast.success("Logout berhasil!", { id: "logout" });
       router.push("/components/login");
-      
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("Terjadi kesalahan saat logout");
+      toast.error("Terjadi kesalahan saat logout", { id: "logout" });
       clearAllStorage();
       router.push("/components/login");
-      
     } finally {
       setLoggingOut(false);
     }
   };
 
-  // Menu untuk ADMIN saja
   const adminMenus = [
     { icon: <MdDashboard size={22} />, label: "Dashboard" },
     { icon: <MdFolder size={22} />, label: "Projects" },
@@ -176,8 +135,6 @@ export default function DashboardAdmin() {
     { icon: <MdPeople size={22} />, label: "MEMBER & MODUL" },
     { icon: <MdAnalytics size={22} />, label: "Analytics" },
   ];
-
-  const menus = adminMenus;
 
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
@@ -196,189 +153,162 @@ export default function DashboardAdmin() {
     );
   }
 
+  const SidebarContent = ({ isMobile = false }) => (
+    <div className={`flex flex-col h-full ${isMobile ? "pt-4" : ""}`}>
+      <div className={`h-16 md:h-20 px-4 md:px-5 border-b border-white/10 flex items-center justify-between ${isMobile ? "mb-2" : ""}`}>
+        {(!collapsed || isMobile) && (
+          <h1 className="font-bold text-lg md:text-xl"><img src="images/logo.png" alt="Logo" className="h-full w-auto" /></h1>
+        )}
+        {isMobile ? (
+          <button onClick={() => setMobileSidebarOpen(false)} className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white">
+            <FaTimes size={20} />
+          </button>
+        ) : (
+          <button onClick={() => setCollapsed(!collapsed)} className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center">
+            <FaBars />
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 px-2 md:px-3 py-3 md:py-5 overflow-y-auto">
+        {adminMenus.map((menu) => (
+          <button
+            key={menu.label}
+            onClick={() => {
+              setSelectedMenu(menu.label);
+              if (isMobile) setMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-2 text-sm md:text-base transition-all ${
+              selectedMenu === menu.label ? "bg-white/15" : "hover:bg-white/5"
+            }`}
+          >
+            {menu.icon}
+            {(!collapsed || isMobile) && <span>{menu.label}</span>}
+          </button>
+        ))}
+
+        <div className="mt-4">
+          <button onClick={() => setSettingsOpen(!settingsOpen)} className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-white/5 transition-all">
+            <HiCog6Tooth size={22} />
+            {(!collapsed || isMobile) && (
+              <>
+                <span className="flex-1 text-left">Settings</span>
+                <HiChevronDown className={`transition-transform duration-300 ${settingsOpen ? "rotate-180" : ""}`} />
+              </>
+            )}
+          </button>
+
+          {settingsOpen && (
+            <div className="pl-6 md:pl-8 flex flex-col gap-1 pt-2">
+              {settingsSubMenus.map((sub) => (
+                <button
+                  key={sub.label}
+                  onClick={() => {
+                    setSelectedMenu(sub.label);
+                    if (isMobile) setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
+                    selectedMenu === sub.label ? "bg-white/15" : "hover:bg-white/5"
+                  }`}
+                >
+                  {sub.icon}
+                  <span>{sub.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-3 pb-3 mt-4">
+        <button onClick={handleLogout} disabled={loggingOut} className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl text-red-300 hover:bg-red-500/20 transition-all disabled:opacity-50">
+          {loggingOut ? (
+            <>
+              <svg className="animate-spin h-5 w-5 text-red-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {(!collapsed || isMobile) && <span>Logging out...</span>}
+            </>
+          ) : (
+            <>
+              <HiArrowRightOnRectangle size={22} />
+              {(!collapsed || isMobile) && <span>Logout</span>}
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="border-t border-white/10 p-3 md:p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+            {userData?.name?.charAt(0)?.toUpperCase() || "A"}
+          </div>
+          {(!collapsed || isMobile) && (
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm md:text-base truncate">{userData?.name || "Administrator"}</h3>
+              <p className="text-xs text-blue-300">{getDisplayRole(userData)}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-            borderRadius: '12px',
-          },
-        }}
-      />
-      
-      <div
-        className={`h-screen flex flex-col md:flex-row overflow-hidden transition-all duration-300 ${
-          theme === "dark"
-            ? "bg-slate-950 text-white"
-            : "bg-[#eef2f7] text-black"
-        }`}
-      >
-        {/* SIDEBAR */}
-        <aside
-          className={`h-auto md:h-screen flex flex-col transition-all duration-300
-          ${collapsed ? "w-full md:w-20" : "w-full md:w-72"}
-          bg-gradient-to-b from-[#050b1f] via-[#071a3a] to-[#020617]
-          text-white shadow-2xl shadow-black/50
-          `}
-        >
-          {/* HEADER */}
-          <div className="h-16 md:h-20 px-4 md:px-5 border-b border-white/10 flex items-center justify-between">
-            {!collapsed && (
-              <div>
-                <h1 className="font-bold text-lg md:text-xl flex items-center gap-2">
-                  <img
-                    src="/images/oip.png"
-                    alt="Logo"
-                    className="w-30 inline-block"
-                  />
-                </h1>
-              </div>
-            )}
-
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
-            >
-              <FaBars />
-            </button>
-          </div>
-
-          {/* MENU */}
-          <div className="flex-1 px-2 md:px-3 py-3 md:py-5 overflow-y-auto">
-            {menus.map((menu) => (
-              <button
-                key={menu.label}
-                onClick={() => setSelectedMenu(menu.label)}
-                className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-2 text-sm md:text-base transition-all ${
-                  selectedMenu === menu.label
-                    ? "bg-white/15"
-                    : "hover:bg-white/5"
-                }`}
-              >
-                {menu.icon}
-                {!collapsed && <span>{menu.label}</span>}
-              </button>
-            ))}
-
-            {/* SETTINGS */}
-            <div className="mt-4">
-              <button
-                onClick={() => setSettingsOpen(!settingsOpen)}
-                className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-white/5 transition-all"
-              >
-                <HiCog6Tooth size={22} />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">Settings</span>
-                    <HiChevronDown
-                      className={`transition-transform duration-300 ${
-                        settingsOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </>
-                )}
-              </button>
-
-              {settingsOpen && (
-                <div className="pl-6 md:pl-8 flex flex-col gap-1 pt-2">
-                  {settingsSubMenus.map((sub) => (
-                    <button
-                      key={sub.label}
-                      onClick={() => setSelectedMenu(sub.label)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
-                        selectedMenu === sub.label
-                          ? "bg-white/15"
-                          : "hover:bg-white/5"
-                      }`}
-                    >
-                      {sub.icon}
-                      <span>{sub.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* LOGOUT BUTTON */}
-          <div className="px-3 pb-3 mt-4">
-            <button
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl text-red-300 hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loggingOut ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-red-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {!collapsed && <span>Logging out...</span>}
-                </>
-              ) : (
-                <>
-                  <HiArrowRightOnRectangle size={22} />
-                  {!collapsed && <span>Logout</span>}
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* USER PROFILE */}
-          <div className="border-t border-white/10 p-3 md:p-4">
-            <div className="flex items-center gap-3">
-              {userData?.photo ? (
-                <img
-                  src={userData.photo}
-                  alt="Profile"
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                  {userData?.name?.charAt(0)?.toUpperCase() || "A"}
-                </div>
-              )}
-              {!collapsed && (
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm md:text-base truncate">
-                    {userData?.name || "Administrator"}
-                  </h3>
-                  <p className="text-xs text-blue-300">
-                    {userData?.role === "ADMIN" ? "Administrator" : userData?.role || "Member"}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+      <Toaster position="top-right" />
+      <div className={`h-screen flex flex-col md:flex-row overflow-hidden transition-all duration-300 ${
+        isDark ? "bg-slate-950 text-white" : "bg-[#eef2f7] text-black"
+      }`}>
+        <aside className={`hidden md:flex flex-col transition-all duration-300 ${
+          collapsed ? "w-20" : "w-72"
+        } bg-gradient-to-b from-[#050b1f] via-[#071a3a] to-[#020617] text-white shadow-2xl flex-shrink-0 h-screen sticky top-0`}>
+          <SidebarContent isMobile={false} />
         </aside>
 
-        {/* CONTENT */}
-        <main className="flex-1 overflow-auto p-3 md:p-6">
-          {/* 🔥 PERBAIKAN: Kirim props userRole dan userName ke Revision */}
-          {selectedMenu === "Dashboard" && <Dashboard />}
-          {selectedMenu === "Projects" && <UploadProjectPage />}
-          {selectedMenu === "Progress" && <Progres />}
-          {selectedMenu === "Revision Issues" && (
-            <Revision 
-              userRole={userData?.role || "ADMIN"} 
-              userName={userData?.name || "Administrator"} 
-            />
-          )}
-          {selectedMenu === "MEMBER & MODUL" && <MembersModul />}
-          {selectedMenu === "Analytics" && <Analytics />}
+        {mobileSidebarOpen && (
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setMobileSidebarOpen(false)} />
+        )}
+        <div className={`fixed top-0 left-0 z-50 h-full w-80 bg-gradient-to-b from-[#050b1f] via-[#071a3a] to-[#020617] text-white shadow-2xl transition-transform duration-300 md:hidden ${
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}>
+          <SidebarContent isMobile={true} />
+        </div>
 
-          {/* Settings */}
-          {selectedMenu === "Settings Profile" && (
-            <SettingsProfile userData={userData} onUpdate={setUserData} />
-          )}
-          {selectedMenu === "Settings Tema" && (
-            <SettingsTema theme={theme} setTheme={setTheme} />
-          )}
-          {selectedMenu === "Change Password" && <ChangePassword />}
+        <main className="flex-1 overflow-auto relative">
+          <div className={`md:hidden flex items-center justify-between sticky top-0 z-30 px-4 py-3 border-b ${
+            isDark ? "bg-slate-900 border-slate-700" : "bg-[#eef2f7] border-gray-200"
+          }`}>
+            <button onClick={() => setMobileSidebarOpen(true)} className="p-2 rounded-lg shadow-md bg-white">
+              <FaBars size={22} className="text-[#001d55]" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-xs font-semibold text-gray-600">Role</p>
+                <p className="text-sm font-bold text-[#001d55]">{getDisplayRole(userData)}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                {userData?.name?.charAt(0)?.toUpperCase() || "A"}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 md:p-0">
+            {selectedMenu === "Dashboard" && <Dashboard userData={userData} theme={theme} />}
+            {selectedMenu === "Projects" && <UploadProjectPage theme={theme} />}
+            {selectedMenu === "Progress" && <Progres theme={theme} />}
+            {selectedMenu === "Revision Issues" && (
+              <Revision userRole={userData?.role || "ADMIN"} userName={userData?.name || "Administrator"} theme={theme} />
+            )}
+            {selectedMenu === "MEMBER & MODUL" && <MembersModul theme={theme} />}
+            {selectedMenu === "Analytics" && <Analytics theme={theme} />}
+            {selectedMenu === "Settings Profile" && (
+              <SettingsProfile userData={userData} onUpdate={setUserData} theme={theme} />
+            )}
+            {selectedMenu === "Settings Tema" && <SettingsTema theme={theme} setTheme={setTheme} />}
+            {selectedMenu === "Change Password" && <ChangePassword theme={theme} />}
+          </div>
         </main>
       </div>
     </>
