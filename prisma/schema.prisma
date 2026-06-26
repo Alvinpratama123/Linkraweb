@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,98 +8,149 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================
+// USER MODEL
+// ============================================
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String
-  name      String
-  role      String    @default("MEMBER")
-  position  String?
-  profile   String?
-  photo     String?
+  id               String            @id @default(cuid())
+  email            String            @unique
+  password         String
+  name             String
+  role             String            @default("member") // admin, member
+  position         String?           // Frontend, UI/UX, Backend, dll
+  profile          String?
+  photo            String?
+  isVerified       Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  isVerified Boolean  @default(false)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  registerOtps    RegisterOtp[]
-  sentRevisions   RevisionReport[] @relation("SentBy")
+  // Relations
+  registerOtps     RegisterOtp[]
+  passwordResets   PasswordResetToken[] // ✅ Relasi ke PasswordResetToken
   revisionComments RevisionComment[]
+  sentRevisions    RevisionReport[]  @relation("SentBy")
+  projects         Project[]
+
+  @@index([email])
+  @@index([role])
 }
 
+// ============================================
+// REGISTER OTP MODEL
+// ============================================
 model RegisterOtp {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   email     String
   code      String
   expiresAt DateTime
-  used      Boolean  @default(false)
+  used      Boolean   @default(false)
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now())
+  
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([code])
+  @@index([used])
+}
+
+// ============================================
+// PASSWORD RESET TOKEN MODEL
+// ============================================
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  
+  // ✅ Tambahkan relasi balik ke User
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String?
 
   @@index([email])
   @@index([code])
+  @@index([used])
+  @@index([userId])
 }
 
-
+// ============================================
+// PROJECT MODEL
+// ============================================
 model Project {
-  id          Int          @id @default(autoincrement())
+  id          String   @id @default(cuid())
   name        String
   position    String
   repoLink    String?
-  date        String
-  progress    Int          @default(0)
-  decision    String       @default("pending")
-  finished    Boolean      @default(false)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  date        DateTime @default(now())
+  progress    Int      @default(0)
+  decision    String   @default("pending") // pending, approved, rejected
+  finished    Boolean  @default(false)
+  
+  imageDescription  String?
+  imageDescription2 String?
+  imageUrl          String?
+  moduleUrl         String?
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   attachments Attachment[]
 
-  @@unique([name, position])
+  @@unique([name, userId])
+  @@index([userId])
+  @@index([decision])
+  @@index([createdAt])
 }
 
+// ============================================
+// ATTACHMENT MODEL
+// ============================================
 model Attachment {
-  id          Int      @id @default(autoincrement())
-  projectId   Int
-  type        String   // "image", "module", "link"
-  name        String
-  url         String
-  status      String   @default("pending") // "pending", "approved", "rejected"
-  description String?
+  id                      Int      @id @default(autoincrement())
+  projectId               String
+  type                    String   // "image", "module", "link"
+  name                    String
+  url                     String
+  status                  String   @default("pending") // pending, approved, rejected
+  description             String?
   isAdditionalDescription Boolean? @default(false)
-  createdAt   DateTime @default(now())
+  createdAt               DateTime @default(now())
 
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project                 Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([status])
 }
 
+// ============================================
+// REVISION REPORT MODEL
+// ============================================
 model RevisionReport {
-  id             String   @id @default(cuid())
+  id             String            @id @default(cuid())
   projectName    String
-  issueType      String   @default("MODUL")
-  description    String?  @db.Text        // ← hapus @default(""), jadikan nullable
-  progress       String   @default("BELUM_DILAKUKAN")
-  approval       String   @default("PENDING")
-  approvalNote   String?  @db.Text
-
+  issueType      String            @default("MODUL") // MODUL, DESIGN, FUNCTIONAL, OTHER
+  description    String?           @db.Text
+  progress       String            @default("BELUM_DILAKUKAN") // BELUM_DILAKUKAN, PROGRESS, SELESAI
+  approval       String            @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvalNote   String?           @db.Text
   senderRole     String
   targetRole     String
-
   sentById       String?
-  sentBy         User?    @relation("SentBy", fields: [sentById], references: [id])
-
   attachmentName String?
   attachmentUrl  String?
-  attachmentData String?  @db.LongText
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  attachmentData String?           @db.LongText
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   comments       RevisionComment[]
+  sentBy         User?             @relation("SentBy", fields: [sentById], references: [id], onDelete: SetNull)
 
   @@index([targetRole])
   @@index([senderRole])
@@ -106,16 +158,19 @@ model RevisionReport {
   @@index([createdAt])
 }
 
+// ============================================
+// REVISION COMMENT MODEL
+// ============================================
 model RevisionComment {
   id        String         @id @default(cuid())
   content   String         @db.Text
   authorId  String
   reportId  String
-
-  author    User           @relation(fields: [authorId], references: [id])
-  report    RevisionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-
   createdAt DateTime       @default(now())
 
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  report    RevisionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
   @@index([reportId])
+  @@index([authorId])
 }

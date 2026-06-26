@@ -74,6 +74,12 @@ export default function PTLintasWahanaLanding() {
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2 group cursor-pointer">
+             <div>
+              <h1 className="font-bold text-xl bg-gradient-to-r from-blue-900 to-blue-700 bg-clip-text text-transparent">
+               PT.
+              </h1>
+             
+            </div>
             <div className="relative">
               <img
                 src="/images/oip.png"
@@ -84,9 +90,9 @@ export default function PTLintasWahanaLanding() {
             </div>
             <div>
               <h1 className="font-bold text-xl bg-gradient-to-r from-blue-900 to-blue-700 bg-clip-text text-transparent">
-                PT Lintas Wahana
+               Wahana Teknologi
               </h1>
-              <p className="text-xs text-gray-500">Teknologi</p>
+             
             </div>
           </div>
 

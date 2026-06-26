@@ -212,6 +212,12 @@ export default function MembersDashboard() {
               ))}
             </div>
           )}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <FaBars size={20} />
+          </button>
         </div>
       </div>
 

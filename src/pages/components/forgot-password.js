@@ -13,9 +13,9 @@ export default function ForgotPassword() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [verifiedOtp, setVerifiedOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [resetId, setResetId] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,8 +24,6 @@ export default function ForgotPassword() {
   const [canResend, setCanResend] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  const inputRefs = [];
 
   // Countdown timer untuk resend OTP
   useEffect(() => {
@@ -146,10 +144,9 @@ export default function ForgotPassword() {
         throw new Error(data.message || "Verifikasi OTP gagal");
       }
 
+      setVerifiedOtp(otpCode);
       setSuccess("OTP valid. Silakan buat password baru.");
-      setResetId(data.resetId);
       setStep(3);
-      setOtp(["", "", "", "", "", ""]);
 
     } catch (error) {
       setError(error.message);
@@ -177,13 +174,15 @@ export default function ForgotPassword() {
     setSuccess("");
 
     try {
+      console.log("📤 Resetting password for:", email);
+
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          otp: otp.join(''),
-          newPassword,
+          code: verifiedOtp,
+          password: newPassword,
         }),
       });
 
@@ -231,6 +230,7 @@ export default function ForgotPassword() {
       setCountdown(60);
       setCanResend(false);
       setOtp(["", "", "", "", "", ""]);
+      setVerifiedOtp("");
 
       if (data.otp) {
         console.log(`📧 OTP baru: ${data.otp}`);
@@ -371,7 +371,7 @@ export default function ForgotPassword() {
     </form>
   );
 
-  // Render step 3: Reset password
+  // 🔥 Render step 3: Reset password (Tanpa tampilan OTP)
   const renderStep3 = () => (
     <form onSubmit={handleResetPassword} className="space-y-4">
       <div>
