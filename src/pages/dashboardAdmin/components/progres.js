@@ -1,3 +1,4 @@
+// src/pages/dashboardAdmin/components/progres.js
 "use client";
 
 import { useEffect, useState } from "react";
@@ -126,7 +127,7 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
       )}
 
       {/* 🔥 ACTION BUTTONS */}
-      <div className="flex flex-wrap gap-2 pt-2 border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-100'}">
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
           onClick={() => onStatusChange(attachment, "approved")}
@@ -164,13 +165,21 @@ export default function Progres({ theme, setTheme }) {
   const [projectSearch, setProjectSearch] = useState("");
   const [attachmentSearch, setAttachmentSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState("grid"); // grid | list
+  const [viewMode, setViewMode] = useState("grid");
 
   const fetchProjects = async () => {
     try {
       const res = await fetch("/api/projects");
       const data = await res.json();
       if (data.success) {
+        console.log("📊 Projects data:", data.projects.map(p => ({
+          id: p.id,
+          name: p.name,
+          imageUrl: p.imageUrl,
+          imageDescription: p.imageDescription,
+          moduleUrl: p.moduleUrl,
+          attachments: p.attachments?.length || 0
+        })));
         setProjects(data.projects);
         return data.projects;
       }
@@ -194,17 +203,79 @@ export default function Progres({ theme, setTheme }) {
     }
   }, [selectedProject?.id]);
 
+  // 🔥 Fungsi untuk mendapatkan semua attachment dari project
   const getProjectAttachments = (project) => {
     if (!project) return [];
 
-    const attachments = (project.attachments || []).map((item, index) => ({
-      ...item,
-      status: item.status || "pending",
-      label: item.name || (item.type === "image" ? `Gambar ${index + 1}` : item.type === "link" ? `Link ${index + 1}` : `PDF ${index + 1}`),
-      data: item.url || null,
-      description: item.description || null,
-    }));
+    const attachments = [];
 
+    // 1. Ambil dari attachments array (dari database)
+    if (project.attachments && project.attachments.length > 0) {
+      project.attachments.forEach((item) => {
+        attachments.push({
+          ...item,
+          status: item.status || "pending",
+          label: item.name || (item.type === "image" ? "Gambar" : item.type === "link" ? "Link" : "File"),
+          data: item.url || null,
+          description: item.description || null,
+        });
+      });
+    }
+
+    // 2. TAMBAHKAN: Image dari project langsung (field imageUrl) - 🔥 PRIORITAS UTAMA
+    if (project.imageUrl) {
+      const exists = attachments.some(a => a.url === project.imageUrl);
+      if (!exists) {
+        attachments.push({
+          id: `image-${project.id}`,
+          type: "image",
+          name: "Gambar Project",
+          label: "Gambar Project",
+          url: project.imageUrl,
+          data: project.imageUrl,
+          description: project.imageDescription || null,
+          createdAt: project.createdAt || project.date,
+          status: "pending",
+        });
+        console.log(`🖼️ Added image for ${project.name}: ${project.imageUrl}`);
+      }
+    }
+
+    // 3. TAMBAHKAN: Image Description 2 jika ada
+    if (project.imageDescription2) {
+      attachments.push({
+        id: `image2-${project.id}`,
+        type: "image",
+        name: "Keterangan Tambahan",
+        label: "Keterangan Tambahan",
+        url: project.imageUrl || "",
+        data: project.imageUrl || "",
+        description: project.imageDescription2,
+        createdAt: project.createdAt || project.date,
+        status: "pending",
+        isAdditionalDescription: true,
+      });
+    }
+
+    // 4. TAMBAHKAN: Module dari project (field moduleUrl)
+    if (project.moduleUrl) {
+      const exists = attachments.some(a => a.url === project.moduleUrl);
+      if (!exists) {
+        attachments.push({
+          id: `module-${project.id}`,
+          type: "module",
+          name: "Modul Project",
+          label: "Modul Project",
+          url: project.moduleUrl,
+          data: project.moduleUrl,
+          description: "Modul pembelajaran",
+          createdAt: project.createdAt || project.date,
+          status: "pending",
+        });
+      }
+    }
+
+    // 5. Tambahkan repo link jika ada
     if (project.repoLink) {
       attachments.push({
         id: `repo-${project.id}`,
@@ -215,10 +286,11 @@ export default function Progres({ theme, setTheme }) {
         url: project.repoLink,
         createdAt: project.date || project.createdAt || "",
         status: "pending",
-        description: null,
+        description: "Link repository / demo project",
       });
     }
 
+    console.log(`📎 Total attachments for ${project.name}: ${attachments.length}`);
     return attachments;
   };
 
@@ -269,25 +341,13 @@ export default function Progres({ theme, setTheme }) {
     }
   };
 
-  const handleDeleteAttachment = async (attachment) => {
-    if (!selectedProject || !attachment) return;
-    if (attachment.type === "link") {
-      await fetch(`/api/projects/${selectedProject.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoLink: "" }),
-      });
-    } else {
-      await fetch(`/api/projects/attachments/${attachment.id}`, { method: "DELETE" });
-    }
-    const updated = await fetchProjects();
-    const updatedProject = updated.find((p) => p.id === selectedProject.id);
-    setSelectedProject(updatedProject || null);
-    setSelectedAttachmentIndex(0);
-  };
-
   const setAttachmentStatus = async (attachment, status) => {
-    if (!attachment || attachment.type === "link") return;
+    if (!attachment || attachment.type === "link" || 
+        attachment.id?.startsWith?.("image-") || 
+        attachment.id?.startsWith?.("module-") || 
+        attachment.id?.startsWith?.("repo-")) {
+      return;
+    }
     try {
       await fetch(`/api/projects/attachments/${attachment.id}`, {
         method: "PATCH",
@@ -309,10 +369,44 @@ export default function Progres({ theme, setTheme }) {
     return matchesDate && matchesName;
   });
 
+  // 🔥 Render gambar di tabel - PERBAIKAN
+  const renderImageCell = (project) => {
+    // Cari dari berbagai sumber
+    const imageAttachment = project.attachments?.find((a) => a.type === "image");
+    const imageUrl = project.imageUrl || imageAttachment?.url;
+    
+    console.log(`🖼️ Rendering image for ${project.name}:`, { 
+      imageUrl, 
+      imageDescription: project.imageDescription,
+      hasAttachment: !!imageAttachment 
+    });
+
+    if (imageUrl) {
+      return (
+        <button
+          type="button"
+          onClick={() => setSelectedProject(project)}
+          className="group inline-flex items-center rounded-lg overflow-hidden"
+        >
+          <img
+            src={imageUrl}
+            alt={project.name}
+            className="w-20 h-14 object-cover rounded-lg transition duration-200 group-hover:scale-105"
+            onError={(e) => {
+              console.error("❌ Image load error:", imageUrl);
+              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='56'%3E%3Crect width='80' height='56' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='sans-serif' font-size='10'%3ENo Image%3C/text%3E%3C/svg%3E";
+            }}
+          />
+        </button>
+      );
+    }
+    return <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>;
+  };
+
   const renderModuleCell = (project) => {
     const matchingMembers = sampleMembers.filter((member) => member.position === project.position);
     const memberEmails = matchingMembers.map((member) => member.email).join(", ");
-    const moduleAttachment = project.attachments?.find((item) => item.type === "module");
+    const moduleUrl = project.moduleUrl;
 
     const renderMemberInfo = () => {
       if (!matchingMembers.length) return null;
@@ -323,6 +417,24 @@ export default function Progres({ theme, setTheme }) {
       );
     };
 
+    if (moduleUrl) {
+      return (
+        <div className="space-y-1">
+          <a
+            href={moduleUrl}
+            target="_blank"
+            rel="noreferrer"
+            download
+            className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'}`}
+          >
+            📄 Download Modul
+          </a>
+          {renderMemberInfo()}
+        </div>
+      );
+    }
+
+    const moduleAttachment = project.attachments?.find((item) => item.type === "module");
     if (moduleAttachment) {
       return (
         <div className="space-y-1">
@@ -443,29 +555,14 @@ export default function Progres({ theme, setTheme }) {
                 </thead>
                 <tbody>
                   {filteredProjects.map((project) => {
-                    const imageAttachment = project.attachments?.find((a) => a.type === "image");
                     return (
                       <tr key={project.id} className={`border-b ${theme === 'dark' ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-100 hover:bg-gray-50'} transition`}>
-                        <td className="py-4 px-3">
-                          {imageAttachment ? (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedProject(project)}
-                              className="group inline-flex items-center rounded-lg overflow-hidden"
-                            >
-                              <img
-                                src={imageAttachment.url}
-                                alt={imageAttachment.name}
-                                className="w-20 h-14 object-cover rounded-lg transition duration-200 group-hover:scale-105"
-                              />
-                            </button>
-                          ) : (
-                            <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>
-                          )}
-                        </td>
+                        <td className="py-4 px-3">{renderImageCell(project)}</td>
                         <td className={`py-4 px-3 font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>{project.name}</td>
                         <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{project.position}</td>
-                        <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{project.date}</td>
+                        <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {project.date ? new Date(project.date).toLocaleDateString('id-ID') : '-'}
+                        </td>
                         <td className="py-4 px-3">
                           {project.repoLink ? (
                             <a href={project.repoLink} target="_blank" rel="noreferrer" className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'}`}>
@@ -508,7 +605,7 @@ export default function Progres({ theme, setTheme }) {
           )}
         </div>
 
-        {/* 🔥 MODAL DETAIL PROJECT - Responsif */}
+        {/* 🔥 MODAL DETAIL PROJECT */}
         {selectedProject && (
           <div
             className={`fixed inset-0 z-50 flex items-center justify-center ${theme === 'dark' ? 'bg-black/80' : 'bg-black/60'} p-2 sm:p-4`}
@@ -520,14 +617,14 @@ export default function Progres({ theme, setTheme }) {
               className={`relative max-w-6xl w-full max-h-[95vh] rounded-2xl overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-2xl`}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 🔥 HEADER MODAL */}
+              {/* HEADER MODAL */}
               <div className={`sticky top-0 z-10 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} border-b px-4 sm:px-6 py-4 flex items-center justify-between`}>
                 <div className="flex-1 min-w-0">
                   <h2 className={`text-lg sm:text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} truncate`}>
                     {selectedProject.name}
                   </h2>
                   <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {selectedProject.position} • {selectedProject.date}
+                    {selectedProject.position} • {selectedProject.date ? new Date(selectedProject.date).toLocaleDateString('id-ID') : '-'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-4">
@@ -541,11 +638,10 @@ export default function Progres({ theme, setTheme }) {
                 </div>
               </div>
 
-              {/* 🔥 BODY MODAL */}
+              {/* BODY MODAL */}
               <div className="flex flex-col lg:flex-row gap-4 p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-80px)]">
                 {/* LEFT - List Attachment */}
                 <div className="lg:w-80 flex-shrink-0 space-y-4">
-                  {/* Search */}
                   <div>
                     <input
                       type="search"
@@ -556,7 +652,6 @@ export default function Progres({ theme, setTheme }) {
                     />
                   </div>
 
-                  {/* Attachment List */}
                   <div className={`space-y-3 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto pr-1 ${theme === 'dark' ? 'scrollbar-thin scrollbar-thumb-gray-600' : ''}`}>
                     {(() => {
                       const allAttachments = getProjectAttachments(selectedProject);
@@ -580,15 +675,6 @@ export default function Progres({ theme, setTheme }) {
                       return filteredAttachments.map((item, idx) => {
                         const globalIndex = filteredAttachments.indexOf(item);
                         const isActive = selectedAttachmentIndex === globalIndex;
-                        const statusColors = theme === 'dark' ? {
-                          approved: "border-green-700 bg-green-900/30",
-                          rejected: "border-red-700 bg-red-900/30",
-                          pending: "border-yellow-700 bg-yellow-900/30",
-                        } : {
-                          approved: "border-green-500 bg-green-50",
-                          rejected: "border-red-500 bg-red-50",
-                          pending: "border-yellow-500 bg-yellow-50",
-                        };
 
                         return (
                           <button
@@ -659,7 +745,7 @@ export default function Progres({ theme, setTheme }) {
                 </div>
               </div>
 
-              {/* 🔥 FOOTER MODAL - Action Buttons */}
+              {/* FOOTER MODAL */}
               <div className={`sticky bottom-0 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} border-t px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3`}>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Decision:</span>

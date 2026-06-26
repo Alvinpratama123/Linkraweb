@@ -1,72 +1,212 @@
+// pages/api/projects/[id].js
 import { prisma } from "@/lib/prisma";
+import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
+  // ─── 1. AMBIL ID DARI QUERY ──────────────────────────────
   const { id } = req.query;
-  const projectId = parseInt(id);
   
-  if (isNaN(projectId)) {
-    return res.status(400).json({ success: false, message: "Invalid project ID" });
+  // 🔥 Perbaikan: ID menggunakan String (cuid) bukan Int
+  if (!id) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "ID project wajib diisi" 
+    });
   }
-  
+
+  // ─── 2. VERIFIKASI TOKEN ──────────────────────────────────
+  const token = req.cookies.auth_token;
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "❌ Token tidak ditemukan. Silakan login terlebih dahulu.",
+    });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({
+      success: false,
+      message: "❌ Token tidak valid atau sudah expired.",
+    });
+  }
+
+  const userId = decoded.userId;
+
+  // ─── 3. CEK PROJECT ─────────────────────────────────────────
+  let project;
+  try {
+    project = await prisma.project.findUnique({
+      where: { id: id }, // 🔥 ID String, bukan Int
+      include: {
+        attachments: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            position: true,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error("❌ Find project error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Gagal mencari project",
+      detail: error.message,
+    });
+  }
+
+  if (!project) {
+    return res.status(404).json({
+      success: false,
+      message: "Project tidak ditemukan",
+    });
+  }
+
+  // ─── 4. CEK AKSES ──────────────────────────────────────────
+  if (project.userId !== userId) {
+    return res.status(403).json({
+      success: false,
+      message: "❌ Anda tidak memiliki akses ke project ini.",
+    });
+  }
+
+  // ─── 5. GET ─────────────────────────────────────────────────
   if (req.method === "GET") {
     try {
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        include: { attachments: true },
-      });
-      
-      if (!project) {
-        return res.status(404).json({ success: false, message: "Project not found" });
-      }
-      
       return res.status(200).json({
         success: true,
         project: project,
       });
     } catch (error) {
-      return res.status(500).json({ success: false, message: error.message });
+      console.error("❌ GET project error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server Error",
+        detail: error.message,
+      });
     }
   }
-  
+
+  // ─── 6. PATCH ───────────────────────────────────────────────
   if (req.method === "PATCH") {
     try {
-      const { decision, finished, repoLink } = req.body;
+      const { decision, finished, repoLink, position, progress, date } = req.body;
       
       const updateData = {};
-      if (decision !== undefined) updateData.decision = decision;
-      if (finished !== undefined) updateData.finished = finished;
-      if (repoLink !== undefined) updateData.repoLink = repoLink;
       
-      const project = await prisma.project.update({
-        where: { id: projectId },
+      // Validasi decision
+      if (decision !== undefined) {
+        const validDecisions = ["pending", "approved", "rejected"];
+        if (!validDecisions.includes(decision)) {
+          return res.status(400).json({
+            success: false,
+            message: "Decision tidak valid. Gunakan: pending, approved, atau rejected",
+          });
+        }
+        updateData.decision = decision;
+      }
+      
+      if (finished !== undefined) {
+        if (typeof finished !== "boolean") {
+          return res.status(400).json({
+            success: false,
+            message: "Finished harus berupa boolean (true/false)",
+          });
+        }
+        updateData.finished = finished;
+      }
+      
+      if (repoLink !== undefined) updateData.repoLink = repoLink || null;
+      if (position !== undefined) updateData.position = position;
+      if (progress !== undefined) {
+        if (progress < 0 || progress > 100) {
+          return res.status(400).json({
+            success: false,
+            message: "Progress harus antara 0-100",
+          });
+        }
+        updateData.progress = progress;
+      }
+      if (date !== undefined) {
+        updateData.date = date ? new Date(date) : new Date();
+      }
+
+      // 🔥 Update project
+      const updatedProject = await prisma.project.update({
+        where: { id: id },
         data: updateData,
-        include: { attachments: true },
+        include: {
+          attachments: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              position: true,
+            },
+          },
+        },
       });
+      
+      console.log(`✅ Project ${id} diupdate oleh user ${userId}`);
       
       return res.status(200).json({
         success: true,
-        project: project,
+        message: "Project berhasil diupdate",
+        project: updatedProject,
       });
     } catch (error) {
-      return res.status(500).json({ success: false, message: error.message });
+      console.error("❌ PATCH project error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server Error",
+        detail: error.message,
+      });
     }
   }
-  
+
+  // ─── 7. DELETE ──────────────────────────────────────────────
   if (req.method === "DELETE") {
     try {
-      // Hapus attachments terlebih dahulu (cascade akan otomatis jika sudah diatur)
+      // 🔥 Hapus project (attachment akan terhapus otomatis karena cascade)
       await prisma.project.delete({
-        where: { id: projectId },
+        where: { id: id },
       });
+      
+      console.log(`🗑️ Project ${id} dihapus oleh user ${userId}`);
       
       return res.status(200).json({
         success: true,
-        message: "Project deleted successfully",
+        message: "Project berhasil dihapus",
       });
     } catch (error) {
-      return res.status(500).json({ success: false, message: error.message });
+      console.error("❌ DELETE project error:", error);
+      
+      // Handle error jika project tidak ditemukan
+      if (error.code === "P2025") {
+        return res.status(404).json({
+          success: false,
+          message: "Project tidak ditemukan",
+        });
+      }
+      
+      return res.status(500).json({
+        success: false,
+        message: "Server Error",
+        detail: error.message,
+      });
     }
   }
-  //selesai
-  return res.status(405).json({ message: "Method not allowed" });
+
+  // ─── 8. METHOD NOT ALLOWED ──────────────────────────────────
+  return res.status(405).json({
+    success: false,
+    message: "Method not allowed",
+  });
 }

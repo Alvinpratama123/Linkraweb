@@ -1,7 +1,9 @@
+// pages/api/projects/upload.js
 import { prisma } from "@/lib/prisma";
 import formidable from "formidable";
 import fs from "fs";
 import path from "path";
+import jwt from "jsonwebtoken";
 
 export const config = {
   api: {
@@ -27,23 +29,60 @@ const allowedTypes = {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method not allowed" });
+    return res.status(405).json({ 
+      success: false,
+      message: "Method not allowed" 
+    });
   }
 
+  // ─── VERIFIKASI TOKEN ──────────────────────────────────
+  const token = req.cookies.auth_token;
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "❌ Token tidak ditemukan. Silakan login terlebih dahulu.",
+    });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({
+      success: false,
+      message: "❌ Token tidak valid atau sudah expired.",
+    });
+  }
+
+  const userId = decoded.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "❌ User ID tidak ditemukan dalam token.",
+    });
+  }
+
+  // ─── PROSES FORM ────────────────────────────────────────
   const form = formidable({
     uploadDir,
     keepExtensions: true,
     maxFileSize: 10 * 1024 * 1024,
+    multiples: false,
   });
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
       console.error("Form parse error:", err);
-      return res.status(400).json({ message: "Gagal parse form", detail: err.message });
+      return res.status(400).json({ 
+        success: false,
+        message: "Gagal parse form", 
+        detail: err.message 
+      });
     }
 
     try {
-      // Extract field values
+      // ─── EKSTRAK FIELD ──────────────────────────────────
       const name = Array.isArray(fields.name) ? fields.name[0] : fields.name;
       const position = Array.isArray(fields.position) ? fields.position[0] : fields.position;
       const repoLink = Array.isArray(fields.repoLink) ? fields.repoLink[0] : fields.repoLink;
@@ -52,159 +91,180 @@ export default async function handler(req, res) {
       const imageDescription = Array.isArray(fields.imageDescription) ? fields.imageDescription[0] : fields.imageDescription || "";
       const imageDescription2 = Array.isArray(fields.imageDescription2) ? fields.imageDescription2[0] : fields.imageDescription2 || "";
 
-      // Validasi required fields
-      if (!name || !position || !date) {
+      console.log("📝 Data project:", { 
+        name, 
+        position, 
+        userId, 
+        imageDescription, 
+        imageDescription2,
+        hasImageFile: !!files.imageFile,
+        imageFileSize: files.imageFile?.size || 0
+      });
+
+      if (!name) {
         return res.status(400).json({ 
           success: false,
-          message: "Nama, posisi, dan tanggal wajib diisi" 
+          message: "❌ Nama project wajib diisi" 
         });
       }
 
-      const allowedPositions = ["Frontend", "Backend", "Fullstack", "UI/UX", "DevOps", "QA", "PM"];
-      if (!allowedPositions.includes(position)) {
-        return res.status(400).json({ 
-          success: false,
-          message: "Posisi tidak valid" 
-        });
+      // ─── HANDLE IMAGE UPLOAD ────────────────────────────
+      let imageUrl = null;
+      let moduleUrl = null;
+
+      // 🔥 PERBAIKAN: Ambil file dengan benar
+      const imageFile = files.imageFile;
+      if (imageFile) {
+        // formidable bisa mengembalikan array atau object
+        const file = Array.isArray(imageFile) ? imageFile[0] : imageFile;
+        
+        if (file && file.size > 0) {
+          console.log("🖼️ Processing image file:", file.originalFilename, file.size);
+          
+          if (!allowedTypes.image.includes(file.mimetype)) {
+            return res.status(400).json({ 
+              success: false,
+              message: "❌ Format gambar tidak valid. Gunakan JPG, PNG, GIF, atau WEBP" 
+            });
+          }
+
+          const ext = path.extname(file.originalFilename || '');
+          const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
+          const newPath = path.join(uploadDir, fileName);
+          
+          // Pindahkan file
+          fs.renameSync(file.filepath, newPath);
+          imageUrl = `/uploads/${fileName}`;
+          console.log("🖼️ Image saved:", imageUrl);
+        }
       }
 
-      // Cek apakah project dengan nama + posisi sudah ada
+      // ─── HANDLE MODULE UPLOAD ──────────────────────────
+      const moduleFile = files.moduleFile;
+      if (moduleFile) {
+        const file = Array.isArray(moduleFile) ? moduleFile[0] : moduleFile;
+        
+        if (file && file.size > 0) {
+          console.log("📄 Processing module file:", file.originalFilename, file.size);
+          
+          if (!allowedTypes.module.includes(file.mimetype)) {
+            return res.status(400).json({ 
+              success: false,
+              message: "❌ Format modul tidak valid. Gunakan PDF atau Word" 
+            });
+          }
+
+          const ext = path.extname(file.originalFilename || '');
+          const fileName = `mod_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
+          const newPath = path.join(uploadDir, fileName);
+          
+          fs.renameSync(file.filepath, newPath);
+          moduleUrl = `/uploads/${fileName}`;
+          console.log("📄 Module saved:", moduleUrl);
+        }
+      }
+
+      // ─── CEK PROJECT EXISTING ───────────────────────────
       const existingProject = await prisma.project.findFirst({
         where: {
           name: name,
-          position: position,
+          userId: userId,
         },
       });
 
       let project;
 
+      // ─── CREATE OR UPDATE PROJECT ──────────────────────
       if (existingProject) {
-        // UPDATE project yang sudah ada
         project = await prisma.project.update({
           where: { id: existingProject.id },
           data: {
+            position: position || existingProject.position,
             repoLink: repoLink || existingProject.repoLink,
-            date: date,
-            progress: progress,
+            date: date ? new Date(date) : existingProject.date,
+            progress: progress || existingProject.progress,
+            imageDescription: imageDescription || existingProject.imageDescription,
+            imageDescription2: imageDescription2 || existingProject.imageDescription2,
+            // 🔥 UPDATE imageUrl dan moduleUrl jika ada file baru
+            imageUrl: imageUrl || existingProject.imageUrl,
+            moduleUrl: moduleUrl || existingProject.moduleUrl,
           },
         });
+        console.log("📝 Project updated:", project.id);
       } else {
-        // BUAT project baru
         project = await prisma.project.create({
           data: {
             name: name,
-            position: position,
+            position: position || "Frontend",
             repoLink: repoLink || null,
-            date: date,
-            progress: progress,
+            date: date ? new Date(date) : new Date(),
+            progress: progress || 0,
+            imageUrl: imageUrl,
+            moduleUrl: moduleUrl,
+            imageDescription: imageDescription || null,
+            imageDescription2: imageDescription2 || null,
+            userId: userId,
           },
         });
+        console.log("✅ Project created:", project.id);
       }
 
-      const attachments = [];
+      console.log("📊 Final project data:", {
+        id: project.id,
+        name: project.name,
+        imageUrl: project.imageUrl,
+        imageDescription: project.imageDescription,
+        moduleUrl: project.moduleUrl,
+      });
 
-      // Handle image upload
-      const imageFile = files.imageFile ? (Array.isArray(files.imageFile) ? files.imageFile[0] : files.imageFile) : null;
-      if (imageFile && imageFile.size > 0) {
-        // Validasi tipe file image
-        if (!allowedTypes.image.includes(imageFile.mimetype)) {
-          return res.status(400).json({ 
-            success: false,
-            message: "Format gambar tidak valid. Gunakan JPG, PNG, GIF, atau WEBP" 
-          });
-        }
-
-        const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(7)}${path.extname(imageFile.originalFilename || '')}`;
-        const newPath = path.join(uploadDir, fileName);
-        
-        // Pindahkan file
-        fs.renameSync(imageFile.filepath, newPath);
-
-        // Simpan deskripsi pertama sebagai description
-        const attachment = await prisma.attachment.create({
+      // ─── SIMPAN ATTACHMENT ─────────────────────────────
+      if (imageUrl) {
+        await prisma.attachment.create({
           data: {
             projectId: project.id,
             type: "image",
-            name: imageFile.originalFilename || fileName,
-            url: `/uploads/${fileName}`,
+            name: "Gambar Project",
+            url: imageUrl,
             status: "pending",
-            description: imageDescription || null, // Simpan deskripsi pertama
+            description: imageDescription || null,
           },
         });
-        attachments.push(attachment);
 
-        // Jika ada deskripsi kedua, buat attachment tambahan (tanpa file)
         if (imageDescription2 && imageDescription2.trim()) {
-          const attachment2 = await prisma.attachment.create({
+          await prisma.attachment.create({
             data: {
               projectId: project.id,
               type: "image",
-              name: `Keterangan tambahan untuk ${imageFile.originalFilename || fileName}`,
-              url: `/uploads/${fileName}`, // URL sama dengan gambar utama
+              name: "Keterangan tambahan",
+              url: imageUrl,
               status: "pending",
-              description: imageDescription2, // Simpan deskripsi kedua
-              isAdditionalDescription: true, // Flag untuk membedakan
+              description: imageDescription2,
+              isAdditionalDescription: true,
             },
           });
-          attachments.push(attachment2);
         }
       }
 
-      // Handle module upload
-      const moduleFile = files.moduleFile ? (Array.isArray(files.moduleFile) ? files.moduleFile[0] : files.moduleFile) : null;
-      if (moduleFile && moduleFile.size > 0) {
-        // Validasi tipe file module
-        if (!allowedTypes.module.includes(moduleFile.mimetype)) {
-          return res.status(400).json({ 
-            success: false,
-            message: "Format modul tidak valid. Gunakan PDF atau Word" 
-          });
-        }
-
-        // Hapus modul lama dari disk dan DB jika project sudah ada
-        if (existingProject) {
-          const oldModules = await prisma.attachment.findMany({
-            where: { 
-              projectId: project.id, 
-              type: "module" 
-            },
-          });
-          
-          for (const old of oldModules) {
-            const oldPath = path.join(process.cwd(), "public", old.url);
-            if (fs.existsSync(oldPath)) {
-              fs.unlinkSync(oldPath);
-            }
-            await prisma.attachment.delete({ where: { id: old.id } });
-          }
-        }
-
-        const fileName = `mod_${Date.now()}_${Math.random().toString(36).substring(7)}${path.extname(moduleFile.originalFilename || '')}`;
-        const newPath = path.join(uploadDir, fileName);
-        
-        // Pindahkan file
-        fs.renameSync(moduleFile.filepath, newPath);
-
-        const attachment = await prisma.attachment.create({
+      if (moduleUrl) {
+        await prisma.attachment.create({
           data: {
             projectId: project.id,
             type: "module",
-            name: moduleFile.originalFilename || fileName,
-            url: `/uploads/${fileName}`,
+            name: "Modul Project",
+            url: moduleUrl,
             status: "pending",
           },
         });
-        attachments.push(attachment);
       }
 
-      // Ambil semua attachment terbaru
+      // ─── AMBIL SEMUA ATTACHMENT ────────────────────────
       const allAttachments = await prisma.attachment.findMany({
         where: { projectId: project.id },
       });
 
       return res.status(200).json({
         success: true,
-        message: existingProject ? "Project berhasil diupdate" : "Project berhasil disimpan",
+        message: existingProject ? "✅ Project berhasil diupdate" : "✅ Project berhasil disimpan",
         project: {
           ...project,
           attachments: allAttachments,
@@ -212,11 +272,10 @@ export default async function handler(req, res) {
       });
 
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("❌ Upload error:", error);
       return res.status(500).json({ 
         success: false,
-        message: "Server Error", 
-        detail: error.message 
+        message: "❌ Terjadi kesalahan pada server: " + error.message,
       });
     }
   });

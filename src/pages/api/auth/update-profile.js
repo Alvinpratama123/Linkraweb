@@ -13,124 +13,151 @@ export const config = {
 
 export default async function handler(req, res) {
   if (req.method !== "PUT") {
-    return res.status(405).json({ 
-      success: false, 
-      message: "Method not allowed" 
+    return res.status(405).json({
+      success: false,
+      message: "Method not allowed",
     });
   }
 
   try {
-    // Ambil token dari cookie
+    // ─── Ambil & verifikasi token dari cookie ─────────────────
     const token = req.cookies.auth_token;
-
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Unauthorized" 
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // Verifikasi token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Parse form data dengan formidable
-    const form = new IncomingForm();
-    form.uploadDir = path.join(process.cwd(), "public/uploads/profiles");
-    form.keepExtensions = true;
-    form.maxFileSize = 2 * 1024 * 1024; // 2MB
-
-    // Buat folder jika belum ada
-    if (!fs.existsSync(form.uploadDir)) {
-      fs.mkdirSync(form.uploadDir, { recursive: true });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ success: false, message: "Token tidak valid atau sudah expired" });
     }
+
+    // ─── Parse FormData ───────────────────────────────────────
+    const uploadDir = path.join(process.cwd(), "public/uploads/profiles");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const form = new IncomingForm({
+      uploadDir,
+      keepExtensions: true,
+      maxFileSize: 2 * 1024 * 1024, // 2MB
+    });
 
     const [fields, files] = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
-        resolve([fields, files]);
+        else resolve([fields, files]);
       });
     });
 
-    const updateData = {};
-    
-    // Handle name
-    if (fields.name && fields.name[0] !== decoded.name) {
-      updateData.name = fields.name[0];
-    }
-    
-    // Handle email
-    if (fields.email && fields.email[0] !== decoded.email) {
-      // Cek email sudah dipakai
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          email: fields.email[0],
-          id: { not: decoded.userId },
-        },
-      });
-      if (existingUser) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Email sudah digunakan" 
-        });
-      }
-      updateData.email = fields.email[0];
-    }
-
-    // Handle photo
-    let newPhotoPath = null;
-    if (files.photo && files.photo[0]) {
-      const photo = files.photo[0];
-      const extension = path.extname(photo.originalFilename);
-      const fileName = `profile-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
-      const newPath = path.join(form.uploadDir, fileName);
-      
-      // Rename file
-      fs.renameSync(photo.filepath, newPath);
-      newPhotoPath = `/uploads/profiles/${fileName}`;
-      updateData.photo = newPhotoPath;
-
-      // Hapus foto lama
-      const oldUser = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: { photo: true },
-      });
-      
-      if (oldUser?.photo) {
-        const oldPhotoPath = path.join(process.cwd(), "public", oldUser.photo);
-        if (fs.existsSync(oldPhotoPath)) {
-          fs.unlinkSync(oldPhotoPath);
-        }
-      }
-    }
-
-    // Update database
-    const updatedUser = await prisma.user.update({
+    // ─── Ambil user saat ini dari DB ──────────────────────────
+    // FIX: ambil dulu user lengkap termasuk position, agar bisa
+    // dikembalikan di response meskipun field itu tidak diupdate.
+    const currentUser = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      data: updateData,
       select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        photo: true,
+        id:        true,
+        name:      true,
+        email:     true,
+        role:      true,
+        photo:     true,
+        position:  true,   // ← FIX: field ini harus diambil
         createdAt: true,
       },
     });
 
-    // Generate token baru dengan data terbaru
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    // ─── Bangun objek update ──────────────────────────────────
+    const updateData = {};
+
+    // Update name jika berubah
+    const newName = fields.name?.[0]?.trim();
+    if (newName && newName !== currentUser.name) {
+      updateData.name = newName;
+    }
+
+    // Update email jika berubah + cek duplikat
+    const newEmail = fields.email?.[0]?.trim().toLowerCase();
+    if (newEmail && newEmail !== currentUser.email) {
+      const emailTaken = await prisma.user.findFirst({
+        where: {
+          email: newEmail,
+          id: { not: decoded.userId },
+        },
+      });
+      if (emailTaken) {
+        return res.status(400).json({
+          success: false,
+          message: "Email sudah digunakan oleh akun lain",
+        });
+      }
+      updateData.email = newEmail;
+    }
+
+    // Update foto jika ada file baru
+    if (files.photo?.[0]) {
+      const photo     = files.photo[0];
+      const extension = path.extname(photo.originalFilename || ".jpg");
+      const fileName  = `profile-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
+      const newPath   = path.join(uploadDir, fileName);
+
+      fs.renameSync(photo.filepath, newPath);
+      updateData.photo = `/uploads/profiles/${fileName}`;
+
+      // Hapus foto lama jika ada
+      if (currentUser.photo) {
+        const oldPath = path.join(process.cwd(), "public", currentUser.photo);
+        if (fs.existsSync(oldPath)) {
+          try { fs.unlinkSync(oldPath); } catch { /* abaikan jika gagal */ }
+        }
+      }
+    }
+
+    // Tidak ada yang berubah
+    if (Object.keys(updateData).length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Tidak ada perubahan",
+        // FIX: tetap kembalikan user lengkap termasuk position
+        user: currentUser,
+      });
+    }
+
+    // ─── Update DB ────────────────────────────────────────────
+    const updatedUser = await prisma.user.update({
+      where: { id: decoded.userId },
+      data: updateData,
+      select: {
+        id:        true,
+        name:      true,
+        email:     true,
+        role:      true,
+        photo:     true,
+        position:  true,   // ← FIX: wajib ada agar posisi tidak hilang di frontend
+        createdAt: true,
+      },
+    });
+
+    // ─── Buat token baru ──────────────────────────────────────
     const newToken = jwt.sign(
       {
-        userId: updatedUser.id,
-        email: updatedUser.email,
-        name: updatedUser.name,
-        role: updatedUser.role,
-        photo: updatedUser.photo,
+        userId:   updatedUser.id,
+        email:    updatedUser.email,
+        name:     updatedUser.name,
+        role:     updatedUser.role,
+        photo:    updatedUser.photo,
+        position: updatedUser.position, // ← FIX: sertakan position di token
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Update cookie dengan token baru
+    // Update cookie
     res.setHeader(
       "Set-Cookie",
       `auth_token=${newToken}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax${
@@ -141,14 +168,22 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       message: "Profile berhasil diperbarui",
-      user: updatedUser,
+      user: updatedUser, // ← sekarang sudah menyertakan position
     });
-
   } catch (error) {
     console.error("Update profile error:", error);
-    return res.status(500).json({ 
-      success: false, 
-      message: error.message || "Terjadi kesalahan server" 
+
+    // Tangani error spesifik dari formidable (file terlalu besar)
+    if (error.code === 1009 || error.message?.includes("maxFileSize")) {
+      return res.status(400).json({
+        success: false,
+        message: "Ukuran file melebihi batas 2MB",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Terjadi kesalahan server",
     });
   }
 }

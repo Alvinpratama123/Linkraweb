@@ -36,19 +36,19 @@ export default function PTLintasWahanaLanding() {
       color: "from-blue-500 to-cyan-500",
     },
     {
-      title: "Infrastructure Management",
+      title: "Internet of Things (IoT)",
       desc: "Reliable server and network monitoring solutions with 99.9% uptime guarantee.",
       icon: <Database size={28} />,
       color: "from-purple-500 to-pink-500",
     },
     {
-      title: "IT Consulting",
+      title: "Data Analytics",
       desc: "Helping businesses transform through technology and digital innovation.",
       icon: <BarChart3 size={28} />,
       color: "from-orange-500 to-red-500",
     },
     {
-      title: "Data Security",
+      title: "UI/UX Design",
       desc: "Advanced protection for critical company systems with military-grade encryption.",
       icon: <ShieldCheck size={28} />,
       color: "from-green-500 to-emerald-500",
@@ -64,7 +64,7 @@ export default function PTLintasWahanaLanding() {
 
   return (
     <div className="bg-[#f5f7fb] text-gray-900 font-sans overflow-x-hidden">
-      {/* NAVBAR */}
+      {/* ─── NAVBAR ────────────────────────────────────────────── */}
       <header
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
@@ -73,13 +73,9 @@ export default function PTLintasWahanaLanding() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center gap-2 group cursor-pointer">
-             <div>
-              <h1 className="font-bold text-xl bg-gradient-to-r from-blue-900 to-blue-700 bg-clip-text text-transparent">
-               PT.
-              </h1>
-             
-            </div>
+          {/* ─── LOGO ────────────────────────────────────────── */}
+          <div className="flex items-center gap-2 group cursor-pointer flex-shrink-0">
+            <div className="block text-blue-700 font-bold text-lg md:text-xl leading-tight">PT</div>
             <div className="relative">
               <img
                 src="/images/oip.png"
@@ -88,16 +84,17 @@ export default function PTLintasWahanaLanding() {
               />
               <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
             </div>
-            <div>
-              <h1 className="font-bold text-xl bg-gradient-to-r from-blue-900 to-blue-700 bg-clip-text text-transparent">
-               Wahana Teknologi
+            <div className="hidden sm:block">
+              <h1 className="font-bold text-lg md:text-xl leading-tight">
+               
+                <span className="block text-blue-700">Wahana Teknologi</span>
               </h1>
-             
             </div>
           </div>
 
+          {/* ─── NAVIGATION ───────────────────────────────────── */}
           <nav className="hidden md:flex gap-8 text-sm font-medium">
-            {["Services", "Company", "Projects", "About", "Contact"].map((item) => (
+            {["Services", "Projects", "About", "Contact"].map((item) => (
               <a
                 key={item}
                 href="#"
@@ -108,15 +105,23 @@ export default function PTLintasWahanaLanding() {
             ))}
           </nav>
 
-          <Link href="/components/login">
-            <button className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-2.5 rounded-full hover:from-blue-800 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium">
-              Login
-            </button>
-          </Link>
+          {/* ─── BUTTONS ───────────────────────────────────────── */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <Link href="/components/login">
+              <button className="bg-transparent border-2 border-blue-700 text-blue-700 px-5 py-2 rounded-full hover:bg-blue-700 hover:text-white transition-all duration-300 font-medium text-sm">
+                Login
+              </button>
+            </Link>
+            <Link href="/components/register">
+              <button className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-5 py-2 rounded-full hover:from-blue-800 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium text-sm">
+                Register
+              </button>
+            </Link>
+          </div>
         </div>
       </header>
 
-      {/* HERO SECTION */}
+      {/* ─── HERO SECTION ──────────────────────────────────────── */}
       <section className="relative h-screen overflow-hidden">
         <div className="absolute inset-0">
           <img
@@ -131,13 +136,10 @@ export default function PTLintasWahanaLanding() {
           <div className="max-w-3xl text-white animate-fadeInUp">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
               <Sparkles size={16} className="text-yellow-400" />
-              <p className="uppercase tracking-[3px] text-xs font-semibold">
-                IT Infrastructure & Digital Solutions
-              </p>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6 bg-gradient-to-r from-white via-blue-200 to-white bg-clip-text text-transparent">
-              Digital Transformation & Infrastructure Solutions
+            <h1 className="text-4xl md:text-7xl font-bold leading-tight mb-6 bg-gradient-to-r from-white via-blue-200 to-white bg-clip-text text-transparent">
+              Platform Digital Tim Pengembangan Teknologi Linkra Wahana
             </h1>
 
             <p className="text-lg text-gray-200 mb-8 leading-relaxed">
@@ -145,7 +147,7 @@ export default function PTLintasWahanaLanding() {
               enterprise-grade digital transformation services.
             </p>
 
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 px-8 py-3.5 rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 flex items-center gap-2 group">
                 Learn More
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -166,7 +168,7 @@ export default function PTLintasWahanaLanding() {
         </div>
       </section>
 
-      {/* ABOUT SECTION */}
+      {/* ─── ABOUT SECTION ─────────────────────────────────────── */}
       <section className="py-28 bg-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-30"></div>
@@ -182,13 +184,13 @@ export default function PTLintasWahanaLanding() {
               </div>
 
               <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                Pioneering Technical Integrity in South East Asia
+                Teknologi Digital PT Linkra Wahana Teknologi
               </h2>
 
               <p className="text-gray-600 leading-8 mb-8 text-lg">
-                We deliver enterprise technology services with a focus on
-                innovation, security, and operational excellence. Our mission is
-                to accelerate digital transformation through scalable solutions.
+                PT Linkra Wahana Teknologi adalah perusahaan yang bergerak di bidang Teknologi Informasi dan Internet of Things (IoT). Kami hadir untuk memberikan solusi teknologi kelas enterprise yang inovatif, aman, dan berorientasi pada keunggulan operasional.
+
+                Misi kami adalah mempercepat transformasi digital melalui solusi yang skalabel dan terintegrasi. Di balik setiap solusi yang kami hadirkan, terdapat tim teknologi internal yang solid, kolaboratif, dan berdedikasi tinggi.
               </p>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -208,7 +210,7 @@ export default function PTLintasWahanaLanding() {
             <div className="relative animate-slideInRight">
               <div className="relative rounded-3xl overflow-hidden shadow-2xl">
                 <img
-                  src="/images/Li.jpg"
+                  src="/images/dashboard.png"
                   alt="office"
                   className="w-full h-[500px] object-cover object-center transition-transform duration-700 hover:scale-110"
                 />
@@ -220,7 +222,7 @@ export default function PTLintasWahanaLanding() {
         </div>
       </section>
 
-      {/* SERVICES SECTION */}
+      {/* ─── SERVICES SECTION ─────────────────────────────────── */}
       <section className="py-28 bg-gradient-to-br from-gray-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -269,7 +271,7 @@ export default function PTLintasWahanaLanding() {
         </div>
       </section>
 
-      {/* TECHNOLOGY SECTION */}
+      {/* ─── TECHNOLOGY SECTION ───────────────────────────────── */}
       <section className="py-28 bg-white relative overflow-hidden">
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-full">
           <div className="absolute top-20 left-10 w-72 h-72 bg-blue-100 rounded-full blur-3xl opacity-40"></div>
@@ -355,7 +357,7 @@ export default function PTLintasWahanaLanding() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* ─── FOOTER ────────────────────────────────────────────── */}
       <footer className="bg-gradient-to-br from-[#04142c] to-[#061a3a] text-gray-300 pt-20 pb-10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600 rounded-full blur-3xl opacity-10"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600 rounded-full blur-3xl opacity-10"></div>
@@ -409,7 +411,7 @@ export default function PTLintasWahanaLanding() {
                   placeholder="Email Address"
                   className="w-full px-4 py-3 rounded-l-xl outline-none text-black bg-white/90 focus:bg-white transition-all"
                 />
-                <button className="bg-gradient-to-r from-blue-600 to-blue-500 px-5 rounded-r-xl hover:from-blue-700 hover:to-blue-600 transition-all duration-300">
+                <button className="bg-gradient-to-r from-blue-600 to-blue-500 px-5 rounded-r-xl hover:from-blue-700 hover:to-blue-600 transition-all duration-300 text-white">
                   Send
                 </button>
               </div>
@@ -422,7 +424,7 @@ export default function PTLintasWahanaLanding() {
         </div>
       </footer>
 
-      {/* Animations CSS */}
+      {/* ─── ANIMATIONS CSS ────────────────────────────────────── */}
       <style jsx global>{`
         @keyframes slowZoom {
           from {
