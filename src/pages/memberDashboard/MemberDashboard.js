@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // ✅ Tambahkan useSearchParams
 import { FaBars, FaTimes } from "react-icons/fa";
 import {
   MdDashboard,
@@ -22,15 +22,18 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 
 // Components
-import Dashboard from "../dashboardAdmin/components/dashboard";
-import UploadProjectPage from "../dashboardAdmin/components/project";
-import Progres from "../dashboardAdmin/components/progres";
-import Revision from "../dashboardAdmin/components/revision";
-import Analytics from "../dashboardAdmin/components/analytics";
+import Dashboard from "../componentsDashboard/dashboard";
+import UploadProjectPage from "../componentsDashboard/project";
+import Progres from "../componentsDashboard/progres";
+import Revision from "../componentsDashboard/revision";
+import Analytics from "../componentsDashboard/analytics";
 import Profile from "../settings/profile";
 import SettingsTema from "../settings/settingsTema";
 
 export default function MembersDashboard() {
+  const router = useRouter();
+  const searchParams = useSearchParams(); // ✅ Ambil searchParams
+  
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -40,13 +43,23 @@ export default function MembersDashboard() {
   const [loading, setLoading] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const router = useRouter();
-
   const getDisplayPosition = (user) => {
     if (!user) return "Member";
     if (user.position) return user.position;
     return user.role || "Member";
   };
+
+  // ✅ CEK PARAMETER URL UNTUK NOTIFIKASI
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const projectId = searchParams.get('id');
+    
+    // Jika ada parameter tab=progress, buka Progress
+    if (tab === 'progress' || projectId) {
+      console.log('🔍 Opening Progress from URL:', { tab, projectId });
+      setSelectedMenu("Progress");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -87,13 +100,8 @@ export default function MembersDashboard() {
     fetchUserData();
   }, [router]);
 
-  // ─── FIX #1: Handler update userData ─────────────────────────
-  // Dipanggil oleh komponen <Profile onUpdate={handleUserUpdate} />
-  // Setelah save berhasil, state userData di sini ikut berubah
-  // sehingga sidebar (inisial + nama + posisi) langsung re-render.
   const handleUserUpdate = useCallback((updatedUser) => {
     setUserData(updatedUser);
-    // Sinkronkan juga ke localStorage agar konsisten
     localStorage.setItem("user", JSON.stringify(updatedUser));
   }, []);
 
@@ -144,7 +152,6 @@ export default function MembersDashboard() {
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
     { icon: <HiSun size={18} />, label: "Settings Tema" },
-   
   ];
 
   if (loading) {
@@ -158,19 +165,13 @@ export default function MembersDashboard() {
     );
   }
 
-  // ─── SIDEBAR CONTENT ──────────────────────────────────────────
-  // FIX #2: Hapus tombol FaBars duplikat yang ada di dalam blok
-  // settingsSubMenus. Tombol collapse hanya ada satu: di header sidebar.
   const SidebarContent = ({ isMobile = false }) => (
     <div className="flex flex-col h-full">
-
-      {/* Header logo + tombol collapse/close */}
       <div className="h-16 md:h-20 px-4 md:px-5 border-b border-white/10 flex items-center justify-between">
         {(!collapsed || isMobile) && (
-          <img src="/images/oip.png" alt="Logo" className="h-20 w-30" />
+          <img src="/images/oip.png" alt="Logo" className="h-15 w-30" />
         )}
         {isMobile ? (
-          // Mobile: tombol TUTUP sidebar
           <button
             onClick={() => setMobileSidebarOpen(false)}
             className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
@@ -178,7 +179,6 @@ export default function MembersDashboard() {
             <FaTimes size={20} />
           </button>
         ) : (
-          // Desktop: tombol COLLAPSE sidebar — SATU-SATUNYA tombol ini
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"
@@ -188,7 +188,6 @@ export default function MembersDashboard() {
         )}
       </div>
 
-      {/* Menu utama */}
       <div className="flex-1 px-2 md:px-3 py-3 md:py-5 overflow-y-auto">
         {memberMenus.map((menu) => (
           <button
@@ -208,7 +207,6 @@ export default function MembersDashboard() {
           </button>
         ))}
 
-        {/* Settings dropdown */}
         <div className="mt-4">
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
@@ -248,11 +246,9 @@ export default function MembersDashboard() {
               ))}
             </div>
           )}
-          {/* ✅ DIHAPUS: tombol FaBars duplikat yang dulu ada di sini */}
         </div>
       </div>
 
-      {/* Tombol logout */}
       <div className="px-3 pb-3 mt-4">
         <button
           onClick={handleLogout}
@@ -281,16 +277,8 @@ export default function MembersDashboard() {
         </button>
       </div>
 
-      {/* ─── PROFILE FOOTER ──────────────────────────────────────
-          FIX #1: Komponen ini sekarang reaktif terhadap `userData`
-          karena `userData` dikelola di parent dan dipass ke sini.
-          Setiap kali Settings Profile memanggil onUpdate(newData),
-          state `userData` di parent berubah → SidebarContent
-          ikut re-render → foto/nama/posisi di sini langsung update.
-      ─────────────────────────────────────────────────────────── */}
       <div className="border-t border-white/10 p-3 md:p-4">
         <div className="flex items-center gap-3">
-          {/* Avatar: pakai foto jika ada, fallback ke inisial */}
           {userData?.photo ? (
             <img
               src={userData.photo}
@@ -326,7 +314,6 @@ export default function MembersDashboard() {
           theme === "dark" ? "bg-slate-950 text-white" : "bg-[#eef2f7] text-black"
         }`}
       >
-        {/* ── SIDEBAR DESKTOP ──────────────────────────────────── */}
         <aside
           className={`hidden md:flex flex-col transition-all duration-300 ${
             collapsed ? "w-20" : "w-72"
@@ -335,7 +322,6 @@ export default function MembersDashboard() {
           <SidebarContent isMobile={false} />
         </aside>
 
-        {/* ── SIDEBAR MOBILE OVERLAY ───────────────────────────── */}
         {mobileSidebarOpen && (
           <div
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
@@ -350,10 +336,7 @@ export default function MembersDashboard() {
           <SidebarContent isMobile={true} />
         </div>
 
-        {/* ── MAIN CONTENT ─────────────────────────────────────── */}
         <main className="flex-1 overflow-auto p-3 md:p-6 relative">
-
-          {/* Mobile topbar */}
           <div
             className={`md:hidden flex items-center justify-between mb-4 sticky top-0 z-30 py-2 ${
               theme === "dark" ? "bg-slate-950" : "bg-[#eef2f7]"
@@ -386,9 +369,9 @@ export default function MembersDashboard() {
             </div>
           </div>
 
-          {/* ── PAGE CONTENT ───────────────────────────────────── */}
+          {/* ─── PAGE CONTENT ───────────────────────────────────── */}
           {selectedMenu === "Dashboard" && (
-            <Dashboard theme={theme} setTheme={setTheme} />
+            <Dashboard userData={userData} theme={theme} />
           )}
           {selectedMenu === "Progress" && (
             <Progres theme={theme} setTheme={setTheme} />
@@ -406,10 +389,6 @@ export default function MembersDashboard() {
           {selectedMenu === "Projects" && (
             <UploadProjectPage theme={theme} setTheme={setTheme} />
           )}
-
-          {/* FIX #1: onUpdate diarahkan ke handleUserUpdate
-              sehingga perubahan nama/foto/posisi dari halaman ini
-              langsung memperbarui state di parent → sidebar ikut update */}
           {selectedMenu === "Settings Profile" && (
             <Profile
               userData={userData}
@@ -421,7 +400,6 @@ export default function MembersDashboard() {
           {selectedMenu === "Settings Tema" && (
             <SettingsTema theme={theme} setTheme={setTheme} />
           )}
-         
         </main>
       </div>
     </>
