@@ -4,14 +4,22 @@
  * ============================================================
  */
  
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { FaSearch, FaBell, FaUsers } from "react-icons/fa";
 import { HiSparkles, HiFolder, HiCheckCircle, HiClock, HiFlag } from "react-icons/hi2";
+import { formatDistanceToNow } from 'date-fns';
+import { id } from 'date-fns/locale';
  
 export default function Dashboard({ userData = {}, theme = "light" }) {
   const [projects, setProjects] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // ─── STATE NOTIFIKASI ──────────────────────────────────────
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef(null);
  
   // ─── TEMA ───────────────────────────────────────────────────
   const isDark = theme === "dark";
@@ -35,12 +43,9 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
  
   // ─── FUNGSI GET DISPLAY ROLE ──────────────────────────────
   const getDisplayRole = (role, position) => {
-    // Jika ada position, tampilkan position (prioritas)
     if (position) {
-      return position; // Frontend, UI/UX, Backend, dll
+      return position;
     }
-    
-    // Jika tidak ada position, cek role
     const map = { 
       ADMIN: "Super Admin", 
       USER: "User", 
@@ -52,6 +57,111 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     };
     return map[role] || role || "User";
   };
+
+  // ─── FUNGSI NOTIFIKASI ─────────────────────────────────────
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/notifications?limit=10');
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Fetch notifications error:', error);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      fetchNotifications();
+    } catch (error) {
+      console.error('Mark as read error:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAll: true }),
+      });
+      fetchNotifications();
+    } catch (error) {
+      console.error('Mark all as read error:', error);
+    }
+  };
+
+  // 🔥 PERBAIKI: Handler klik notifikasi dengan router.push
+  const handleNotificationClick = (notification) => {
+    // Tandai sebagai sudah dibaca
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
+    
+    // Tutup dropdown
+    setIsNotifOpen(false);
+    
+    // 🔥 Redirect ke link menggunakan window.location
+    if (notification.link) {
+      console.log('🔗 Redirecting to:', notification.link);
+      // Gunakan window.location untuk navigasi
+      window.location.href = notification.link;
+    }
+  };
+
+  const getNotifIcon = (type, icon) => {
+    if (icon) return icon;
+    const icons = {
+      project: '📁',
+      member: '👤',
+      revision: '📝',
+      system: '🔔',
+      approved: '✅',
+      rejected: '❌',
+      finished: '🎉',
+    };
+    return icons[type] || '📢';
+  };
+
+  const getNotifColor = (type, color) => {
+    if (color) return color;
+    const colors = {
+      project: 'blue',
+      member: 'purple',
+      revision: 'orange',
+      system: 'gray',
+      approved: 'green',
+      rejected: 'red',
+      finished: 'green',
+    };
+    return colors[type] || 'gray';
+  };
+
+  const formatTime = (date) => {
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: id });
+    } catch {
+      return 'baru saja';
+    }
+  };
+
+  // ─── CLOSE NOTIFICATION ON CLICK OUTSIDE ──────────────────
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
  
   // ─── FETCH DATA ─────────────────────────────────────────────
   useEffect(() => {
@@ -70,17 +180,18 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
         try {
           const membersRes = await fetch("/api/members");
           const membersData = await membersRes.json();
-          console.log("📊 Members data:", membersData);
           if (membersData.success && membersData.members) {
             setMembers(membersData.members);
           } else {
-            console.warn("No members data found");
             setMembers([]);
           }
         } catch (memberError) {
           console.error("Error fetching members:", memberError);
           setMembers([]);
         }
+
+        // Fetch notifications
+        await fetchNotifications();
 
       } catch (error) {
         console.error("Fetch data error:", error);
@@ -89,8 +200,12 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
       }
     };
     fetchData();
+
+    // Polling every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
- 
+
   // ─── STATISTIK ──────────────────────────────────────────────
   const totalProjects    = projects.length;
   const approvedProjects = projects.filter((p) => p.decision === "approved").length;
@@ -98,9 +213,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
   const finishedProjects = projects.filter((p) => p.finished).length;
   const totalMembers     = members.length;
  
-  /**
-   * STATS CARDS CONFIG
-   */
+  // ─── STATS CARDS ────────────────────────────────────────────
   const stats = [
     {
       title: "Total Projects",
@@ -167,8 +280,6 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count);
   const maxMember = Math.max(...memberStats.map((item) => item.count), 1);
-
-  console.log("📊 Member Stats:", memberStats);
  
   // ─── CHART: PROGRAM ANALYTICS ──────────────────────────────
   const categoryKeywords = {
@@ -269,13 +380,114 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
         </div>
  
         <div className="flex items-center gap-4">
-          <button className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group ${
-            isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
-          }`}>
-            <FaBell className={isDark ? "text-slate-400 group-hover:text-blue-400" : "text-gray-600 group-hover:text-[#001d55]"} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          {/* ─── NOTIFICATION BELL ───────────────────────────── */}
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => {
+                setIsNotifOpen(!isNotifOpen);
+                if (!isNotifOpen) fetchNotifications();
+              }}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group ${
+                isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
+              }`}
+            >
+              <FaBell className={isDark ? "text-slate-400 group-hover:text-blue-400" : "text-gray-600 group-hover:text-[#001d55]"} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* ─── NOTIFICATION DROPDOWN ──────────────────────── */}
+            {isNotifOpen && (
+              <div className={`absolute right-0 mt-2 w-96 max-h-[500px] rounded-2xl shadow-2xl overflow-hidden z-50 ${
+                isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'
+              }`}>
+                {/* Header */}
+                <div className={`px-4 py-3 border-b flex justify-between items-center ${
+                  isDark ? 'border-slate-700' : 'border-gray-200'
+                }`}>
+                  <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                    Notifikasi
+                  </span>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className={`text-xs font-medium ${
+                        isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                      }`}
+                    >
+                      Tandai semua sudah dibaca
+                    </button>
+                  )}
+                </div>
+
+                {/* List */}
+                <div className="overflow-y-auto max-h-[400px]">
+                  {notifications.length === 0 ? (
+                    <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
+                      <span className="text-4xl block mb-2">🔔</span>
+                      Tidak ada notifikasi
+                    </div>
+                  ) : (
+                    notifications.map((notif) => {
+                      const color = getNotifColor(notif.type, notif.color);
+                      const bgColor = {
+                        blue: isDark ? 'bg-blue-900/30' : 'bg-blue-50',
+                        purple: isDark ? 'bg-purple-900/30' : 'bg-purple-50',
+                        orange: isDark ? 'bg-orange-900/30' : 'bg-orange-50',
+                        green: isDark ? 'bg-green-900/30' : 'bg-green-50',
+                        red: isDark ? 'bg-red-900/30' : 'bg-red-50',
+                        gray: isDark ? 'bg-slate-700/50' : 'bg-gray-50',
+                      }[color] || (isDark ? 'bg-slate-700/50' : 'bg-gray-50');
+
+                      const borderColor = {
+                        blue: isDark ? 'border-blue-700' : 'border-blue-200',
+                        purple: isDark ? 'border-purple-700' : 'border-purple-200',
+                        orange: isDark ? 'border-orange-700' : 'border-orange-200',
+                        green: isDark ? 'border-green-700' : 'border-green-200',
+                        red: isDark ? 'border-red-700' : 'border-red-200',
+                        gray: isDark ? 'border-slate-600' : 'border-gray-200',
+                      }[color] || (isDark ? 'border-slate-600' : 'border-gray-200');
+
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`px-4 py-3 border-b cursor-pointer transition-all hover:bg-opacity-50 ${
+                            isDark ? 'border-slate-700 hover:bg-slate-700' : 'border-gray-100 hover:bg-gray-50'
+                          } ${!notif.isRead ? 'border-l-4 ' + borderColor : ''}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${bgColor}`}>
+                              {getNotifIcon(notif.type, notif.icon)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-800'} ${!notif.isRead ? 'font-semibold' : ''}`}>
+                                {notif.title}
+                              </p>
+                              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'} mt-0.5 line-clamp-2`}>
+                                {notif.message}
+                              </p>
+                              <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-gray-400'} mt-1`}>
+                                {formatTime(notif.createdAt)}
+                              </p>
+                            </div>
+                            {!notif.isRead && (
+                              <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2"></span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
  
+          {/* ─── USER PROFILE ─────────────────────────────────── */}
           <div className={`flex items-center gap-3 cursor-pointer transition-all duration-300 rounded-xl px-3 py-1.5 ${
             isDark ? "hover:bg-slate-800" : "hover:bg-gray-50"
           }`}>
@@ -293,7 +505,6 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
               <h3 className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-800"}`}>
                 {userName}
               </h3>
-              {/* 🔥 PERBAIKAN: Tampilkan position bukan role */}
               <p className={`text-xs ${isDark ? "text-blue-400" : "text-gray-500"}`}>
                 {displayRole}
               </p>

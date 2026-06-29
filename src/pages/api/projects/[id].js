@@ -1,12 +1,12 @@
 // pages/api/projects/[id].js
 import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
+import { createProjectNotification } from "@/lib/notification";
 
 export default async function handler(req, res) {
   // ─── 1. AMBIL ID DARI QUERY ──────────────────────────────
   const { id } = req.query;
   
-  // 🔥 Perbaikan: ID menggunakan String (cuid) bukan Int
   if (!id) {
     return res.status(400).json({ 
       success: false, 
@@ -26,6 +26,7 @@ export default async function handler(req, res) {
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
   } catch (err) {
     return res.status(401).json({
       success: false,
@@ -39,7 +40,7 @@ export default async function handler(req, res) {
   let project;
   try {
     project = await prisma.project.findUnique({
-      where: { id: id }, // 🔥 ID String, bukan Int
+      where: { id: id },
       include: {
         attachments: true,
         user: {
@@ -99,6 +100,8 @@ export default async function handler(req, res) {
       const { decision, finished, repoLink, position, progress, date } = req.body;
       
       const updateData = {};
+      let previousDecision = project.decision;
+      let previousFinished = project.finished;
       
       // Validasi decision
       if (decision !== undefined) {
@@ -155,6 +158,59 @@ export default async function handler(req, res) {
       });
       
       console.log(`✅ Project ${id} diupdate oleh user ${userId}`);
+
+      // ─── 🔥 KIRIM NOTIFIKASI ─────────────────────────────
+      try {
+        // Notifikasi untuk perubahan decision (approved/rejected)
+        if (decision !== undefined && decision !== previousDecision) {
+          let action = null;
+          if (decision === "approved") {
+            action = "approved";
+          } else if (decision === "rejected") {
+            action = "rejected";
+          }
+          
+          if (action) {
+            // Kirim ke owner project
+            await createProjectNotification(updatedProject, project.userId, action);
+            
+            // Kirim ke semua admin
+            const admins = await prisma.user.findMany({
+              where: { role: "admin" },
+              select: { id: true },
+            });
+            
+            for (const admin of admins) {
+              if (admin.id !== project.userId) {
+                await createProjectNotification(updatedProject, admin.id, action);
+              }
+            }
+            console.log(`📢 Notifikasi ${action} dikirim`);
+          }
+        }
+
+        // Notifikasi untuk finished
+        if (finished !== undefined && finished !== previousFinished && finished === true) {
+          // Kirim ke owner project
+          await createProjectNotification(updatedProject, project.userId, "finished");
+          
+          // Kirim ke semua admin
+          const admins = await prisma.user.findMany({
+            where: { role: "admin" },
+            select: { id: true },
+          });
+          
+          for (const admin of admins) {
+            if (admin.id !== project.userId) {
+              await createProjectNotification(updatedProject, admin.id, "finished");
+            }
+          }
+          console.log(`📢 Notifikasi finished dikirim`);
+        }
+      } catch (notifError) {
+        console.error("❌ Notification error:", notifError);
+        // Notifikasi gagal tapi update tetap berhasil
+      }
       
       return res.status(200).json({
         success: true,
@@ -174,7 +230,6 @@ export default async function handler(req, res) {
   // ─── 7. DELETE ──────────────────────────────────────────────
   if (req.method === "DELETE") {
     try {
-      // 🔥 Hapus project (attachment akan terhapus otomatis karena cascade)
       await prisma.project.delete({
         where: { id: id },
       });
@@ -188,7 +243,6 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error("❌ DELETE project error:", error);
       
-      // Handle error jika project tidak ditemukan
       if (error.code === "P2025") {
         return res.status(404).json({
           success: false,

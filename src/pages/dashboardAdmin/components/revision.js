@@ -731,7 +731,7 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
                     onChange={(e) => setTargetRole(e.target.value)}
                     className={`mt-2 w-full h-11 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200`}
                   >
-                    {(SENDER_TARGET_MAP[myRole] || ["FRONTEND", "BACKEND", "QA"]).map((r) => (
+                    {(SENDER_TARGET_MAP[myRole] || ["FRONTEND", "BACKEND", "QA","PM","UI/UX",]).map((r) => (
                       <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
                     ))}
                   </select>

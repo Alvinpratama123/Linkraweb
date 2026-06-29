@@ -4,6 +4,7 @@ import formidable from "formidable";
 import fs from "fs";
 import path from "path";
 import jwt from "jsonwebtoken";
+import { createProjectNotification } from "@/lib/notification";
 
 export const config = {
   api: {
@@ -47,6 +48,7 @@ export default async function handler(req, res) {
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
   } catch (err) {
     return res.status(401).json({
       success: false,
@@ -112,10 +114,8 @@ export default async function handler(req, res) {
       let imageUrl = null;
       let moduleUrl = null;
 
-      // 🔥 PERBAIKAN: Ambil file dengan benar
       const imageFile = files.imageFile;
       if (imageFile) {
-        // formidable bisa mengembalikan array atau object
         const file = Array.isArray(imageFile) ? imageFile[0] : imageFile;
         
         if (file && file.size > 0) {
@@ -132,7 +132,6 @@ export default async function handler(req, res) {
           const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
           const newPath = path.join(uploadDir, fileName);
           
-          // Pindahkan file
           fs.renameSync(file.filepath, newPath);
           imageUrl = `/uploads/${fileName}`;
           console.log("🖼️ Image saved:", imageUrl);
@@ -185,7 +184,6 @@ export default async function handler(req, res) {
             progress: progress || existingProject.progress,
             imageDescription: imageDescription || existingProject.imageDescription,
             imageDescription2: imageDescription2 || existingProject.imageDescription2,
-            // 🔥 UPDATE imageUrl dan moduleUrl jika ada file baru
             imageUrl: imageUrl || existingProject.imageUrl,
             moduleUrl: moduleUrl || existingProject.moduleUrl,
           },
@@ -207,6 +205,22 @@ export default async function handler(req, res) {
           },
         });
         console.log("✅ Project created:", project.id);
+
+        // ─── 🔥 KIRIM NOTIFIKASI ─────────────────────────────
+        try {
+          // Kirim notifikasi ke semua user (termasuk admin)
+          const users = await prisma.user.findMany({
+            select: { id: true },
+          });
+
+          for (const user of users) {
+            await createProjectNotification(project, user.id, "upload");
+          }
+          console.log(`📢 Notifikasi dikirim ke ${users.length} user`);
+        } catch (notifError) {
+          console.error("❌ Notification error:", notifError);
+          // Notifikasi gagal tapi project tetap tersimpan
+        }
       }
 
       console.log("📊 Final project data:", {

@@ -26,13 +26,38 @@ model User {
 
   // Relations
   registerOtps     RegisterOtp[]
-  passwordResets   PasswordResetToken[] // ✅ Relasi ke PasswordResetToken
+  passwordResets   PasswordResetToken[]
   revisionComments RevisionComment[]
   sentRevisions    RevisionReport[]  @relation("SentBy")
   projects         Project[]
+  notifications    Notification[]    // ✅ TAMBAHKAN INI
 
   @@index([email])
   @@index([role])
+}
+
+// ============================================
+// NOTIFICATION MODEL
+// ============================================
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  message     String   @db.Text
+  type        String   @default("system") // "project", "member", "revision", "system"
+  link        String?
+  isRead      Boolean  @default(false)
+  icon        String?
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([userId, isRead])
 }
 
 // ============================================
@@ -67,7 +92,6 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   
-  // ✅ Tambahkan relasi balik ke User
   user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String?
 
