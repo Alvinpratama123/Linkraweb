@@ -4,7 +4,7 @@ import formidable from "formidable";
 import fs from "fs";
 import path from "path";
 import jwt from "jsonwebtoken";
-import { createProjectNotification } from "@/lib/notification";
+import { sendProjectNotificationToAllUsers } from "@/lib/notification"; // 🔥 Ganti import
 
 export const config = {
   api: {
@@ -63,6 +63,24 @@ export default async function handler(req, res) {
       success: false,
       message: "❌ User ID tidak ditemukan dalam token.",
     });
+  }
+
+  // ─── AMBIL DATA USER UNTUK SENDER ROLE ────────────────
+  let senderUser = null;
+  try {
+    senderUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        position: true, 
+        role: true 
+      },
+    });
+    console.log("👤 Sender user:", senderUser?.name, senderUser?.position || senderUser?.role);
+  } catch (userError) {
+    console.error("❌ Error fetching user:", userError);
   }
 
   // ─── PROSES FORM ────────────────────────────────────────
@@ -206,17 +224,14 @@ export default async function handler(req, res) {
         });
         console.log("✅ Project created:", project.id);
 
-        // ─── 🔥 KIRIM NOTIFIKASI ─────────────────────────────
+        // ─── 🔥 KIRIM NOTIFIKASI KE SEMUA USER ─────────────
         try {
-          // Kirim notifikasi ke semua user (termasuk admin)
-          const users = await prisma.user.findMany({
-            select: { id: true },
-          });
-
-          for (const user of users) {
-            await createProjectNotification(project, user.id, "upload");
-          }
-          console.log(`📢 Notifikasi dikirim ke ${users.length} user`);
+          // Dapatkan sender role dari user
+          const senderRole = senderUser?.position || senderUser?.role || "User";
+          
+          // Kirim notifikasi ke semua user
+          await sendProjectNotificationToAllUsers(project, "upload", senderRole);
+          console.log(`📢 Notifikasi upload dikirim ke semua user oleh ${senderRole}`);
         } catch (notifError) {
           console.error("❌ Notification error:", notifError);
           // Notifikasi gagal tapi project tetap tersimpan

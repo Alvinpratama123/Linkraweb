@@ -5,12 +5,14 @@
  */
  
 import React, { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation"; // ✅ Tambahkan ini
 import { FaSearch, FaBell, FaUsers } from "react-icons/fa";
 import { HiSparkles, HiFolder, HiCheckCircle, HiClock, HiFlag } from "react-icons/hi2";
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
  
 export default function Dashboard({ userData = {}, theme = "light" }) {
+  const router = useRouter(); // ✅ Tambahkan router
   const [projects, setProjects] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +81,8 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       });
-      fetchNotifications();
+      // Refresh notifikasi setelah mark as read
+      await fetchNotifications();
     } catch (error) {
       console.error('Mark as read error:', error);
     }
@@ -92,7 +95,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markAll: true }),
       });
-      fetchNotifications();
+      await fetchNotifications();
     } catch (error) {
       console.error('Mark all as read error:', error);
     }
@@ -108,11 +111,13 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     // Tutup dropdown
     setIsNotifOpen(false);
     
-    // 🔥 Redirect ke link menggunakan window.location
+    // 🔥 Redirect menggunakan router.push (lebih cepat dari window.location)
     if (notification.link) {
       console.log('🔗 Redirecting to:', notification.link);
-      // Gunakan window.location untuk navigasi
-      window.location.href = notification.link;
+      // Beri sedikit delay agar mark as read selesai
+      setTimeout(() => {
+        router.push(notification.link);
+      }, 300);
     }
   };
 
