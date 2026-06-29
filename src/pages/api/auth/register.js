@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const validRoles = ["admin", "member", "user", "frontend", "backend", "uiux", "qa", "pm", "devops", "fullstack"];
+    const validRoles = ["admin", "member", "user", "frontend", "backend", "uiux", "qa", "pm",];
     if (!validRoles.includes(role.toLowerCase())) {
       return res.status(400).json({
         success: false,

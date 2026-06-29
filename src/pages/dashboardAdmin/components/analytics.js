@@ -96,9 +96,7 @@ export default function Analytics({ theme = "light" }) {
     'Lainnya': { bg: 'bg-gray-500', stroke: '#6b7280' },
     Frontend: { bg: 'bg-sky-500', stroke: '#0ea5e9' },
     Backend: { bg: 'bg-cyan-600', stroke: '#0891b2' },
-    Fullstack: { bg: 'bg-green-600', stroke: '#16a34a' },
     'UI/UX': { bg: 'bg-violet-500', stroke: '#8b5cf6' },
-    DevOps: { bg: 'bg-orange-500', stroke: '#f97316' },
     QA: { bg: 'bg-amber-500', stroke: '#f59e0b' },
     PM: { bg: 'bg-purple-600', stroke: '#7c3aed' },
   };

@@ -1,7 +1,9 @@
+// lib/mailer.js
 import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
 
+// Konfigurasi transporter
 const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
   port: parseInt(process.env.MAIL_PORT || "587"),
@@ -15,11 +17,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// 🔥 PERBAIKI: Tambahkan try-catch dan return value
 export async function sendRegisterOtpEmail({ to, name, code }) {
-  const logoPath = path.join(process.cwd(), "/images/oip.png");
-  const logoExists = fs.existsSync(logoPath);
+  try {
+    const logoPath = path.join(process.cwd(), "public/images/oip.png");
+    const logoExists = fs.existsSync(logoPath);
 
-  const html = `
+    const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -30,22 +34,18 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
 
 <body style="margin:0; padding:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #030712; -webkit-font-smoothing: antialiased;">
 
-<!-- BACKGROUND OUTER -->
 <table width="100%" cellpadding="0" cellspacing="0" style="background: radial-gradient(circle at top, #0b1528, #030712); padding: 60px 0 80px 0;">
 <tr>
 <td align="center">
 
-  <!-- TOP GLOW ACCENT LINE (Efek Garis Mewah Full-Color) -->
   <table width="560" cellpadding="0" cellspacing="0" style="margin-bottom: -4px;">
     <tr>
       <td style="height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899); border-radius: 4px 4px 0 0;"></td>
     </tr>
   </table>
 
-  <!-- MAIN CARD CONTAINER -->
   <table width="560" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-left: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0 0 24px 24px; overflow: hidden; box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.75);">
     
-    <!-- HEADER BRANDING -->
     <tr>
       <td style="padding: 45px 40px 35px 40px; text-align: center; background: linear-gradient(180deg, rgba(30, 27, 75, 0.4) 0%, rgba(15, 23, 42, 0) 100%); border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
         
@@ -64,7 +64,6 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
       </td>
     </tr>
 
-    <!-- EMAIL BODY -->
     <tr>
       <td style="padding: 45px 45px 35px 45px;">
         
@@ -73,7 +72,7 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
         </div>
         
         <p style="text-align: center; color: #94a3b8; margin-top: 8px; margin-bottom: 35px; font-size: 13.5px;">
-          Gunakan kode OTP berikut untuk melanjutkan proses login
+          Gunakan kode OTP berikut untuk melanjutkan proses registrasi
         </p>
         
         <div style="font-size: 14.5px; color: #e2e8f0; margin-bottom: 10px;">
@@ -81,10 +80,9 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
         </div>
         
         <p style="color: #94a3b8; font-size: 13.5px; line-height: 1.6; margin-top: 0;">
-          Kami mendeteksi permintaan autentikasi dari akun Anda. Masukkan kode rahasia di bawah ini untuk memvalidasi identitas Anda.
+          Kami menerima permintaan registrasi akun baru. Masukkan kode rahasia di bawah ini untuk memvalidasi identitas Anda.
         </p>
 
-        <!-- PREMIUM OTP BOX (Gradien Full Color & Efek Glow) -->
         <table width="100%" cellpadding="0" cellspacing="0" style="margin: 35px 0; background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(147, 51, 234, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 16px;">
           <tr>
             <td style="padding: 30px 20px; text-align: center;">
@@ -94,21 +92,20 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
               </div>
               
               <div style="margin-top: 14px; font-size: 11px; color: #f43f5e; font-weight: 700; letter-spacing: 1.5px;">
-                SECURITY CODE • VALID FOR 5 MINUTES
+                SECURITY CODE • VALID FOR 15 MINUTES
               </div>
 
             </td>
           </tr>
         </table>
 
-        <!-- SECURITY NOTICE INNER BOX -->
         <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(30, 41, 59, 0.4); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.04);">
           <tr>
             <td style="padding: 20px; font-size: 12.5px; color: #94a3b8; line-height: 1.7;">
               <div style="color: #cbd5e1; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🔒 Catatan Keamanan Penting:</div>
               <div style="margin-bottom: 4px;">• Jangan pernah membagikan kode OTP ini kepada siapa pun.</div>
               <div style="margin-bottom: 4px;">• Tim kami tidak akan pernah meminta kode verifikasi Anda.</div>
-              <div>• Kode ini akan kedaluwarsa secara otomatis dalam waktu 5 menit.</div>
+              <div>• Kode ini akan kedaluwarsa secara otomatis dalam waktu 15 menit.</div>
             </td>
           </tr>
         </table>
@@ -116,7 +113,6 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
       </td>
     </tr>
 
-    <!-- FOOTER -->
     <tr>
       <td style="padding: 30px 40px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255, 255, 255, 0.05); background-color: #090f1c;">
         <div style="font-weight: 500; color: #94a3b8; margin-bottom: 4px;">PT Lintas Wahana Teknologi</div>
@@ -135,35 +131,45 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
 
 </body>
 </html>
-  `;
+    `;
 
-  const mailOptions = {
-    from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS}>`,
-    to,
-    subject: "Security Code: Verifikasi Akun Anda",
-    text: `Halo ${name}, kode OTP Anda adalah ${code}. Berlaku 5 menit.`,
-    html,
+    const mailOptions = {
+      from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
+      to: to,
+      subject: "🔐 Kode OTP Verifikasi Akun",
+      text: `Halo ${name}, kode OTP Anda adalah ${code}. Berlaku 15 menit.`,
+      html,
+    };
 
-    attachments: logoExists
-      ? [
-          {
-            filename: "oip.png",
-            path: logoPath,
-            cid: "logo",
-            contentDisposition: "inline",
-          },
-        ]
-      : [],
-  };
+    if (logoExists) {
+      mailOptions.attachments = [
+        {
+          filename: "oip.png",
+          path: logoPath,
+          cid: "logo",
+          contentDisposition: "inline",
+        },
+      ];
+    }
 
-  await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email OTP terkirim ke ${to}`);
+    console.log(`📧 Message ID: ${info.messageId}`);
+    
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending OTP email:", error);
+    throw error;
+  }
 }
 
+// 🔥 PERBAIKI: Tambahkan try-catch dan return value
 export async function sendPasswordResetOtpEmail({ to, name, code }) {
-  const logoPath = path.join(process.cwd(), "/images/oip.png");
-  const logoExists = fs.existsSync(logoPath);
+  try {
+    const logoPath = path.join(process.cwd(), "public/images/oip.png");
+    const logoExists = fs.existsSync(logoPath);
 
-  const html = `
+    const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -271,26 +277,34 @@ export async function sendPasswordResetOtpEmail({ to, name, code }) {
 
 </body>
 </html>
-  `;
+    `;
 
-  const mailOptions = {
-    from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS}>`,
-    to,
-    subject: "Security Code: Reset Password Anda",
-    text: `Halo ${name}, kode OTP reset password Anda adalah ${code}. Berlaku 15 menit.`,
-    html,
+    const mailOptions = {
+      from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
+      to: to,
+      subject: "🔑 Kode OTP Reset Password",
+      text: `Halo ${name}, kode OTP reset password Anda adalah ${code}. Berlaku 15 menit.`,
+      html,
+    };
 
-    attachments: logoExists
-      ? [
-          {
-            filename: "oip.png",
-            path: logoPath,
-            cid: "logo",
-            contentDisposition: "inline",
-          },
-        ]
-      : [],
-  };
+    if (logoExists) {
+      mailOptions.attachments = [
+        {
+          filename: "oip.png",
+          path: logoPath,
+          cid: "logo",
+          contentDisposition: "inline",
+        },
+      ];
+    }
 
-  await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email reset password terkirim ke ${to}`);
+    console.log(`📧 Message ID: ${info.messageId}`);
+    
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending reset password email:", error);
+    throw error;
+  }
 }

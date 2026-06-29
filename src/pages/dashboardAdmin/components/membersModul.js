@@ -19,15 +19,12 @@ export default function MembersModul({ theme = "light" }) {
   const positionOptions = [
     { value: 'Frontend', label: 'Frontend Developer' },
     { value: 'Backend', label: 'Backend Developer' },
-    { value: 'Fullstack', label: 'Fullstack Developer' },
     { value: 'UI/UX', label: 'UI/UX Designer' },
-    { value: 'DevOps', label: 'DevOps Engineer' },
     { value: 'QA', label: 'QA Engineer' },
     { value: 'PM', label: 'Project Manager' },
-    { value: 'Data Scientist', label: 'Data Scientist' },
-    { value: 'Mobile Developer', label: 'Mobile Developer' },
   ];
 
+  // 🔥 FETCH - /api/members
   const fetchMembers = async () => {
     try {
       const response = await fetch('/api/members');
@@ -71,6 +68,7 @@ export default function MembersModul({ theme = "light" }) {
     setNewMember((prev) => ({ ...prev, [field]: value }));
   };
 
+  // 🔥 POST - /api/members
   const handleAddMember = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -117,6 +115,7 @@ export default function MembersModul({ theme = "light" }) {
     }
   };
 
+  // 🔥 DELETE - /api/members/{id} (Opsi A)
   const handleDeleteMember = async (memberId) => {
     if (!confirm('Apakah Anda yakin ingin menghapus member ini?')) return;
 

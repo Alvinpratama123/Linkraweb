@@ -176,9 +176,7 @@ export default function UploadProjectPage({ theme, setTheme }) {
               <option value="" disabled>Pilih Posisi</option>
               <option value="Frontend">Frontend</option>
               <option value="Backend">Backend</option>
-              <option value="Fullstack">Fullstack</option>
               <option value="UI/UX">UI/UX</option>
-              <option value="DevOps">DevOps</option>
               <option value="QA">QA</option>
               <option value="PM">PM</option>
             </select>

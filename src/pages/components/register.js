@@ -152,9 +152,7 @@ export default function RegisterPage() {
   const roleOptions = [
     { value: "frontend", label: "Frontend Developer", position: "Frontend" },
     { value: "backend", label: "Backend Developer", position: "Backend" },
-    { value: "fullstack", label: "Fullstack Developer", position: "Fullstack" },
     { value: "uiux", label: "UI/UX Designer", position: "UI/UX" },
-    { value: "devops", label: "DevOps Engineer", position: "DevOps" },
     { value: "qa", label: "QA Engineer", position: "QA" },
     { value: "pm", label: "Project Manager", position: "PM" },
     { value: "admin", label: "Administrator", position: "Administrator" },
