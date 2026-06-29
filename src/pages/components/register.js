@@ -158,6 +158,7 @@ export default function RegisterPage() {
     { value: "admin", label: "Administrator", position: "Administrator" },
   ];
 
+  
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* LEFT SIDE - HERO */}

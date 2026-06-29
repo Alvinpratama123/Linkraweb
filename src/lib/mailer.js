@@ -17,6 +17,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+
 // 🔥 PERBAIKI: Tambahkan try-catch dan return value
 export async function sendRegisterOtpEmail({ to, name, code }) {
   try {

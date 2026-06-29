@@ -49,6 +49,7 @@ export default async function handler(req, res) {
         message: "Role tidak valid",
       });
     }
+    
 
     if (password.length < 8) {
       return res.status(400).json({
