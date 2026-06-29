@@ -20,8 +20,9 @@ model User {
   position         String?           // Frontend, UI/UX, Backend, dll
   profile          String?
   photo            String?
-  isVerified       Boolean           @default(true)
-  createdAt        DateTime          @default(now())
+  isVerified           Boolean           @default(true)
+  credentialEmailSent  Boolean           @default(false)
+  createdAt            DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
   // Relations

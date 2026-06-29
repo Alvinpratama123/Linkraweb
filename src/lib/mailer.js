@@ -309,3 +309,160 @@ export async function sendPasswordResetOtpEmail({ to, name, code }) {
     throw error;
   }
 }
+
+export async function sendMemberCredentialsEmail({ to, name, email, password }) {
+  try {
+    const logoPath = path.join(process.cwd(), "public/images/oip.png");
+    const logoExists = fs.existsSync(logoPath);
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Akun Berhasil Dibuat</title>
+</head>
+
+<body style="margin:0; padding:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #030712; -webkit-font-smoothing: antialiased;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background: radial-gradient(circle at top, #0b1528, #030712); padding: 60px 0 80px 0;">
+<tr>
+<td align="center">
+
+  <table width="560" cellpadding="0" cellspacing="0" style="margin-bottom: -4px;">
+    <tr>
+      <td style="height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899); border-radius: 4px 4px 0 0;"></td>
+    </tr>
+  </table>
+
+  <table width="560" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-left: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0 0 24px 24px; overflow: hidden; box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.75);">
+    
+    <tr>
+      <td style="padding: 45px 40px 35px 40px; text-align: center; background: linear-gradient(180deg, rgba(30, 27, 75, 0.4) 0%, rgba(15, 23, 42, 0) 100%); border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+        
+        ${logoExists ? `
+        <img src="cid:logo" style="height: 58px; margin-bottom: 16px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));" />
+        ` : ""}
+        
+        <div style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+          PT Lintas Wahana Teknologi
+        </div>
+        
+        <div style="color: #38bdf8; font-size: 11px; font-weight: 600; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase;">
+          Member Account Registration
+        </div>
+
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding: 45px 45px 35px 45px;">
+        
+        <div style="font-size: 22px; font-weight: 700; color: #ffffff; text-align: center; letter-spacing: -0.2px; line-height: 1.3;">
+          Selamat Datang di Lintas Wahana
+        </div>
+        
+        <p style="text-align: center; color: #94a3b8; margin-top: 8px; margin-bottom: 35px; font-size: 13.5px;">
+          Akun member Anda telah berhasil dibuat oleh Administrator
+        </p>
+        
+        <div style="font-size: 14.5px; color: #e2e8f0; margin-bottom: 10px;">
+          Halo <span style="color: #ffffff; font-weight: 600;">${name}</span>,
+        </div>
+        
+        <p style="color: #94a3b8; font-size: 13.5px; line-height: 1.6; margin-top: 0;">
+          Akun Anda telah terdaftar di sistem PT Lintas Wahana Teknologi. Gunakan kredensial di bawah ini untuk masuk ke dashboard member Anda.
+        </p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 35px 0; background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(147, 51, 234, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 16px;">
+          <tr>
+            <td style="padding: 24px 20px;">
+              
+              <div style="text-align: center; margin-bottom: 16px;">
+                <span style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Your Login Credentials</span>
+              </div>
+
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding: 10px 16px; background: rgba(15, 23, 42, 0.6); border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="color: #94a3b8; font-size: 11px; margin-bottom: 4px;">Email</div>
+                    <div style="color: #38bdf8; font-size: 15px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">${email}</div>
+                  </td>
+                </tr>
+                <tr><td style="height: 8px;"></td></tr>
+                <tr>
+                  <td style="padding: 10px 16px; background: rgba(15, 23, 42, 0.6); border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="color: #94a3b8; font-size: 11px; margin-bottom: 4px;">Password</div>
+                    <div style="color: #a78bfa; font-size: 15px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">${password}</div>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(30, 41, 59, 0.4); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.04);">
+          <tr>
+            <td style="padding: 20px; font-size: 12.5px; color: #94a3b8; line-height: 1.7;">
+              <div style="color: #cbd5e1; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🔒 Catatan Keamanan Penting:</div>
+              <div style="margin-bottom: 4px;">• Jangan pernah membagikan kredensial ini kepada siapa pun.</div>
+              <div style="margin-bottom: 4px;">• Sebaiknya ganti password setelah pertama kali login.</div>
+              <div>• Tim kami tidak akan pernah meminta password Anda.</div>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding: 30px 40px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255, 255, 255, 0.05); background-color: #090f1c;">
+        <div style="font-weight: 500; color: #94a3b8; margin-bottom: 4px;">PT Lintas Wahana Teknologi</div>
+        <div style="margin-bottom: 16px; color: #475569;">Secure & Trusted Solution Provider</div>
+        <div>
+          © ${new Date().getFullYear()} PT Lintas Wahana Teknologi — All rights reserved.
+        </div>
+      </td>
+    </tr>
+
+  </table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>
+    `;
+
+    const mailOptions = {
+      from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
+      to: to,
+      subject: "🎉 Akun Member Anda Telah Dibuat",
+      text: `Halo ${name}, akun member Anda telah dibuat. Email: ${email}, Password: ${password}. Silakan login di dashboard.`,
+      html,
+    };
+
+    if (logoExists) {
+      mailOptions.attachments = [
+        {
+          filename: "oip.png",
+          path: logoPath,
+          cid: "logo",
+          contentDisposition: "inline",
+        },
+      ];
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email credential terkirim ke ${to}`);
+    console.log(`📧 Message ID: ${info.messageId}`);
+    
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending credential email:", error);
+    return { success: false, error: error.message };
+  }
+}
