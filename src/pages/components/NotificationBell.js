@@ -17,6 +17,7 @@ export default function NotificationBell({ theme = "light" }) {
 
   const isDark = theme === "dark";
 
+  
   const fetchNotifications = async () => {
     try {
       const res = await fetch('/api/notifications?limit=20');

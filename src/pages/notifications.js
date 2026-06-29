@@ -15,6 +15,7 @@ export default function NotificationsPage({ theme = "light" }) {
   useEffect(() => {
     fetchNotifications();
   }, []);
+  
 
   const fetchNotifications = async () => {
     try {

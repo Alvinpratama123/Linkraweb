@@ -14,6 +14,7 @@ export async function createNotification({ userId, title, message, type, link, i
         icon: icon || null,
         color: color || null,
         isRead: false,
+        
       },
     });
     return notification;
