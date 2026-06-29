@@ -4,8 +4,8 @@
  * ============================================================
  */
  
-import React, { useEffect, useState } from "react";
-import { FaSearch, FaBell, FaUsers } from "react-icons/fa";
+import React, { useEffect, useState, useRef } from "react";
+import { FaSearch, FaBell, FaUsers, FaCheckDouble } from "react-icons/fa";
 import { HiSparkles, HiFolder, HiCheckCircle, HiClock, HiFlag } from "react-icons/hi2";
  
 export default function Dashboard({ userData = {}, theme = "light" }) {
@@ -269,13 +269,9 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
         </div>
  
         <div className="flex items-center gap-4">
-          <button className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group ${
-            isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
-          }`}>
-            <FaBell className={isDark ? "text-slate-400 group-hover:text-blue-400" : "text-gray-600 group-hover:text-[#001d55]"} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
- 
+          {/* ── NOTIFICATION BELL ─────────────────────────────────── */}
+          <NotificationBell theme={theme} isDark={isDark} />
+
           <div className={`flex items-center gap-3 cursor-pointer transition-all duration-300 rounded-xl px-3 py-1.5 ${
             isDark ? "hover:bg-slate-800" : "hover:bg-gray-50"
           }`}>
@@ -608,6 +604,178 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── NOTIFICATION BELL COMPONENT ──────────────────────────────────────────────
+function NotificationBell({ theme, isDark }) {
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const bellRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchNotif = async () => {
+      try {
+        const res = await fetch("/api/notifications?limit=10");
+        const json = await res.json();
+        if (!cancelled && json.success) {
+          setNotifications(json.data || []);
+          setUnreadCount(json.unreadCount || 0);
+        }
+      } catch (err) {
+        console.error("Fetch notif error:", err);
+      }
+    };
+    fetchNotif();
+    const interval = setInterval(fetchNotif, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (bellRef.current && !bellRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAll: true }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Mark all read error:", err);
+    }
+  };
+
+  const handleNotifClick = async (notif) => {
+    if (!notif.isRead) {
+      try {
+        await fetch("/api/notifications", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: notif.id }),
+        });
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      } catch (err) {
+        console.error("Mark read error:", err);
+      }
+    }
+    setShowDropdown(false);
+    if (notif.link) {
+      window.location.assign(notif.link);
+    }
+  };
+
+  const formatTime = (iso) => {
+    try {
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return "baru saja";
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}m lalu`;
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)}j lalu`;
+      return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+    } catch {
+      return "";
+    }
+  };
+
+  return (
+    <div className="relative" ref={bellRef}>
+      <button
+        onClick={() => setShowDropdown(!showDropdown)}
+        className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group ${
+          isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
+        }`}
+      >
+        <FaBell className={isDark ? "text-slate-400 group-hover:text-blue-400" : "text-gray-600 group-hover:text-[#001d55]"} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {showDropdown && (
+        <div className={`absolute right-0 top-12 w-80 md:w-96 rounded-2xl shadow-xl border overflow-hidden z-50 ${
+          isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
+        }`}>
+          <div className={`flex items-center justify-between px-4 py-3 border-b ${
+            isDark ? "border-slate-700" : "border-gray-200"
+          }`}>
+            <h3 className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-800"}`}>
+              Notifikasi
+            </h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllRead}
+                className={`flex items-center gap-1 text-xs font-medium ${
+                  isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-800"
+                }`}
+              >
+                <FaCheckDouble size={12} />
+                Tandai semua dibaca
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className={`px-4 py-8 text-center text-sm ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                Tidak ada notifikasi
+              </div>
+            ) : (
+              notifications.map((notif) => (
+                <button
+                  key={notif.id}
+                  onClick={() => handleNotifClick(notif)}
+                  className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-colors ${
+                    !notif.isRead
+                      ? isDark ? "bg-blue-900/20 hover:bg-blue-900/30" : "bg-blue-50 hover:bg-blue-100"
+                      : isDark ? "hover:bg-slate-700" : "hover:bg-gray-50"
+                  } ${isDark ? "border-slate-700" : "border-gray-100"} border-b last:border-b-0`}
+                >
+                  <span className="text-lg flex-shrink-0 mt-0.5">{notif.icon || "🔔"}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-800"} truncate`}>
+                      {notif.title}
+                    </p>
+                    {notif.message && (
+                      <p className={`text-xs mt-0.5 line-clamp-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                        {notif.message}
+                      </p>
+                    )}
+                    <p className={`text-[10px] mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                      {formatTime(notif.createdAt)}
+                    </p>
+                  </div>
+                  {!notif.isRead && (
+                    <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2"></span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

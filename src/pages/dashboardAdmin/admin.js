@@ -91,6 +91,30 @@ export default function DashboardAdmin() {
     fetchUserData();
   }, [router]);
 
+  // Handle query param ?tab= untuk navigasi dari notifikasi email
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab) {
+        const menuMap = {
+          "Dashboard": "Dashboard",
+          "Projects": "Projects",
+          "Progress": "Progress",
+          "Revision Issues": "Revision Issues",
+          "Revision": "Revision Issues",
+          "MEMBER & MODUL": "MEMBER & MODUL",
+          "Analytics": "Analytics",
+          "Settings Profile": "Settings Profile",
+          "Settings Tema": "Settings Tema",
+        };
+        if (menuMap[tab]) {
+          setSelectedMenu(menuMap[tab]);
+        }
+      }
+    }
+  }, []);
+
   // ─── FIX: Handler update userData ────────────────────────────
   // Sama seperti perbaikan di MemberDashboard:
   // Setelah Settings Profile save → state + localStorage keduanya

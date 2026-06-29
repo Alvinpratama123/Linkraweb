@@ -31,6 +31,7 @@ model User {
   revisionComments RevisionComment[]
   sentRevisions    RevisionReport[]  @relation("SentBy")
   projects         Project[]
+  notifications    Notification[]
 
   @@index([email])
   @@index([role])
@@ -174,4 +175,26 @@ model RevisionComment {
 
   @@index([reportId])
   @@index([authorId])
+}
+
+// ============================================
+// NOTIFICATION MODEL
+// ============================================
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  message   String?
+  type      String    @default("system")
+  link      String?
+  icon      String?
+  color     String?
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
