@@ -88,17 +88,18 @@ export default function Analytics({ theme = "light" }) {
     .sort((a, b) => b.count - a.count);
   const maxMember = Math.max(...memberStats.map((item) => item.count), 1);
 
+  // 🔥 WARNA BIRU GELAP UNTUK LIGHT MODE, BIRU TERANG UNTUK DARK MODE
   const colorMap = {
-    IoT: { bg: 'bg-blue-600', stroke: '#2563eb' },
-    Website: { bg: 'bg-green-600', stroke: '#16a34a' },
-    'Mobile App': { bg: 'bg-orange-500', stroke: '#f97316' },
-    API: { bg: 'bg-purple-600', stroke: '#7c3aed' },
-    'Lainnya': { bg: 'bg-gray-500', stroke: '#6b7280' },
-    Frontend: { bg: 'bg-sky-500', stroke: '#0ea5e9' },
-    Backend: { bg: 'bg-cyan-600', stroke: '#0891b2' },
-    'UI/UX': { bg: 'bg-violet-500', stroke: '#8b5cf6' },
-    QA: { bg: 'bg-amber-500', stroke: '#f59e0b' },
-    PM: { bg: 'bg-purple-600', stroke: '#7c3aed' },
+    IoT: { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    Website: { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    'Mobile App': { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    API: { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    'Lainnya': { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    Frontend: { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    Backend: { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    'UI/UX': { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    QA: { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
+    PM: { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]', stroke: isDark ? '#3b82f6' : '#001d55' },
   };
 
   const exportToExcel = () => {
@@ -201,7 +202,7 @@ export default function Analytics({ theme = "light" }) {
       XLSX.utils.book_append_sheet(wb, ws5, 'Member Details');
 
       XLSX.writeFile(wb, `Analytics_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
-      alert(`✅ Laporan Excel berhasil diekspor!\n\n📊 Total Program: ${projects.length}\n👥 Total Member: ${members.length}`);
+      alert(` Laporan Excel berhasil diekspor!\n\n Total Program: ${projects.length}\n👥 Total Member: ${members.length}`);
 
     } catch (error) {
       console.error('Error generating Excel:', error);
@@ -314,7 +315,7 @@ export default function Analytics({ theme = "light" }) {
       }
 
       doc.save(`Analytics_Report_${new Date().toISOString().slice(0,10)}.pdf`);
-      alert('✅ Laporan PDF berhasil diekspor!');
+      alert(' Laporan PDF berhasil diekspor!');
 
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -361,11 +362,17 @@ export default function Analytics({ theme = "light" }) {
               <span>📥 Export</span>
             </button>
             {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                <button onClick={exportToExcel} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-medium transition-colors border-b flex items-center gap-2">
+              <div className={`absolute right-0 mt-2 w-52 rounded-lg shadow-lg z-10 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+                <button 
+                  onClick={exportToExcel} 
+                  className={`w-full text-left px-4 py-3 font-medium transition-colors border-b flex items-center gap-2 ${isDark ? 'text-slate-200 hover:bg-slate-700 border-slate-700' : 'text-gray-700 hover:bg-gray-50 border-gray-200'}`}
+                >
                   <span>📊</span> Export Excel
                 </button>
-                <button onClick={exportToPDF} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-medium transition-colors flex items-center gap-2">
+                <button 
+                  onClick={exportToPDF} 
+                  className={`w-full text-left px-4 py-3 font-medium transition-colors flex items-center gap-2 ${isDark ? 'text-slate-200 hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
                   <span>📄</span> Export PDF
                 </button>
               </div>
@@ -396,10 +403,10 @@ export default function Analytics({ theme = "light" }) {
 
               <div className="mt-8 flex items-end justify-between gap-4 h-80">
                 {programStats.length === 0 ? (
-                  <div className="w-full text-center text-gray-400">Belum ada data program</div>
+                  <div className={`w-full text-center ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>Belum ada data program</div>
                 ) : (
                   programStats.map((item) => {
-                    const color = colorMap[item.label] || { bg: 'bg-gray-500' };
+                    const color = colorMap[item.label] || { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]' };
                     return (
                       <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
                         <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -442,10 +449,10 @@ export default function Analytics({ theme = "light" }) {
 
               <div className="mt-8 flex items-end justify-between gap-4 h-80">
                 {memberStats.length === 0 ? (
-                  <div className="w-full text-center text-gray-400">Belum ada data member</div>
+                  <div className={`w-full text-center ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>Belum ada data member</div>
                 ) : (
                   memberStats.map((item) => {
-                    const color = colorMap[item.label] || { bg: 'bg-gray-500' };
+                    const color = colorMap[item.label] || { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]' };
                     return (
                       <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
                         <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -479,10 +486,10 @@ export default function Analytics({ theme = "light" }) {
               </p>
               <div className="mt-6 flex items-end justify-between gap-3 h-72">
                 {programStats.length === 0 ? (
-                  <div className="w-full text-center text-gray-400">Belum ada data</div>
+                  <div className={`w-full text-center ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>Belum ada data</div>
                 ) : (
                   programStats.map((item) => {
-                    const color = colorMap[item.label] || { bg: 'bg-gray-500' };
+                    const color = colorMap[item.label] || { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]' };
                     return (
                       <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
                         <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -513,10 +520,10 @@ export default function Analytics({ theme = "light" }) {
               </p>
               <div className="mt-6 flex items-end justify-between gap-3 h-72">
                 {memberStats.length === 0 ? (
-                  <div className="w-full text-center text-gray-400">Belum ada data</div>
+                  <div className={`w-full text-center ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>Belum ada data</div>
                 ) : (
                   memberStats.map((item) => {
-                    const color = colorMap[item.label] || { bg: 'bg-gray-500' };
+                    const color = colorMap[item.label] || { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]' };
                     return (
                       <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
                         <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>

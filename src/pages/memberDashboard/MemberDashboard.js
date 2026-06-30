@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation"; // ✅ Tambahkan useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import { FaBars, FaTimes } from "react-icons/fa";
 import {
   MdDashboard,
@@ -32,7 +32,7 @@ import SettingsTema from "../settings/settingsTema";
 
 export default function MembersDashboard() {
   const router = useRouter();
-  const searchParams = useSearchParams(); // ✅ Ambil searchParams
+  const searchParams = useSearchParams();
   
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");
@@ -43,9 +43,12 @@ export default function MembersDashboard() {
   const [loading, setLoading] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  const isDark = theme === "dark";
+
   const getDisplayPosition = (user) => {
     if (!user) return "Member";
     if (user.position) return user.position;
+    if (user.role === "ADMIN") return "Administrator";
     return user.role || "Member";
   };
 
@@ -54,13 +57,42 @@ export default function MembersDashboard() {
     const tab = searchParams.get('tab');
     const projectId = searchParams.get('id');
     
-    // Jika ada parameter tab=progress, buka Progress
     if (tab === 'progress' || projectId) {
       console.log('🔍 Opening Progress from URL:', { tab, projectId });
       setSelectedMenu("Progress");
     }
   }, [searchParams]);
 
+  // 🔥 SYNC USER DATA DARI LOCAL STORAGE
+  useEffect(() => {
+    const syncUserData = () => {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUserData(parsedUser);
+        } catch (e) {
+          console.error("Error parsing user data:", e);
+        }
+      }
+    };
+
+    syncUserData();
+
+    const handleStorageChange = (e) => {
+      if (e.key === "user") {
+        console.log("🔄 User data updated from another tab");
+        syncUserData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // 🔥 FETCH USER DATA DARI API
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -69,25 +101,34 @@ export default function MembersDashboard() {
         const data = await response.json();
 
         if (!response.ok) {
+          console.log("❌ Auth failed, redirecting to login");
           router.push("/components/login");
           return;
         }
 
         if (data.success && data.user) {
+          console.log("✅ User data fetched:", data.user);
           setUserData(data.user);
           localStorage.setItem("user", JSON.stringify(data.user));
 
+          // Jika user adalah ADMIN, redirect ke DashboardAdmin
           if (data.user.role?.toUpperCase() === "ADMIN") {
+            console.log("🔀 User is ADMIN, redirecting to Admin Dashboard");
             router.push("/dashboardAdmin/admin");
           }
         }
       } catch (error) {
+        console.error("Error fetching user data:", error);
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setUserData(parsedUser);
-          if (parsedUser.role?.toUpperCase() === "ADMIN") {
-            router.push("/dashboardAdmin/admin");
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUserData(parsedUser);
+            if (parsedUser.role?.toUpperCase() === "ADMIN") {
+              router.push("/dashboardAdmin/admin");
+            }
+          } catch (e) {
+            router.push("/components/login");
           }
         } else {
           router.push("/components/login");
@@ -100,9 +141,16 @@ export default function MembersDashboard() {
     fetchUserData();
   }, [router]);
 
+  // 🔥 HANDLE UPDATE USER
   const handleUserUpdate = useCallback((updatedUser) => {
+    console.log("🔄 Updating user data:", updatedUser);
     setUserData(updatedUser);
     localStorage.setItem("user", JSON.stringify(updatedUser));
+    
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'user',
+      newValue: JSON.stringify(updatedUser)
+    }));
   }, []);
 
   const clearAllStorage = () => {
@@ -152,6 +200,7 @@ export default function MembersDashboard() {
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
     { icon: <HiSun size={18} />, label: "Settings Tema" },
+    { icon: <HiKey size={18} />, label: "Change Password" },
   ];
 
   if (loading) {
@@ -374,13 +423,14 @@ export default function MembersDashboard() {
             <Dashboard userData={userData} theme={theme} />
           )}
           {selectedMenu === "Progress" && (
-            <Progres theme={theme} setTheme={setTheme} />
+            <Progres theme={theme} setTheme={setTheme} userData={userData} />
           )}
           {selectedMenu === "Revision Issues" && (
             <Revision
               userRole={userData?.role || "FRONTEND"}
               userName={userData?.name || "User"}
               theme={theme}
+              setTheme={setTheme}
             />
           )}
           {selectedMenu === "Analytics" && (

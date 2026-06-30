@@ -4,7 +4,6 @@ import formidable from "formidable";
 import fs from "fs";
 import path from "path";
 import jwt from "jsonwebtoken";
-import { createProjectNotification } from "@/lib/notification";
 
 export const config = {
   api: {
@@ -29,6 +28,15 @@ const allowedTypes = {
 };
 
 export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ 
       success: false,
@@ -36,9 +44,12 @@ export default async function handler(req, res) {
     });
   }
 
+  console.log("📤 === START UPLOAD PROJECT ===");
+
   // ─── VERIFIKASI TOKEN ──────────────────────────────────
   const token = req.cookies.auth_token;
   if (!token) {
+    console.log("❌ No token found in cookies");
     return res.status(401).json({
       success: false,
       message: "❌ Token tidak ditemukan. Silakan login terlebih dahulu.",
@@ -49,7 +60,10 @@ export default async function handler(req, res) {
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
+    console.log("👤 User ID:", decoded.userId);
+    console.log("👤 User Role:", decoded.role);
   } catch (err) {
+    console.error("❌ Token verification failed:", err.message);
     return res.status(401).json({
       success: false,
       message: "❌ Token tidak valid atau sudah expired.",
@@ -75,7 +89,7 @@ export default async function handler(req, res) {
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
-      console.error("Form parse error:", err);
+      console.error("❌ Form parse error:", err);
       return res.status(400).json({ 
         success: false,
         message: "Gagal parse form", 
@@ -100,10 +114,10 @@ export default async function handler(req, res) {
         imageDescription, 
         imageDescription2,
         hasImageFile: !!files.imageFile,
-        imageFileSize: files.imageFile?.size || 0
+        hasModuleFile: !!files.moduleFile
       });
 
-      if (!name) {
+      if (!name || !name.trim()) {
         return res.status(400).json({ 
           success: false,
           message: "❌ Nama project wajib diisi" 
@@ -132,9 +146,17 @@ export default async function handler(req, res) {
           const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
           const newPath = path.join(uploadDir, fileName);
           
-          fs.renameSync(file.filepath, newPath);
-          imageUrl = `/uploads/${fileName}`;
-          console.log("🖼️ Image saved:", imageUrl);
+          try {
+            fs.renameSync(file.filepath, newPath);
+            imageUrl = `/uploads/${fileName}`;
+            console.log("✅ Image saved:", imageUrl);
+          } catch (renameError) {
+            console.error("❌ Error renaming image:", renameError);
+            // Coba copy file jika rename gagal
+            fs.copyFileSync(file.filepath, newPath);
+            fs.unlinkSync(file.filepath);
+            imageUrl = `/uploads/${fileName}`;
+          }
         }
       }
 
@@ -157,79 +179,45 @@ export default async function handler(req, res) {
           const fileName = `mod_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
           const newPath = path.join(uploadDir, fileName);
           
-          fs.renameSync(file.filepath, newPath);
-          moduleUrl = `/uploads/${fileName}`;
-          console.log("📄 Module saved:", moduleUrl);
-        }
-      }
-
-      // ─── CEK PROJECT EXISTING ───────────────────────────
-      const existingProject = await prisma.project.findFirst({
-        where: {
-          name: name,
-          userId: userId,
-        },
-      });
-
-      let project;
-
-      // ─── CREATE OR UPDATE PROJECT ──────────────────────
-      if (existingProject) {
-        project = await prisma.project.update({
-          where: { id: existingProject.id },
-          data: {
-            position: position || existingProject.position,
-            repoLink: repoLink || existingProject.repoLink,
-            date: date ? new Date(date) : existingProject.date,
-            progress: progress || existingProject.progress,
-            imageDescription: imageDescription || existingProject.imageDescription,
-            imageDescription2: imageDescription2 || existingProject.imageDescription2,
-            imageUrl: imageUrl || existingProject.imageUrl,
-            moduleUrl: moduleUrl || existingProject.moduleUrl,
-          },
-        });
-        console.log("📝 Project updated:", project.id);
-      } else {
-        project = await prisma.project.create({
-          data: {
-            name: name,
-            position: position || "Frontend",
-            repoLink: repoLink || null,
-            date: date ? new Date(date) : new Date(),
-            progress: progress || 0,
-            imageUrl: imageUrl,
-            moduleUrl: moduleUrl,
-            imageDescription: imageDescription || null,
-            imageDescription2: imageDescription2 || null,
-            userId: userId,
-          },
-        });
-        console.log("✅ Project created:", project.id);
-
-        // ─── 🔥 KIRIM NOTIFIKASI ─────────────────────────────
-        try {
-          // Kirim notifikasi ke semua user (termasuk admin)
-          const users = await prisma.user.findMany({
-            select: { id: true },
-          });
-
-          for (const user of users) {
-            await createProjectNotification(project, user.id, "upload");
+          try {
+            fs.renameSync(file.filepath, newPath);
+            moduleUrl = `/uploads/${fileName}`;
+            console.log("✅ Module saved:", moduleUrl);
+          } catch (renameError) {
+            console.error("❌ Error renaming module:", renameError);
+            fs.copyFileSync(file.filepath, newPath);
+            fs.unlinkSync(file.filepath);
+            moduleUrl = `/uploads/${fileName}`;
           }
-          console.log(`📢 Notifikasi dikirim ke ${users.length} user`);
-        } catch (notifError) {
-          console.error("❌ Notification error:", notifError);
-          // Notifikasi gagal tapi project tetap tersimpan
         }
       }
 
-      console.log("📊 Final project data:", {
-        id: project.id,
-        name: project.name,
-        imageUrl: project.imageUrl,
-        imageDescription: project.imageDescription,
-        moduleUrl: project.moduleUrl,
+      // ─── SIMPAN PROJECT KE DATABASE ──────────────────────
+      console.log("💾 Saving project to database...");
+
+      const projectData = {
+        name: name.trim(),
+        position: position || "Frontend",
+        repoLink: repoLink || "",
+        date: date || new Date().toISOString().split('T')[0],
+        progress: progress || 0,
+        decision: "pending",
+        finished: false,
+        imageUrl: imageUrl,
+        moduleUrl: moduleUrl,
+        imageDescription: imageDescription || null,
+        imageDescription2: imageDescription2 || null,
+        userId: userId,
+      };
+
+      console.log("📦 Project data:", projectData);
+
+      // 🔥 Simpan project tanpa cek existing (biarkan duplicate)
+      const project = await prisma.project.create({
+        data: projectData,
       });
+
+      console.log("✅ Project created with ID:", project.id);
 
       // ─── SIMPAN ATTACHMENT ─────────────────────────────
       if (imageUrl) {
@@ -243,20 +231,21 @@ export default async function handler(req, res) {
             description: imageDescription || null,
           },
         });
+        console.log("✅ Image attachment saved");
+      }
 
-        if (imageDescription2 && imageDescription2.trim()) {
-          await prisma.attachment.create({
-            data: {
-              projectId: project.id,
-              type: "image",
-              name: "Keterangan tambahan",
-              url: imageUrl,
-              status: "pending",
-              description: imageDescription2,
-              isAdditionalDescription: true,
-            },
-          });
-        }
+      if (imageDescription2 && imageDescription2.trim()) {
+        await prisma.attachment.create({
+          data: {
+            projectId: project.id,
+            type: "image",
+            name: "Keterangan tambahan",
+            url: imageUrl || "",
+            status: "pending",
+            description: imageDescription2,
+          },
+        });
+        console.log("✅ Additional description saved");
       }
 
       if (moduleUrl) {
@@ -269,6 +258,7 @@ export default async function handler(req, res) {
             status: "pending",
           },
         });
+        console.log("✅ Module attachment saved");
       }
 
       // ─── AMBIL SEMUA ATTACHMENT ────────────────────────
@@ -276,9 +266,12 @@ export default async function handler(req, res) {
         where: { projectId: project.id },
       });
 
+      console.log("📊 Total attachments:", allAttachments.length);
+
+      // ─── RESPONSE ────────────────────────────────────────
       return res.status(200).json({
         success: true,
-        message: existingProject ? "✅ Project berhasil diupdate" : "✅ Project berhasil disimpan",
+        message: "✅ Project berhasil disimpan",
         project: {
           ...project,
           attachments: allAttachments,
@@ -290,6 +283,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ 
         success: false,
         message: "❌ Terjadi kesalahan pada server: " + error.message,
+        error: process.env.NODE_ENV === "development" ? error.stack : undefined,
       });
     }
   });

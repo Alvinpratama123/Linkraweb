@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation"; // ✅ Tambahkan useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import { FaBars, FaTimes } from "react-icons/fa";
 import {
   MdDashboard,
@@ -28,12 +28,13 @@ import UploadProjectPage from "../componentsDashboard/project";
 import Progres from "../componentsDashboard/progres";
 import Revision from "../componentsDashboard/revision";
 import Analytics from "../componentsDashboard/analytics";
+import MembersModul from "../componentsDashboard/membersModul";
 import Profile from "../settings/profile";
 import SettingsTema from "../settings/settingsTema";
 
 export default function DashboardAdmin() {
   const router = useRouter();
-  const searchParams = useSearchParams(); // ✅ Ambil searchParams
+  const searchParams = useSearchParams();
   
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");
@@ -53,18 +54,49 @@ export default function DashboardAdmin() {
     return user.role || "Member";
   };
 
-  // ✅ CEK PARAMETER URL UNTUK NOTIFIKASI
+  // 🔥 CEK PARAMETER URL UNTUK NOTIFIKASI
   useEffect(() => {
     const tab = searchParams.get('tab');
     const projectId = searchParams.get('id');
     
-    // Jika ada parameter tab=progress, buka Progress
     if (tab === 'progress' || projectId) {
       console.log('🔍 Opening Progress from URL:', { tab, projectId });
       setSelectedMenu("Progress");
     }
   }, [searchParams]);
 
+  // 🔥 SYNC USER DATA DARI LOCAL STORAGE
+  useEffect(() => {
+    const syncUserData = () => {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUserData(parsedUser);
+        } catch (e) {
+          console.error("Error parsing user data:", e);
+        }
+      }
+    };
+
+    // Sync awal
+    syncUserData();
+
+    // 🔥 Dengarkan perubahan di localStorage dari tab lain
+    const handleStorageChange = (e) => {
+      if (e.key === "user") {
+        syncUserData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // 🔥 FETCH USER DATA DARI API
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -86,12 +118,17 @@ export default function DashboardAdmin() {
           }
         }
       } catch (error) {
+        console.error("Error fetching user data:", error);
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setUserData(parsedUser);
-          if (parsedUser.role?.toUpperCase() !== "ADMIN") {
-            router.push("/memberDashboard/MemberDashboard");
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUserData(parsedUser);
+            if (parsedUser.role?.toUpperCase() !== "ADMIN") {
+              router.push("/memberDashboard/MemberDashboard");
+            }
+          } catch (e) {
+            router.push("/components/login");
           }
         } else {
           router.push("/components/login");
@@ -104,9 +141,16 @@ export default function DashboardAdmin() {
     fetchUserData();
   }, [router]);
 
+  // 🔥 HANDLE UPDATE USER
   const handleUserUpdate = useCallback((updatedUser) => {
     setUserData(updatedUser);
     localStorage.setItem("user", JSON.stringify(updatedUser));
+    
+    // 🔥 Kirim event ke tab lain agar sinkron
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'user',
+      newValue: JSON.stringify(updatedUser)
+    }));
   }, []);
 
   const clearAllStorage = () => {
@@ -134,12 +178,12 @@ export default function DashboardAdmin() {
       clearAllStorage();
       setUserData(null);
       toast.success("Logout berhasil!", { id: "logout" });
-      router.push("/components/login");
+      router.push("/");
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Terjadi kesalahan saat logout", { id: "logout" });
       clearAllStorage();
-      router.push("/components/login");
+      router.push("/");
     } finally {
       setLoggingOut(false);
     }
