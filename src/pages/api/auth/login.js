@@ -3,8 +3,16 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-// ✅ PASTIKAN ADA export default
 export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({
       success: false,
@@ -16,7 +24,7 @@ export default async function handler(req, res) {
     const { email, password } = req.body;
 
     console.log("=== LOGIN ===");
-    console.log("📝 Login:", { email });
+    console.log("📝 Email:", email);
 
     if (!email || !password) {
       return res.status(400).json({
@@ -47,6 +55,7 @@ export default async function handler(req, res) {
       });
     }
 
+    // Buat token
     const token = jwt.sign(
       {
         userId: user.id,
@@ -59,9 +68,15 @@ export default async function handler(req, res) {
       { expiresIn: "7d" }
     );
 
-    const redirectPath = user.role === "admin" 
-      ? "/dashboardAdmin/admin" 
-      : "/memberDashboard/MemberDashboard";
+    // 🔥 Tentukan redirect berdasarkan role
+    let redirectPath;
+    if (user.role === "ADMIN" || user.role === "admin") {
+      redirectPath = "/dashboardAdmin/admin";
+    } else {
+      redirectPath = "/memberDashboard/MemberDashboard";
+    }
+
+    console.log(`🔀 Redirect to: ${redirectPath} for role: ${user.role}`);
 
     // Set cookie
     res.setHeader(
@@ -80,6 +95,7 @@ export default async function handler(req, res) {
         email: user.email,
         role: user.role,
         position: user.position,
+        photo: user.photo || null,
       },
       redirect: redirectPath,
     });
@@ -89,6 +105,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       message: "Terjadi kesalahan pada server",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 }

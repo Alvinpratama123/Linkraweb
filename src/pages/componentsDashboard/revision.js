@@ -9,7 +9,7 @@ import {
   ISSUE_TYPE_LABELS,
   PROGRESS_LABELS,
   APPROVAL_LABELS,
-} from "../../../lib/revisionConfig.js";
+} from "../../lib/revisionConfig.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

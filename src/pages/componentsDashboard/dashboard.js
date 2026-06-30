@@ -101,23 +101,13 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     }
   };
 
-  // 🔥 PERBAIKI: Handler klik notifikasi dengan router.push
   const handleNotificationClick = (notification) => {
-    // Tandai sebagai sudah dibaca
     if (!notification.isRead) {
       markAsRead(notification.id);
     }
-    
-    // Tutup dropdown
     setIsNotifOpen(false);
-    
-    // 🔥 Redirect menggunakan router.push (lebih cepat dari window.location)
     if (notification.link) {
-      console.log('🔗 Redirecting to:', notification.link);
-      // Beri sedikit delay agar mark as read selesai
-      setTimeout(() => {
-        router.push(notification.link);
-      }, 300);
+      window.location.href = notification.link;
     }
   };
 
@@ -174,14 +164,12 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
       try {
         setLoading(true);
         
-        // Fetch projects
         const projectsRes = await fetch("/api/projects");
         const projectsData = await projectsRes.json();
         if (projectsData.success) {
           setProjects(projectsData.projects || []);
         }
 
-        // Fetch members
         try {
           const membersRes = await fetch("/api/members");
           const membersData = await membersRes.json();
@@ -195,7 +183,6 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
           setMembers([]);
         }
 
-        // Fetch notifications
         await fetchNotifications();
 
       } catch (error) {
@@ -206,7 +193,6 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     };
     fetchData();
 
-    // Polling every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -236,15 +222,15 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     {
       title: "Total Members",
       value: String(totalMembers),
-      lightText:   "text-purple-700",
-      darkText:    "text-purple-300",
-      lightBg:     "bg-purple-50",
-      darkBg:      "bg-purple-950",
-      lightBorder: "border-purple-200",
-      darkBorder:  "border-purple-800",
-      lightIcon:   "bg-purple-100",
-      darkIcon:    "bg-purple-900",
-      icon: <FaUsers size={22} className="text-purple-500" />,
+      lightText:   "text-blue-700",
+      darkText:    "text-blue-300",
+      lightBg:     "bg-blue-50",
+      darkBg:      "bg-blue-950",
+      lightBorder: "border-blue-200",
+      darkBorder:  "border-blue-800",
+      lightIcon:   "bg-blue-100",
+      darkIcon:    "bg-blue-900",
+      icon: <FaUsers size={22} className="text-blue-500" />,
     },
     {
       title: "Approved",
@@ -328,33 +314,13 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
   // ─── DISPLAY ROLE ──────────────────────────────────────────
   const displayRole = getDisplayRole(userRole, userPosition);
  
-  /**
-   * WARNA GRAFIK
-   */
-  const barGradient = isDark
-    ? "linear-gradient(180deg, #0051d3 0%, #01316c 100%)"
-    : "linear-gradient(180deg, #003d9e 0%, #001d55 100%)";
- 
-  const progressGradient = isDark
-    ? "linear-gradient(90deg, #01316c 0%, #0051d3 100%)"
-    : "linear-gradient(90deg, #003d9e 0%, #001d55 100%)";
+  // ─── 🔥 SEMUA WARNA GRAFIK BIRU TUA ──────────────────────────
+  const barGradient = "linear-gradient(180deg, #003d9e 0%, #001d55 100%)";
+  const progressGradient = "linear-gradient(90deg, #003d9e 0%, #001d55 100%)";
+  
+  // 🔥 Grafik Member juga pakai biru tua, bukan ungu
+  const memberGradient = "linear-gradient(180deg, #003d9e 0%, #001d55 100%)";
 
-  // Color mapping untuk grafik
-  const colorMap = {
-    IoT: { bg: 'bg-blue-600', stroke: '#2563eb' },
-    Website: { bg: 'bg-green-600', stroke: '#16a34a' },
-    'Mobile App': { bg: 'bg-orange-500', stroke: '#f97316' },
-    API: { bg: 'bg-purple-600', stroke: '#7c3aed' },
-    'Lainnya': { bg: 'bg-gray-500', stroke: '#6b7280' },
-    Frontend: { bg: 'bg-sky-500', stroke: '#0ea5e9' },
-    Backend: { bg: 'bg-cyan-600', stroke: '#0891b2' },
-    Fullstack: { bg: 'bg-green-600', stroke: '#16a34a' },
-    'UI/UX': { bg: 'bg-violet-500', stroke: '#8b5cf6' },
-    DevOps: { bg: 'bg-orange-500', stroke: '#f97316' },
-    QA: { bg: 'bg-amber-500', stroke: '#f59e0b' },
-    PM: { bg: 'bg-purple-600', stroke: '#7c3aed' },
-  };
- 
   // ─────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────
@@ -409,7 +375,6 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
               <div className={`absolute right-0 mt-2 w-96 max-h-[500px] rounded-2xl shadow-2xl overflow-hidden z-50 ${
                 isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'
               }`}>
-                {/* Header */}
                 <div className={`px-4 py-3 border-b flex justify-between items-center ${
                   isDark ? 'border-slate-700' : 'border-gray-200'
                 }`}>
@@ -428,7 +393,6 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                   )}
                 </div>
 
-                {/* List */}
                 <div className="overflow-y-auto max-h-[400px]">
                   {notifications.length === 0 ? (
                     <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
@@ -630,7 +594,6 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
             ) : (
               <div className="mt-6 flex items-end justify-between gap-3 h-64">
                 {categoryStats.map((item) => {
-                  const color = colorMap[item.label] || { bg: 'bg-gray-500' };
                   const heightPercent = (item.count / maxCategory) * 100;
                   return (
                     <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full group">
@@ -661,7 +624,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
             )}
           </div>
  
-          {/* Chart 2: Member Analytics */}
+          {/* Chart 2: Member Analytics - 🔥 SEKARANG BIRU TUA JUGA */}
           <div className={`rounded-2xl p-6 border transition-all duration-300 hover:shadow-lg ${
             isDark
               ? "bg-slate-900 border-slate-800 hover:shadow-slate-950"
@@ -683,7 +646,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
               </div>
               <div className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
                 isDark
-                  ? "bg-purple-900 text-purple-300 border border-purple-800"
+                  ? "bg-blue-900 text-blue-300 border border-blue-800"
                   : "bg-gradient-to-r from-[#001d55] to-[#003d9e] text-white"
               }`}>
                 Total
@@ -706,12 +669,11 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
             ) : (
               <div className="mt-6 flex items-end justify-between gap-3 h-64">
                 {memberStats.map((item) => {
-                  const color = colorMap[item.label] || { bg: 'bg-gray-500' };
                   const heightPercent = (item.count / maxMember) * 100;
                   return (
                     <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full group">
                       <span className={`text-sm font-bold transition-transform group-hover:scale-110 ${
-                        isDark ? "text-purple-300" : "text-gray-700"
+                        isDark ? "text-blue-300" : "text-gray-700"
                       }`}>
                         {item.count}
                       </span>
@@ -720,12 +682,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                       }`}>
                         <div
                           className="absolute bottom-0 left-0 w-full transition-all duration-500 group-hover:opacity-90 rounded-xl"
-                          style={{ 
-                            height: `${heightPercent}%`, 
-                            background: isDark 
-                              ? "linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%)"
-                              : "linear-gradient(180deg, #7c3aed 0%, #4f46e5 100%)"
-                          }}
+                          style={{ height: `${heightPercent}%`, background: memberGradient }}
                         >
                           <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-xl" />
                         </div>

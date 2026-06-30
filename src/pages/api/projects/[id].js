@@ -1,9 +1,17 @@
 // pages/api/projects/[id].js
 import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
-import { createProjectNotification } from "@/lib/notification";
 
 export default async function handler(req, res) {
+  // ─── CORS HEADERS ──────────────────────────────────────────
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // ─── 1. AMBIL ID DARI QUERY ──────────────────────────────
   const { id } = req.query;
   
@@ -27,6 +35,8 @@ export default async function handler(req, res) {
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
+    console.log("👤 User ID:", decoded.userId);
+    console.log("👤 User Role:", decoded.role);
   } catch (err) {
     return res.status(401).json({
       success: false,
@@ -35,6 +45,7 @@ export default async function handler(req, res) {
   }
 
   const userId = decoded.userId;
+  const userRole = decoded.role || 'USER';
 
   // ─── 3. CEK PROJECT ─────────────────────────────────────────
   let project;
@@ -70,12 +81,19 @@ export default async function handler(req, res) {
   }
 
   // ─── 4. CEK AKSES ──────────────────────────────────────────
-  if (project.userId !== userId) {
+  // 🔥 ADMIN bisa akses semua project, MEMBER hanya project sendiri
+  const isAdmin = userRole === "ADMIN" || userRole === "admin";
+  const isOwner = project.userId === userId;
+
+  if (!isAdmin && !isOwner) {
+    console.log(`❌ User ${userId} (${userRole}) tidak punya akses ke project ${id}`);
     return res.status(403).json({
       success: false,
       message: "❌ Anda tidak memiliki akses ke project ini.",
     });
   }
+
+  console.log(`✅ User ${userId} (${userRole}) mengakses project ${id}`);
 
   // ─── 5. GET ─────────────────────────────────────────────────
   if (req.method === "GET") {
@@ -97,11 +115,9 @@ export default async function handler(req, res) {
   // ─── 6. PATCH ───────────────────────────────────────────────
   if (req.method === "PATCH") {
     try {
-      const { decision, finished, repoLink, position, progress, date } = req.body;
+      const { decision, finished, repoLink, position, progress, date, name } = req.body;
       
       const updateData = {};
-      let previousDecision = project.decision;
-      let previousFinished = project.finished;
       
       // Validasi decision
       if (decision !== undefined) {
@@ -127,6 +143,8 @@ export default async function handler(req, res) {
       
       if (repoLink !== undefined) updateData.repoLink = repoLink || null;
       if (position !== undefined) updateData.position = position;
+      if (name !== undefined) updateData.name = name;
+      
       if (progress !== undefined) {
         if (progress < 0 || progress > 100) {
           return res.status(400).json({
@@ -136,6 +154,7 @@ export default async function handler(req, res) {
         }
         updateData.progress = progress;
       }
+      
       if (date !== undefined) {
         updateData.date = date ? new Date(date) : new Date();
       }
@@ -157,60 +176,8 @@ export default async function handler(req, res) {
         },
       });
       
-      console.log(`✅ Project ${id} diupdate oleh user ${userId}`);
-
-      // ─── 🔥 KIRIM NOTIFIKASI ─────────────────────────────
-      try {
-        // Notifikasi untuk perubahan decision (approved/rejected)
-        if (decision !== undefined && decision !== previousDecision) {
-          let action = null;
-          if (decision === "approved") {
-            action = "approved";
-          } else if (decision === "rejected") {
-            action = "rejected";
-          }
-          
-          if (action) {
-            // Kirim ke owner project
-            await createProjectNotification(updatedProject, project.userId, action);
-            
-            // Kirim ke semua admin
-            const admins = await prisma.user.findMany({
-              where: { role: "admin" },
-              select: { id: true },
-            });
-            
-            for (const admin of admins) {
-              if (admin.id !== project.userId) {
-                await createProjectNotification(updatedProject, admin.id, action);
-              }
-            }
-            console.log(`📢 Notifikasi ${action} dikirim`);
-          }
-        }
-
-        // Notifikasi untuk finished
-        if (finished !== undefined && finished !== previousFinished && finished === true) {
-          // Kirim ke owner project
-          await createProjectNotification(updatedProject, project.userId, "finished");
-          
-          // Kirim ke semua admin
-          const admins = await prisma.user.findMany({
-            where: { role: "admin" },
-            select: { id: true },
-          });
-          
-          for (const admin of admins) {
-            if (admin.id !== project.userId) {
-              await createProjectNotification(updatedProject, admin.id, "finished");
-            }
-          }
-          console.log(`📢 Notifikasi finished dikirim`);
-        }
-      } catch (notifError) {
-        console.error("❌ Notification error:", notifError);
-        // Notifikasi gagal tapi update tetap berhasil
-      }
+      console.log(`✅ Project ${id} diupdate oleh user ${userId} (${userRole})`);
+      console.log("📊 Update data:", updateData);
       
       return res.status(200).json({
         success: true,
@@ -229,12 +196,26 @@ export default async function handler(req, res) {
 
   // ─── 7. DELETE ──────────────────────────────────────────────
   if (req.method === "DELETE") {
+    // 🔥 ADMIN bisa hapus semua project, MEMBER hanya project sendiri
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "❌ Anda tidak memiliki akses untuk menghapus project ini.",
+      });
+    }
+
     try {
+      // Hapus attachments dulu
+      await prisma.attachment.deleteMany({
+        where: { projectId: id },
+      });
+      
+      // Hapus project
       await prisma.project.delete({
         where: { id: id },
       });
       
-      console.log(`🗑️ Project ${id} dihapus oleh user ${userId}`);
+      console.log(`🗑️ Project ${id} dihapus oleh user ${userId} (${userRole})`);
       
       return res.status(200).json({
         success: true,

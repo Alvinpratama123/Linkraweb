@@ -233,7 +233,7 @@ export default function NotificationBell({ theme = "light" }) {
             )}
           </div>
 
-          {/* Footer */}
+          {/* Footer - Tampilkan semua notifikasi */}
           {notifications.length > 0 && (
             <div className={`px-4 py-2 border-t text-center ${
               isDark ? 'border-slate-700' : 'border-gray-200'

@@ -3,6 +3,15 @@ import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
+  // ─── CORS HEADERS ──────────────────────────────────────────
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // ─── 1. VERIFIKASI TOKEN ──────────────────────────────────
   const token = req.cookies.auth_token;
   if (!token) {
@@ -15,6 +24,9 @@ export default async function handler(req, res) {
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
+    console.log("👤 User ID:", decoded.userId);
+    console.log("👤 User Role:", decoded.role);
   } catch (err) {
     return res.status(401).json({
       success: false,
@@ -23,14 +35,21 @@ export default async function handler(req, res) {
   }
 
   const userId = decoded.userId;
+  const userRole = decoded.role || 'USER';
+
+  // 🔥 Cek apakah user adalah ADMIN
+  const isAdmin = userRole === "ADMIN" || userRole === "admin";
 
   // ─── 2. GET ─────────────────────────────────────────────────
   if (req.method === "GET") {
     try {
-      const projects = await prisma.project.findMany({
-        where: {
-          userId: userId, // 🔥 Hanya ambil project milik user yang login
-        },
+      let projects;
+
+      // 🔥 SEMUA USER bisa melihat SEMUA project (tidak ada filter userId)
+      // Ini agar member bisa melihat project yang diupload admin
+      console.log(`📊 User ${userId} (${userRole}) fetching ALL projects`);
+      
+      projects = await prisma.project.findMany({
         include: {
           attachments: true,
           user: {
@@ -47,10 +66,13 @@ export default async function handler(req, res) {
         },
       });
       
+      console.log(`📊 Total projects fetched: ${projects.length}`);
+      
       return res.status(200).json({
         success: true,
         projects: projects,
         count: projects.length,
+        isAdmin: isAdmin,
       });
     } catch (error) {
       console.error("❌ GET projects error:", error);
@@ -67,13 +89,14 @@ export default async function handler(req, res) {
     try {
       const { name, position, repoLink, date, progress } = req.body;
 
-      // Validasi
       if (!name) {
         return res.status(400).json({
           success: false,
           message: "Nama project wajib diisi",
         });
       }
+
+      console.log(`📝 Creating project for user ${userId}:`, { name, position });
 
       const project = await prisma.project.create({
         data: {
@@ -82,12 +105,14 @@ export default async function handler(req, res) {
           repoLink: repoLink || null,
           date: date ? new Date(date) : new Date(),
           progress: progress || 0,
-          userId: userId, // 🔥 Hubungkan dengan user
+          userId: userId,
         },
         include: {
           attachments: true,
         },
       });
+
+      console.log(`✅ Project created with ID: ${project.id}`);
 
       return res.status(201).json({
         success: true,
@@ -107,7 +132,7 @@ export default async function handler(req, res) {
   // ─── 4. PATCH ────────────────────────────────────────────────
   if (req.method === "PATCH") {
     try {
-      const { id, decision, finished } = req.body;
+      const { id, decision, finished, progress, position, name } = req.body;
 
       if (!id) {
         return res.status(400).json({
@@ -116,7 +141,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Cek project dan kepemilikan
       const existingProject = await prisma.project.findUnique({
         where: { id: id },
       });
@@ -128,23 +152,44 @@ export default async function handler(req, res) {
         });
       }
 
-      if (existingProject.userId !== userId) {
+      // 🔥 ADMIN bisa update semua, MEMBER hanya project sendiri
+      if (!isAdmin && existingProject.userId !== userId) {
         return res.status(403).json({
           success: false,
           message: "❌ Anda tidak memiliki akses ke project ini.",
         });
       }
 
-      // Data update
       const updateData = {};
       if (decision !== undefined) updateData.decision = decision;
       if (finished !== undefined) updateData.finished = finished;
+      if (progress !== undefined) {
+        if (progress < 0 || progress > 100) {
+          return res.status(400).json({
+            success: false,
+            message: "Progress harus antara 0-100",
+          });
+        }
+        updateData.progress = progress;
+      }
+      if (position !== undefined) updateData.position = position;
+      if (name !== undefined) updateData.name = name;
+
+      console.log(`📝 Updating project ${id} by ${isAdmin ? 'Admin' : 'Member'}:`, updateData);
 
       const project = await prisma.project.update({
         where: { id: id },
         data: updateData,
         include: {
           attachments: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              position: true,
+            },
+          },
         },
       });
 
@@ -175,7 +220,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Cek project dan kepemilikan
       const existingProject = await prisma.project.findUnique({
         where: { id: id },
         include: {
@@ -190,17 +234,23 @@ export default async function handler(req, res) {
         });
       }
 
-      if (existingProject.userId !== userId) {
+      // 🔥 ADMIN bisa hapus semua, MEMBER hanya project sendiri
+      if (!isAdmin && existingProject.userId !== userId) {
         return res.status(403).json({
           success: false,
           message: "❌ Anda tidak memiliki akses ke project ini.",
         });
       }
 
-      // Hapus project (attachment akan terhapus otomatis karena cascade)
+      await prisma.attachment.deleteMany({
+        where: { projectId: id },
+      });
+
       await prisma.project.delete({
         where: { id: id },
       });
+
+      console.log(`🗑️ Project ${id} deleted by ${isAdmin ? 'Admin' : 'Member'}`);
 
       return res.status(200).json({
         success: true,

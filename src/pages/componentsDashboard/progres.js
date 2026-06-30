@@ -1,8 +1,9 @@
-// src/pages/dashboardAdmin/components/progres.js
+// pages/dashboardAdmin/components/progres.js
 "use client";
 
 import { useEffect, useState } from "react";
-import { sampleMembers } from "@/data/memberData";
+// ❌ HAPUS import sampleMembers
+// import { sampleMembers } from "@/data/memberData";
 
 const formatDate = (iso) => {
   try {
@@ -47,7 +48,6 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 🔥 KETERANGAN / DESKRIPSI */}
       {attachment.description && (
         <div className={`${theme === 'dark' ? 'bg-blue-900/30 border-blue-700' : 'bg-blue-50 border-blue-200'} border rounded-xl p-4`}>
           <div className="flex items-start gap-2">
@@ -60,7 +60,6 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
         </div>
       )}
 
-      {/* 🔥 STATUS BADGE */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className={`text-xs px-3 py-1 rounded-full border ${statusColors[statusLabel] || statusColors.pending}`}>
           {getStatusIcon(statusLabel)} {statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}
@@ -79,7 +78,6 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
         )}
       </div>
 
-      {/* 🔥 PREVIEW CONTENT */}
       {attachment.type === "image" ? (
         <div className={`relative rounded-2xl overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-900'} min-h-[300px] flex items-center justify-center`}>
           <img
@@ -98,12 +96,7 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
             {attachment.name || attachment.label}
           </div>
           <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-4`}>Klik tombol di bawah untuk membuka link</p>
-          <a
-            href={attachmentUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
-          >
+          <a href={attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition">
             <span>🔗</span> Buka Link
           </a>
         </div>
@@ -114,19 +107,12 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
             {attachment.name || attachment.label}
           </div>
           <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-4`}>Klik tombol di bawah untuk mengunduh file</p>
-          <a
-            href={attachmentUrl}
-            target="_blank"
-            rel="noreferrer"
-            download={attachment.name || "file"}
-            className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition"
-          >
+          <a href={attachmentUrl} target="_blank" rel="noreferrer" download={attachment.name || "file"} className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition">
             <span>⬇️</span> Unduh {attachment.name || "File"}
           </a>
         </div>
       )}
 
-      {/* 🔥 ACTION BUTTONS */}
       <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
@@ -172,14 +158,7 @@ export default function Progres({ theme, setTheme }) {
       const res = await fetch("/api/projects");
       const data = await res.json();
       if (data.success) {
-        console.log("📊 Projects data:", data.projects.map(p => ({
-          id: p.id,
-          name: p.name,
-          imageUrl: p.imageUrl,
-          imageDescription: p.imageDescription,
-          moduleUrl: p.moduleUrl,
-          attachments: p.attachments?.length || 0
-        })));
+        console.log("📊 Projects data:", data.projects);
         setProjects(data.projects);
         return data.projects;
       }
@@ -209,7 +188,6 @@ export default function Progres({ theme, setTheme }) {
 
     const attachments = [];
 
-    // 1. Ambil dari attachments array (dari database)
     if (project.attachments && project.attachments.length > 0) {
       project.attachments.forEach((item) => {
         attachments.push({
@@ -222,7 +200,6 @@ export default function Progres({ theme, setTheme }) {
       });
     }
 
-    // 2. TAMBAHKAN: Image dari project langsung (field imageUrl) - 🔥 PRIORITAS UTAMA
     if (project.imageUrl) {
       const exists = attachments.some(a => a.url === project.imageUrl);
       if (!exists) {
@@ -237,11 +214,9 @@ export default function Progres({ theme, setTheme }) {
           createdAt: project.createdAt || project.date,
           status: "pending",
         });
-        console.log(`🖼️ Added image for ${project.name}: ${project.imageUrl}`);
       }
     }
 
-    // 3. TAMBAHKAN: Image Description 2 jika ada
     if (project.imageDescription2) {
       attachments.push({
         id: `image2-${project.id}`,
@@ -257,7 +232,6 @@ export default function Progres({ theme, setTheme }) {
       });
     }
 
-    // 4. TAMBAHKAN: Module dari project (field moduleUrl)
     if (project.moduleUrl) {
       const exists = attachments.some(a => a.url === project.moduleUrl);
       if (!exists) {
@@ -275,7 +249,6 @@ export default function Progres({ theme, setTheme }) {
       }
     }
 
-    // 5. Tambahkan repo link jika ada
     if (project.repoLink) {
       attachments.push({
         id: `repo-${project.id}`,
@@ -290,7 +263,6 @@ export default function Progres({ theme, setTheme }) {
       });
     }
 
-    console.log(`📎 Total attachments for ${project.name}: ${attachments.length}`);
     return attachments;
   };
 
@@ -369,17 +341,10 @@ export default function Progres({ theme, setTheme }) {
     return matchesDate && matchesName;
   });
 
-  // 🔥 Render gambar di tabel - PERBAIKAN
+  // 🔥 Render gambar di tabel
   const renderImageCell = (project) => {
-    // Cari dari berbagai sumber
     const imageAttachment = project.attachments?.find((a) => a.type === "image");
     const imageUrl = project.imageUrl || imageAttachment?.url;
-    
-    console.log(`🖼️ Rendering image for ${project.name}:`, { 
-      imageUrl, 
-      imageDescription: project.imageDescription,
-      hasAttachment: !!imageAttachment 
-    });
 
     if (imageUrl) {
       return (
@@ -393,7 +358,6 @@ export default function Progres({ theme, setTheme }) {
             alt={project.name}
             className="w-20 h-14 object-cover rounded-lg transition duration-200 group-hover:scale-105"
             onError={(e) => {
-              console.error("❌ Image load error:", imageUrl);
               e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='56'%3E%3Crect width='80' height='56' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='sans-serif' font-size='10'%3ENo Image%3C/text%3E%3C/svg%3E";
             }}
           />
@@ -403,19 +367,9 @@ export default function Progres({ theme, setTheme }) {
     return <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>;
   };
 
+  // 🔥 Render module cell - TANPA sampleMembers
   const renderModuleCell = (project) => {
-    const matchingMembers = sampleMembers.filter((member) => member.position === project.position);
-    const memberEmails = matchingMembers.map((member) => member.email).join(", ");
     const moduleUrl = project.moduleUrl;
-
-    const renderMemberInfo = () => {
-      if (!matchingMembers.length) return null;
-      return (
-        <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-          {matchingMembers.length} {project.position} member{matchingMembers.length > 1 ? "s" : ""}: {memberEmails}
-        </div>
-      );
-    };
 
     if (moduleUrl) {
       return (
@@ -429,7 +383,6 @@ export default function Progres({ theme, setTheme }) {
           >
             📄 Download Modul
           </a>
-          {renderMemberInfo()}
         </div>
       );
     }
@@ -447,7 +400,6 @@ export default function Progres({ theme, setTheme }) {
           >
             {moduleAttachment.name || "Download"}
           </a>
-          {renderMemberInfo()}
         </div>
       );
     }
