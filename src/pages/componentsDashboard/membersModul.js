@@ -96,9 +96,12 @@ export default function MembersModul({ theme = "light" }) {
       const data = await response.json();
 
       if (data.success) {
+        const emailMsg = data.email?.sent
+          ? '✅ Email credential terkirim ke member.'
+          : '⚠️ Email credential gagal dikirim. Anda bisa kirim ulang nanti.';
         setMessage({
-          type: 'success',
-          text: `✅ Member berhasil ditambahkan dengan posisi: ${newMember.position}!`
+          type: data.email?.sent ? 'success' : 'warning',
+          text: `✅ Member berhasil ditambahkan dengan posisi: ${newMember.position}! ${emailMsg}`
         });
         setNewMember({ name: '', position: '', email: '', password: '', profile: '' });
         setShowForm(false);
@@ -112,6 +115,39 @@ export default function MembersModul({ theme = "light" }) {
       setMessage({ type: 'error', text: 'Terjadi kesalahan pada server' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔥 RESEND EMAIL - /api/members/resend-email/{id}
+  const handleResendEmail = async (memberId, memberName) => {
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const response = await fetch(`/api/members/resend-email/${memberId}`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage({
+          type: 'success',
+          text: `✅ Email credential berhasil dikirim ulang ke ${memberName}`,
+        });
+        fetchMembers();
+      } else {
+        setMessage({
+          type: 'error',
+          text: `❌ Gagal kirim email: ${data.message || 'Unknown error'}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error resending email:', error);
+      setMessage({ type: 'error', text: 'Terjadi kesalahan pada server' });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000);
     }
   };
 
@@ -166,7 +202,9 @@ export default function MembersModul({ theme = "light" }) {
         <div className={`mb-4 p-4 rounded-lg ${
           message.type === 'success'
             ? 'bg-green-100 text-green-700 border border-green-200'
-            : 'bg-red-100 text-red-700 border border-red-200'
+            : message.type === 'warning'
+              ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+              : 'bg-red-100 text-red-700 border border-red-200'
         }`}>
           {message.text}
         </div>
@@ -340,6 +378,11 @@ export default function MembersModul({ theme = "light" }) {
               <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                 isDark ? 'text-slate-400' : 'text-gray-500'
               }`}>
+                Status Email
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
                 Aksi
               </th>
             </tr>
@@ -347,7 +390,7 @@ export default function MembersModul({ theme = "light" }) {
           <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
             {listMembers.length === 0 ? (
               <tr>
-                <td colSpan="4" className={`px-4 py-8 text-center ${
+                <td colSpan="5" className={`px-4 py-8 text-center ${
                   isDark ? 'text-slate-400' : 'text-gray-400'
                 }`}>
                   Belum ada member. Tambahkan member baru!
@@ -386,12 +429,33 @@ export default function MembersModul({ theme = "light" }) {
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <button
-                      onClick={() => handleDeleteMember(member.id)}
-                      className="text-red-500 hover:text-red-700 text-sm font-medium transition"
-                    >
-                      🗑️ Hapus
-                    </button>
+                    {member.credentialEmailSent ? (
+                      <span className="inline-flex items-center gap-1 text-green-600 text-sm font-medium">
+                        ✅ Terkirim
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-red-500 text-sm font-medium">
+                        ❌ Gagal
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      {!member.credentialEmailSent && (
+                        <button
+                          onClick={() => handleResendEmail(member.id, member.name)}
+                          className="text-blue-500 hover:text-blue-700 text-sm font-medium transition"
+                        >
+                          📧 Kirim Ulang
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteMember(member.id)}
+                        className="text-red-500 hover:text-red-700 text-sm font-medium transition"
+                      >
+                        🗑️ Hapus
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -1,6 +1,7 @@
 // pages/api/members/index.js
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { sendMemberCredentialsEmail } from "@/lib/mailer";
 
 export default async function handler(req, res) {
   // ─── GET ALL ────────────────────────────────────────────────
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
           position: true,
           profile: true,
           role: true,
+          credentialEmailSent: true,
           createdAt: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -70,10 +72,31 @@ export default async function handler(req, res) {
         },
       });
 
+      let emailStatus = { sent: false };
+      try {
+        const emailResult = await sendMemberCredentialsEmail({
+          to: newMember.email,
+          name: newMember.name,
+          email: newMember.email,
+          password: password,
+        });
+
+        emailStatus.sent = emailResult.success;
+
+        await prisma.user.update({
+          where: { id: newMember.id },
+          data: { credentialEmailSent: emailResult.success },
+        });
+      } catch (emailError) {
+        console.error("Gagal kirim email credential:", emailError);
+        emailStatus.error = emailError.message;
+      }
+
       return res.status(201).json({
         success: true,
         message: `Member berhasil ditambahkan dengan posisi: ${position}`,
         member: newMember,
+        email: emailStatus,
       });
     } catch (error) {
       console.error("POST member error:", error);

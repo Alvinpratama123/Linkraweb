@@ -239,7 +239,7 @@ export async function sendRevisionNotification(report, targetUsers) {
         </div>
 
         <div style="text-align: center;">
-          <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboardAdmin?tab=revision" class="btn">
+          <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboardAdmin/admin?tab=Revision" class="btn">
             🔍 Lihat Revisi
           </a>
         </div>
@@ -261,7 +261,7 @@ export async function sendRevisionNotification(report, targetUsers) {
     Progress: ${report.progress}
     Deskripsi: ${report.description || 'Tidak ada deskripsi'}
     
-    Lihat di: ${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboardAdmin?tab=revision
+    Lihat di: ${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboardAdmin/admin?tab=Revision
   `;
 
   const results = [];
@@ -345,6 +345,69 @@ export async function sendNotificationToRole(report, targetRole, prisma) {
     };
   } catch (error) {
     console.error('❌ Gagal kirim notifikasi ke role:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Fungsi kirim notifikasi email umum (untuk notification.js)
+export async function sendNotificationEmail({ to, name, title, message, link }) {
+  if (!to) {
+    console.log('📧 Tidak ada email tujuan');
+    return { success: false, message: 'Email tidak ada' };
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #f4f7fb; padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .header { border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 25px; }
+        .header h1 { color: #001d55; margin: 0; font-size: 22px; }
+        .content { color: #374151; font-size: 15px; line-height: 1.6; }
+        .content .icon { font-size: 40px; text-align: center; margin-bottom: 16px; }
+        .btn { display: inline-block; background: #2563eb; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; font-size: 14px; }
+        .btn:hover { background: #1d4ed8; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 13px; }
+        .footer strong { color: #001d55; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🔔 Notifikasi</h1>
+        </div>
+        <div class="content">
+          <p>Halo <strong>${name || 'User'}</strong>,</p>
+          <p><strong>${title}</strong></p>
+          ${message ? `<p>${message}</p>` : ''}
+          ${link ? `<div style="text-align: center;"><a href="${link}" class="btn">🔍 Lihat Detail</a></div>` : ''}
+        </div>
+        <div class="footer">
+          <p>Dikirim dari <strong>Lintas Wahana</strong></p>
+          <p style="font-size: 12px; color: #9ca3af;">Email ini dikirim secara otomatis, harap tidak membalas email ini.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    console.log(`📧 Kirim notifikasi email ke ${to}: ${title}`);
+
+    const info = await transporter.sendMail({
+      from: `"${process.env.SMTP_FROM_NAME || 'Lintas Wahana'}" <${process.env.SMTP_USER || 'no-reply@aiturbo.id'}>`,
+      to: to,
+      subject: `🔔 ${title}`,
+      html: html,
+    });
+
+    console.log(`✅ Email notifikasi terkirim ke ${to} (${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error(`❌ Gagal kirim notifikasi email ke ${to}:`, error.message);
     return { success: false, error: error.message };
   }
 }
