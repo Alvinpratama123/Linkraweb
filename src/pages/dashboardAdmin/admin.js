@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/router";
 import { FaBars, FaTimes } from "react-icons/fa";
 import {
   MdDashboard,
@@ -34,7 +34,6 @@ import SettingsTema from "../settings/settingsTema";
 
 export default function DashboardAdmin() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");
@@ -56,45 +55,58 @@ export default function DashboardAdmin() {
 
   // 🔥 CEK PARAMETER URL UNTUK NOTIFIKASI
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    const projectId = searchParams.get('id');
-    
-    if (tab === 'progress' || projectId) {
-      console.log('🔍 Opening Progress from URL:', { tab, projectId });
-      setSelectedMenu("Progress");
+    if (!router.isReady) return;
+
+    const tab = Array.isArray(router.query.tab)
+      ? router.query.tab[0]
+      : router.query.tab;
+    const projectId = Array.isArray(router.query.id)
+      ? router.query.id[0]
+      : router.query.id;
+
+    const tabMap = {
+      dashboard: 'Dashboard',
+      projects: 'Projects',
+      progress: 'Progress',
+      revision: 'Revision Issues',
+      members: 'MEMBER & MODUL',
+      analytics: 'Analytics',
+      profile: 'Settings Profile',
+      settings: 'Settings Profile',
+      theme: 'Settings Tema',
+    };
+
+    if (tab && tabMap[tab]) {
+      setSelectedMenu(tabMap[tab]);
+      return;
     }
-  }, [searchParams]);
 
-  // 🔥 SYNC USER DATA DARI LOCAL STORAGE
+    if (tab === 'progress' || projectId) {
+      setSelectedMenu('Progress');
+    }
+  }, [router.isReady, router.query.tab, router.query.id]);
+
   useEffect(() => {
-    const syncUserData = () => {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUserData(parsedUser);
-        } catch (e) {
-          console.error("Error parsing user data:", e);
+    const syncUserData = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        const data = await response.json();
+
+        if (response.ok && data.success && data.user) {
+          setUserData(data.user);
+        } else {
+          setUserData(null);
+          router.push("/components/login");
         }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setUserData(null);
+        router.push("/components/login");
       }
     };
 
-    // Sync awal
     syncUserData();
-
-    // 🔥 Dengarkan perubahan di localStorage dari tab lain
-    const handleStorageChange = (e) => {
-      if (e.key === "user") {
-        syncUserData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  }, [router]);
 
   // 🔥 FETCH USER DATA DARI API
   useEffect(() => {
@@ -105,13 +117,13 @@ export default function DashboardAdmin() {
         const data = await response.json();
 
         if (!response.ok) {
+          clearAllStorage();
           router.push("/components/login");
           return;
         }
 
         if (data.success && data.user) {
           setUserData(data.user);
-          localStorage.setItem("user", JSON.stringify(data.user));
 
           if (data.user.role?.toUpperCase() !== "ADMIN") {
             router.push("/memberDashboard/MemberDashboard");
@@ -119,20 +131,8 @@ export default function DashboardAdmin() {
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            setUserData(parsedUser);
-            if (parsedUser.role?.toUpperCase() !== "ADMIN") {
-              router.push("/memberDashboard/MemberDashboard");
-            }
-          } catch (e) {
-            router.push("/components/login");
-          }
-        } else {
-          router.push("/components/login");
-        }
+        clearAllStorage();
+        router.push("/components/login");
       } finally {
         setLoading(false);
       }
@@ -144,21 +144,9 @@ export default function DashboardAdmin() {
   // 🔥 HANDLE UPDATE USER
   const handleUserUpdate = useCallback((updatedUser) => {
     setUserData(updatedUser);
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    
-    // 🔥 Kirim event ke tab lain agar sinkron
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'user',
-      newValue: JSON.stringify(updatedUser)
-    }));
   }, []);
 
   const clearAllStorage = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("refresh_token");
-
     document.cookie.split(";").forEach((cookie) => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();

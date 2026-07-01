@@ -4,42 +4,36 @@
  * ============================================================
  */
  
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { useRouter } from "next/router";
 import { FaSearch, FaBell, FaUsers } from "react-icons/fa";
 import { HiSparkles, HiFolder, HiCheckCircle, HiClock, HiFlag } from "react-icons/hi2";
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
  
 export default function Dashboard({ userData = {}, theme = "light" }) {
+  const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
   
   // ─── STATE NOTIFIKASI ──────────────────────────────────────
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifError, setNotifError] = useState("");
   const notifRef = useRef(null);
  
   // ─── TEMA ───────────────────────────────────────────────────
   const isDark = theme === "dark";
  
   // ─── DATA USER ──────────────────────────────────────────────
-  const safeParseUser = () => {
-    try {
-      return typeof window !== "undefined"
-        ? JSON.parse(localStorage.getItem("user") || "{}")
-        : {};
-    } catch {
-      return {};
-    }
-  };
-  const localUser = safeParseUser();
- 
-  const userName  = userData?.name  || localUser?.name  || "User";
-  const userPhoto = userData?.photo || localUser?.photo || null;
-  const userRole  = userData?.role  || localUser?.role  || "USER";
-  const userPosition = userData?.position || localUser?.position || null;
+  const effectiveUserData = userData && Object.keys(userData).length ? userData : currentUser || {};
+  const userName  = effectiveUserData?.name || "User";
+  const userPhoto = effectiveUserData?.photo || effectiveUserData?.profile || null;
+  const userRole  = effectiveUserData?.role || "USER";
+  const userPosition = effectiveUserData?.position || null;
  
   // ─── FUNGSI GET DISPLAY ROLE ──────────────────────────────
   const getDisplayRole = (role, position) => {
@@ -61,14 +55,22 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
   // ─── FUNGSI NOTIFIKASI ─────────────────────────────────────
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/notifications?limit=10');
+      const res = await fetch('/api/notifications?limit=10', { credentials: 'include' });
       const data = await res.json();
       if (data.success) {
         setNotifications(data.notifications || []);
         setUnreadCount(data.unreadCount || 0);
+        setNotifError("");
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
+        setNotifError(data.message || 'Gagal memuat notifikasi');
       }
     } catch (error) {
       console.error('Fetch notifications error:', error);
+      setNotifications([]);
+      setUnreadCount(0);
+      setNotifError('Gagal memuat notifikasi');
     }
   };
 
@@ -76,6 +78,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     try {
       await fetch('/api/notifications', {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       });
@@ -89,6 +92,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     try {
       await fetch('/api/notifications', {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markAll: true }),
       });
@@ -98,13 +102,21 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     }
   };
 
+  const handleBellClick = async () => {
+    const nextState = !isNotifOpen;
+    setIsNotifOpen(nextState);
+    if (nextState) {
+      await fetchNotifications();
+    }
+  };
+
   const handleNotificationClick = (notification) => {
     if (!notification.isRead) {
       markAsRead(notification.id);
     }
     setIsNotifOpen(false);
     if (notification.link) {
-      window.location.href = notification.link;
+      router.push(notification.link);
     }
   };
 
@@ -157,6 +169,24 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
  
   // ─── FETCH DATA ─────────────────────────────────────────────
   useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user) {
+            setCurrentUser(data.user);
+          }
+        }
+      } catch (error) {
+        console.error("Fetch current user error:", error);
+      }
+    };
+
+    if (!userData || Object.keys(userData).length === 0) {
+      fetchCurrentUser();
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -200,7 +230,36 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
   const pendingProjects  = projects.filter((p) => !p.decision || p.decision === "pending").length;
   const finishedProjects = projects.filter((p) => p.finished).length;
   const totalMembers     = members.length;
- 
+
+  const dedupedProjects = useMemo(() => {
+    const grouped = new Map();
+
+    projects.forEach((project) => {
+      const normalizedName = (project.name || "").trim().toLowerCase();
+      if (!normalizedName) return;
+
+      const key = `${project.userId || "unknown"}::${normalizedName}`;
+      const existing = grouped.get(key);
+
+      if (!existing) {
+        grouped.set(key, project);
+        return;
+      }
+
+      const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      const incomingTime = new Date(project.updatedAt || project.createdAt || 0).getTime();
+      const shouldReplace =
+        incomingTime > existingTime ||
+        (incomingTime === existingTime && (project.progress || 0) > (existing.progress || 0));
+
+      if (shouldReplace) {
+        grouped.set(key, project);
+      }
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => (b.progress || 0) - (a.progress || 0));
+  }, [projects]);
+
   // ─── STATS CARDS ────────────────────────────────────────────
   const stats = [
     {
@@ -351,10 +410,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
           {/* ─── NOTIFICATION BELL ───────────────────────────── */}
           <div className="relative" ref={notifRef}>
             <button
-              onClick={() => {
-                setIsNotifOpen(!isNotifOpen);
-                if (!isNotifOpen) fetchNotifications();
-              }}
+              onClick={handleBellClick}
               className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group ${
                 isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100"
               }`}
@@ -391,7 +447,12 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                 </div>
 
                 <div className="overflow-y-auto max-h-[400px]">
-                  {notifications.length === 0 ? (
+                  {notifError ? (
+                    <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
+                      <span className="text-4xl block mb-2">🔔</span>
+                      {notifError}
+                    </div>
+                  ) : notifications.length === 0 ? (
                     <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
                       <span className="text-4xl block mb-2">🔔</span>
                       Tidak ada notifikasi
@@ -738,6 +799,15 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                       <span className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-800"}`}>
                         {p.name}
                       </span>
+                      {(p.user?.email || p.user?.name) && (
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                          isDark
+                            ? "bg-slate-800 text-slate-400 border-slate-700"
+                            : "bg-gray-100 text-gray-500 border-gray-200"
+                        }`}>
+                          Owner: {p.user?.email || p.user?.name || "-"}
+                        </span>
+                      )}
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${
                         isDark
                           ? "bg-slate-800 text-slate-400 border-slate-700"

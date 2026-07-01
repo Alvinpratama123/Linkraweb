@@ -1,5 +1,5 @@
 // pages/api/auth/me.js
-import { prisma } from "@/lib/prisma";
+import { ensureDatabaseAvailable, prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
 
 // ✅ PASTIKAN ADA export default
@@ -28,6 +28,14 @@ export default async function handler(req, res) {
       token, 
       process.env.JWT_SECRET || "your-secret-key-change-in-production"
     );
+
+    const dbReady = await ensureDatabaseAvailable();
+    if (!dbReady) {
+      return res.status(503).json({
+        success: false,
+        message: "Database belum siap",
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },

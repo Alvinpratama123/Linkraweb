@@ -91,6 +91,15 @@ function getCategoryLabel(name) {
   return 'Project';
 }
 
+function buildDashboardLink(userRole, tab) {
+  const normalizedRole = (userRole || '').toLowerCase();
+  const basePath = normalizedRole === 'admin' || normalizedRole === 'administrator'
+    ? '/dashboardAdmin/admin'
+    : '/memberDashboard/MemberDashboard';
+
+  return tab ? `${basePath}?tab=${tab}` : basePath;
+}
+
 // ─── KIRIM EMAIL NOTIFIKASI ──────────────────────────────────
 async function sendEmailNotification(user, title, message, type, link, icon) {
   try {
@@ -374,10 +383,11 @@ export async function sendNotificationToAllUsers({ title, message, type, link, i
     for (const user of users) {
       let userLink = link;
       
-      if (user.role?.toLowerCase() === 'member' || user.role?.toLowerCase() !== 'admin') {
-        if (link && link.includes('/dashboardAdmin')) {
-          userLink = link.replace('/dashboardAdmin', '/memberDashboard');
-        }
+      const userRole = user.role?.toLowerCase();
+      const isAdmin = userRole === 'admin' || userRole === 'administrator';
+      if (userLink && userLink.includes('/dashboardAdmin') && !isAdmin) {
+        userLink = userLink.replace('/dashboardAdmin/admin', '/memberDashboard/MemberDashboard');
+        userLink = userLink.replace('/dashboardAdmin', '/memberDashboard/MemberDashboard');
       }
 
       const notification = await prisma.notification.create({
@@ -412,8 +422,8 @@ export async function sendNotificationToAllUsers({ title, message, type, link, i
 
 // ─── NOTIFIKASI PROJECT KE SEMUA USER ────────────────────────
 export async function sendProjectNotificationToAllUsers(project, action, senderRole) {
-  const adminLink = `/dashboardAdmin/admin?tab=progress`;
-  const memberLink = `/memberDashboard/MemberDashboard?tab=progress`;
+  const adminLink = buildDashboardLink('admin', 'progress');
+  const memberLink = buildDashboardLink('member', 'progress');
   
   const category = getCategoryLabel(project.name);
   const senderDisplay = roleLabels[senderRole?.toLowerCase()] || senderRole || 'User';
@@ -469,10 +479,7 @@ export async function createProjectNotification(project, userId, action, senderR
     select: { role: true },
   });
 
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
-  const link = isAdmin 
-    ? `/dashboardAdmin/admin?tab=progress`
-    : `/memberDashboard/MemberDashboard?tab=progress`;
+  const link = buildDashboardLink(user?.role, 'progress');
   
   const category = getCategoryLabel(project.name);
   const senderDisplay = roleLabels[senderRole?.toLowerCase()] || senderRole || 'User';
@@ -530,8 +537,7 @@ export async function createMemberNotification(member, userId, action) {
       select: { role: true },
     });
 
-    const isAdmin = user?.role?.toLowerCase() === 'admin';
-    const link = isAdmin ? '/dashboardAdmin/admin' : '/memberDashboard/MemberDashboard';
+    const link = buildDashboardLink(user?.role, 'dashboard');
     const positionDisplay = roleLabels[member.position?.toLowerCase()] || member.position || 'Member';
 
     return await createNotification({
@@ -555,8 +561,7 @@ export async function createRevisionNotification(revision, userId, action) {
       select: { role: true },
     });
 
-    const isAdmin = user?.role?.toLowerCase() === 'admin';
-    const link = isAdmin ? '/dashboardAdmin/revision' : '/memberDashboard/MemberDashboard';
+    const link = buildDashboardLink(user?.role, 'revision');
 
     return await createNotification({
       userId,

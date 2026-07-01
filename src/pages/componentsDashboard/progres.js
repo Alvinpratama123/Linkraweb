@@ -2,8 +2,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// ❌ HAPUS import sampleMembers
-// import { sampleMembers } from "@/data/memberData";
 
 const formatDate = (iso) => {
   try {
@@ -19,8 +17,36 @@ const formatDate = (iso) => {
   }
 };
 
-// 🔥 Komponen untuk menampilkan attachment detail
-const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
+const normalizeDecision = (value) => {
+  const normalized = String(value || "pending").toLowerCase();
+  if (normalized === "approved") return "approved";
+  if (normalized === "rejected") return "rejected";
+  return "pending";
+};
+
+const normalizeAttachmentStatus = (value) => {
+  const normalized = String(value || "pending").toLowerCase();
+  if (normalized === "approved") return "approved";
+  if (normalized === "rejected") return "rejected";
+  return "pending";
+};
+
+const getDecisionLabel = (value) => {
+  const normalized = normalizeDecision(value);
+  if (normalized === "approved") return "Approved";
+  if (normalized === "rejected") return "Rejected";
+  return "Pending";
+};
+
+const getAttachmentStatusLabel = (value) => {
+  const normalized = normalizeAttachmentStatus(value);
+  if (normalized === "approved") return "Approved";
+  if (normalized === "rejected") return "Rejected";
+  return "Pending";
+};
+
+// 🔥 Komponen untuk menampilkan attachment detail - TANPA TOMBOL
+const AttachmentDetail = ({ attachment, theme }) => {
   if (!attachment) {
     return (
       <div className={`text-center py-12 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -31,7 +57,7 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
   }
 
   const attachmentUrl = attachment.url || attachment.data || "";
-  const statusLabel = attachment.status || "pending";
+  const statusLabel = normalizeAttachmentStatus(attachment.status);
   const statusColors = {
     approved: theme === 'dark' ? "bg-green-900 text-green-200 border-green-700" : "bg-green-100 text-green-700 border-green-200",
     rejected: theme === 'dark' ? "bg-red-900 text-red-200 border-red-700" : "bg-red-100 text-red-700 border-red-200",
@@ -62,7 +88,7 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
 
       <div className="flex items-center gap-3 flex-wrap">
         <span className={`text-xs px-3 py-1 rounded-full border ${statusColors[statusLabel] || statusColors.pending}`}>
-          {getStatusIcon(statusLabel)} {statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}
+          {getStatusIcon(statusLabel)} {getAttachmentStatusLabel(statusLabel)}
         </span>
         <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
           {formatDate(attachment.createdAt)}
@@ -112,33 +138,6 @@ const AttachmentDetail = ({ attachment, onStatusChange, theme }) => {
           </a>
         </div>
       )}
-
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-        <button
-          type="button"
-          onClick={() => onStatusChange(attachment, "approved")}
-          className="flex-1 min-w-[100px] rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={attachment.status === "approved"}
-        >
-          ✅ Approve
-        </button>
-        <button
-          type="button"
-          onClick={() => onStatusChange(attachment, "rejected")}
-          className="flex-1 min-w-[100px] rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={attachment.status === "rejected"}
-        >
-          ❌ Reject
-        </button>
-        <button
-          type="button"
-          onClick={() => onStatusChange(attachment, "pending")}
-          className={`flex-1 min-w-[100px] rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'} px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed`}
-          disabled={attachment.status === "pending"}
-        >
-          ↩️ Reset
-        </button>
-      </div>
     </div>
   );
 };
@@ -153,14 +152,46 @@ export default function Progres({ theme, setTheme }) {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("grid");
 
+  // 🔥 Fungsi untuk menambahkan notifikasi ke database
+  const addNotification = async (title, message, type = "info", link = null) => {
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title,
+          message,
+          type,
+          link,
+          icon: type === "success" ? "✅" : type === "error" ? "❌" : type === "warning" ? "⚠️" : "📢",
+          color: type === "success" ? "green" : type === "error" ? "red" : type === "warning" ? "orange" : "blue",
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        console.error("Failed to add notification:", data.message);
+      }
+      return data;
+    } catch (error) {
+      console.error("Add notification error:", error);
+    }
+  };
+
   const fetchProjects = async () => {
     try {
       const res = await fetch("/api/projects");
       const data = await res.json();
       if (data.success) {
-        console.log("📊 Projects data:", data.projects);
-        setProjects(data.projects);
-        return data.projects;
+        const nextProjects = data.projects || [];
+        setProjects(nextProjects);
+        if (selectedProject?.id) {
+          const freshSelected = nextProjects.find((project) => project.id === selectedProject.id);
+          if (freshSelected) {
+            setSelectedProject({ ...freshSelected });
+          }
+        }
+        return nextProjects;
       }
       return [];
     } catch (error) {
@@ -182,17 +213,34 @@ export default function Progres({ theme, setTheme }) {
     }
   }, [selectedProject?.id]);
 
+  const syncProjectState = (updatedProject) => {
+    if (!updatedProject?.id) return;
+
+    const normalizedProject = {
+      ...updatedProject,
+      decision: normalizeDecision(updatedProject.decision),
+      attachments: updatedProject.attachments || [],
+      user: updatedProject.user || null,
+      attachmentStatusOverrides: updatedProject.attachmentStatusOverrides || {},
+    };
+
+    setProjects((prev) => prev.map((project) => (project.id === normalizedProject.id ? { ...project, ...normalizedProject } : project)));
+    setSelectedProject((prev) => (prev?.id === normalizedProject.id ? { ...prev, ...normalizedProject } : prev));
+  };
+
   // 🔥 Fungsi untuk mendapatkan semua attachment dari project
   const getProjectAttachments = (project) => {
     if (!project) return [];
 
     const attachments = [];
 
+    const attachmentStatusOverrides = project.attachmentStatusOverrides || {};
+
     if (project.attachments && project.attachments.length > 0) {
       project.attachments.forEach((item) => {
         attachments.push({
           ...item,
-          status: item.status || "pending",
+          status: normalizeAttachmentStatus(item.status || attachmentStatusOverrides[item.id] || "pending"),
           label: item.name || (item.type === "image" ? "Gambar" : item.type === "link" ? "Link" : "File"),
           data: item.url || null,
           description: item.description || null,
@@ -212,7 +260,7 @@ export default function Progres({ theme, setTheme }) {
           data: project.imageUrl,
           description: project.imageDescription || null,
           createdAt: project.createdAt || project.date,
-          status: "pending",
+          status: normalizeAttachmentStatus(attachmentStatusOverrides[`image-${project.id}`] || "pending"),
         });
       }
     }
@@ -227,7 +275,7 @@ export default function Progres({ theme, setTheme }) {
         data: project.imageUrl || "",
         description: project.imageDescription2,
         createdAt: project.createdAt || project.date,
-        status: "pending",
+        status: normalizeAttachmentStatus(attachmentStatusOverrides[`image2-${project.id}`] || "pending"),
         isAdditionalDescription: true,
       });
     }
@@ -244,7 +292,7 @@ export default function Progres({ theme, setTheme }) {
           data: project.moduleUrl,
           description: "Modul pembelajaran",
           createdAt: project.createdAt || project.date,
-          status: "pending",
+          status: normalizeAttachmentStatus(attachmentStatusOverrides[`module-${project.id}`] || "pending"),
         });
       }
     }
@@ -258,7 +306,7 @@ export default function Progres({ theme, setTheme }) {
         data: project.repoLink,
         url: project.repoLink,
         createdAt: project.date || project.createdAt || "",
-        status: "pending",
+        status: normalizeAttachmentStatus(attachmentStatusOverrides[`repo-${project.id}`] || "pending"),
         description: "Link repository / demo project",
       });
     }
@@ -266,18 +314,160 @@ export default function Progres({ theme, setTheme }) {
     return attachments;
   };
 
+  // 🔥 Fungsi untuk approve semua attachment sekaligus
+  const approveAllAttachments = async () => {
+    if (!selectedProject) return;
+
+    const allAttachments = getProjectAttachments(selectedProject);
+    const overrides = { ...(selectedProject.attachmentStatusOverrides || {}) };
+
+    allAttachments.forEach(att => {
+      overrides[att.id] = "approved";
+    });
+
+    const optimisticProject = {
+      ...selectedProject,
+      decision: "approved",
+      finished: false,
+      attachmentStatusOverrides: overrides,
+    };
+
+    syncProjectState(optimisticProject);
+
+    try {
+      await fetch(`/api/projects/${selectedProject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          decision: "approved",
+          finished: false,
+          attachmentStatusOverrides: overrides 
+        }),
+      });
+
+      // 🔥 Notifikasi Approve All
+      await addNotification(
+        `✅ Semua lampiran di-approve`,
+        `Semua lampiran pada project "${selectedProject.name}" telah di-approve`,
+        "success",
+        `/dashboardAdmin/progres`
+      );
+
+      const updatedProjects = await fetchProjects();
+      const updatedProject = updatedProjects.find((p) => p.id === selectedProject.id);
+      if (updatedProject) {
+        syncProjectState(updatedProject);
+      }
+    } catch (error) {
+      console.error("Approve all error:", error);
+    }
+  };
+
+  // 🔥 Fungsi Reset - mereset semua status
+  const handleResetAll = async () => {
+    if (!selectedProject) return;
+    if (!window.confirm("Yakin ingin mereset semua status project ini?")) return;
+
+    const allAttachments = getProjectAttachments(selectedProject);
+    const overrides = { ...(selectedProject.attachmentStatusOverrides || {}) };
+
+    allAttachments.forEach(att => {
+      overrides[att.id] = "pending";
+    });
+
+    const optimisticProject = {
+      ...selectedProject,
+      decision: "pending",
+      finished: false,
+      attachmentStatusOverrides: overrides,
+    };
+
+    syncProjectState(optimisticProject);
+
+    try {
+      await fetch(`/api/projects/${selectedProject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          decision: "pending",
+          finished: false,
+          attachmentStatusOverrides: overrides 
+        }),
+      });
+
+      // 🔥 Notifikasi Reset All
+      await addNotification(
+        `↩️ Semua status di-reset`,
+        `Semua status pada project "${selectedProject.name}" telah di-reset ke Pending`,
+        "info",
+        `/dashboardAdmin/progres`
+      );
+
+      const updatedProjects = await fetchProjects();
+      const updatedProject = updatedProjects.find((p) => p.id === selectedProject.id);
+      if (updatedProject) {
+        syncProjectState(updatedProject);
+      }
+    } catch (error) {
+      console.error("Reset all error:", error);
+    }
+  };
+
   const handleDecision = async (decision) => {
     if (!selectedProject) return;
+    
+    const normalizedDecision = normalizeDecision(decision);
+    const decisionLabel = getDecisionLabel(decision);
+    
     try {
       const res = await fetch(`/api/projects/${selectedProject.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision }),
+        body: JSON.stringify({ decision, finished: false }),
       });
       const data = await res.json();
       if (data.success) {
-        setSelectedProject(data.project);
-        setProjects((prev) => prev.map((p) => p.id === data.project.id ? data.project : p));
+        if (normalizedDecision === "approved") {
+          const allAttachments = getProjectAttachments(selectedProject);
+          const overrides = { ...(selectedProject.attachmentStatusOverrides || {}) };
+          
+          allAttachments.forEach(att => {
+            overrides[att.id] = "approved";
+          });
+          
+          const projectWithOverrides = {
+            ...data.project,
+            finished: false,
+            attachmentStatusOverrides: overrides,
+          };
+          
+          syncProjectState(projectWithOverrides);
+          
+          try {
+            await fetch(`/api/projects/${selectedProject.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                finished: false,
+                attachmentStatusOverrides: overrides 
+              }),
+            });
+          } catch (err) {
+            console.error("Error saving attachment overrides:", err);
+          }
+        } else {
+          syncProjectState(data.project);
+        }
+
+        // 🔥 Notifikasi Decision
+        const statusIcon = normalizedDecision === "approved" ? "✅" : normalizedDecision === "rejected" ? "❌" : "↩️";
+        const notifType = normalizedDecision === "approved" ? "success" : normalizedDecision === "rejected" ? "error" : "info";
+        await addNotification(
+          `${statusIcon} Decision ${decisionLabel}`,
+          `Project "${selectedProject.name}" telah di-${decisionLabel.toLowerCase()}`,
+          notifType,
+          `/dashboardAdmin/progres`
+        );
       }
     } catch (error) {
       console.error("Decision error:", error);
@@ -294,8 +484,15 @@ export default function Progres({ theme, setTheme }) {
       });
       const data = await res.json();
       if (data.success) {
-        setSelectedProject(data.project);
-        setProjects((prev) => prev.map((p) => p.id === data.project.id ? data.project : p));
+        syncProjectState(data.project);
+
+        // 🔥 Notifikasi Finish
+        await addNotification(
+          `🎉 Project Selesai`,
+          `Project "${selectedProject.name}" telah ditandai sebagai selesai`,
+          "success",
+          `/dashboardAdmin/progres`
+        );
       }
     } catch (error) {
       console.error("Finish error:", error);
@@ -305,30 +502,89 @@ export default function Progres({ theme, setTheme }) {
   const handleDeleteProject = async (projectId) => {
     if (!window.confirm("Yakin ingin menghapus project ini?")) return;
     try {
+      const projectToDelete = projects.find(p => p.id === projectId);
       await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
       if (selectedProject?.id === projectId) setSelectedProject(null);
+
+      // 🔥 Notifikasi Delete
+      if (projectToDelete) {
+        await addNotification(
+          `🗑️ Project Dihapus`,
+          `Project "${projectToDelete.name}" telah dihapus`,
+          "error",
+          `/dashboardAdmin/progres`
+        );
+      }
     } catch (error) {
       console.error("Delete project error:", error);
     }
   };
 
+  // 🔥 setAttachmentStatus TIDAK mengubah decision project
   const setAttachmentStatus = async (attachment, status) => {
-    if (!attachment || attachment.type === "link" || 
-        attachment.id?.startsWith?.("image-") || 
-        attachment.id?.startsWith?.("module-") || 
-        attachment.id?.startsWith?.("repo-")) {
+    if (!attachment) return;
+
+    const normalizedStatus = normalizeAttachmentStatus(status);
+    const statusLabel = getAttachmentStatusLabel(status);
+    const isGeneratedAttachment = attachment.type === "link" ||
+      attachment.id?.toString?.().startsWith?.("image-") ||
+      attachment.id?.toString?.().startsWith?.("module-") ||
+      attachment.id?.toString?.().startsWith?.("repo-");
+
+    const nextOverrides = {
+      ...(selectedProject?.attachmentStatusOverrides || {}),
+    };
+
+    nextOverrides[attachment.id] = normalizedStatus;
+
+    const optimisticProject = {
+      ...selectedProject,
+      attachmentStatusOverrides: nextOverrides,
+      attachments: (selectedProject?.attachments || []).map((item) =>
+        item.id === attachment.id ? { ...item, status: normalizedStatus } : item
+      ),
+    };
+
+    syncProjectState(optimisticProject);
+
+    // 🔥 Notifikasi perubahan status attachment
+    const statusIcon = normalizedStatus === "approved" ? "✅" : normalizedStatus === "rejected" ? "❌" : "↩️";
+    const notifType = normalizedStatus === "approved" ? "success" : normalizedStatus === "rejected" ? "error" : "info";
+    await addNotification(
+      `${statusIcon} ${attachment.label} ${statusLabel}`,
+      `Lampiran "${attachment.label}" pada project "${selectedProject?.name}" telah di-${statusLabel.toLowerCase()}`,
+      notifType,
+      `/dashboardAdmin/progres`
+    );
+
+    if (isGeneratedAttachment) {
+      try {
+        await fetch(`/api/projects/${selectedProject.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ attachmentStatusOverrides: nextOverrides }),
+        });
+      } catch (error) {
+        console.error("Update overrides error:", error);
+      }
       return;
     }
+
     try {
-      await fetch(`/api/projects/attachments/${attachment.id}`, {
+      const res = await fetch(`/api/projects/attachments/${attachment.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: normalizedStatus }),
       });
-      const updated = await fetchProjects();
-      const updatedProject = updated.find((p) => p.id === selectedProject.id);
-      if (updatedProject) setSelectedProject({ ...updatedProject });
+      const result = await res.json();
+      if (result.success) {
+        const updatedProjects = await fetchProjects();
+        const updatedProject = updatedProjects.find((p) => p.id === selectedProject.id);
+        if (updatedProject) {
+          syncProjectState(updatedProject);
+        }
+      }
     } catch (error) {
       console.error("Update attachment status error:", error);
     }
@@ -341,7 +597,6 @@ export default function Progres({ theme, setTheme }) {
     return matchesDate && matchesName;
   });
 
-  // 🔥 Render gambar di tabel
   const renderImageCell = (project) => {
     const imageAttachment = project.attachments?.find((a) => a.type === "image");
     const imageUrl = project.imageUrl || imageAttachment?.url;
@@ -367,7 +622,6 @@ export default function Progres({ theme, setTheme }) {
     return <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>;
   };
 
-  // 🔥 Render module cell - TANPA sampleMembers
   const renderModuleCell = (project) => {
     const moduleUrl = project.moduleUrl;
 
@@ -405,6 +659,13 @@ export default function Progres({ theme, setTheme }) {
     }
 
     return <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>;
+  };
+
+  const areAllAttachmentsApproved = () => {
+    if (!selectedProject) return false;
+    const allAttachments = getProjectAttachments(selectedProject);
+    if (allAttachments.length === 0) return false;
+    return allAttachments.every(att => normalizeAttachmentStatus(att.status) === "approved");
   };
 
   return (
@@ -496,6 +757,7 @@ export default function Progres({ theme, setTheme }) {
                   <tr className={`border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
                     <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Gambar</th>
                     <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Nama Project</th>
+                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Pemilik</th>
                     <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Posisi</th>
                     <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Tanggal</th>
                     <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Link</th>
@@ -511,6 +773,19 @@ export default function Progres({ theme, setTheme }) {
                       <tr key={project.id} className={`border-b ${theme === 'dark' ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-100 hover:bg-gray-50'} transition`}>
                         <td className="py-4 px-3">{renderImageCell(project)}</td>
                         <td className={`py-4 px-3 font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>{project.name}</td>
+                        <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                          <div className="space-y-1">
+                            <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>
+                              {project.user?.email || '-'}
+                            </div>
+                            <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                              {project.user?.position || project.position || '-'}
+                            </div>
+                            <div className={`text-[11px] ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
+                              {project.user?.role || 'member'}
+                            </div>
+                          </div>
+                        </td>
                         <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{project.position}</td>
                         <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
                           {project.date ? new Date(project.date).toLocaleDateString('id-ID') : '-'}
@@ -535,11 +810,11 @@ export default function Progres({ theme, setTheme }) {
                         <td className="py-4 px-3">{renderModuleCell(project)}</td>
                         <td className="py-4 px-3">
                           <span className={`text-xs px-2 py-1 rounded ${
-                            project.decision === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
-                            project.decision === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
+                            normalizeDecision(project.decision) === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
+                            normalizeDecision(project.decision) === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
                             "bg-yellow-50 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
                           }`}>
-                            {project.decision || "pending"}
+                            {getDecisionLabel(project.decision)}
                           </span>
                         </td>
                         <td className="py-4 px-3">
@@ -592,7 +867,7 @@ export default function Progres({ theme, setTheme }) {
 
               {/* BODY MODAL */}
               <div className="flex flex-col lg:flex-row gap-4 p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-80px)]">
-                {/* LEFT - List Attachment */}
+                {/* LEFT - List Attachment dengan tombol Approve/Reject per item */}
                 <div className="lg:w-80 flex-shrink-0 space-y-4">
                   <div>
                     <input
@@ -627,51 +902,89 @@ export default function Progres({ theme, setTheme }) {
                       return filteredAttachments.map((item, idx) => {
                         const globalIndex = filteredAttachments.indexOf(item);
                         const isActive = selectedAttachmentIndex === globalIndex;
+                        const itemStatus = normalizeAttachmentStatus(item.status);
 
                         return (
-                          <button
+                          <div
                             key={`attach-${item.id || idx}`}
-                            onClick={() => setSelectedAttachmentIndex(globalIndex)}
-                            className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                            className={`w-full rounded-xl border-2 transition-all ${
                               isActive 
                                 ? `border-blue-600 ${theme === 'dark' ? 'bg-blue-900/30 shadow-lg shadow-blue-900/20' : 'bg-blue-50 shadow-md'}`
                                 : theme === 'dark' 
-                                  ? `border-gray-700 hover:border-gray-600 hover:bg-gray-700/50` 
-                                  : `border-gray-200 hover:border-gray-300 hover:bg-gray-50`
+                                  ? `border-gray-700 hover:border-gray-600` 
+                                  : `border-gray-200 hover:border-gray-300`
                             }`}
                           >
-                            <div className="flex items-start gap-3">
-                              {item.type === "image" ? (
-                                <img src={item.url || item.data} alt={item.name} className="w-12 h-10 object-cover rounded-lg flex-shrink-0" />
-                              ) : item.type === "link" ? (
-                                <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === 'dark' ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>🔗</div>
-                              ) : (
-                                <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === 'dark' ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>📄</div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'} truncate`}>{item.label}</div>
-                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                    item.status === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
-                                    item.status === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
-                                    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-                                  }`}>
-                                    {item.status || "pending"}
-                                  </span>
-                                  {item.description && (
-                                    <span className={`text-[10px] ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'}`} title={item.description}>💬</span>
-                                  )}
+                            {/* Bagian header attachment - bisa diklik untuk lihat detail */}
+                            <button
+                              onClick={() => setSelectedAttachmentIndex(globalIndex)}
+                              className="w-full text-left p-3"
+                            >
+                              <div className="flex items-start gap-3">
+                                {item.type === "image" ? (
+                                  <img src={item.url || item.data} alt={item.name} className="w-12 h-10 object-cover rounded-lg flex-shrink-0" />
+                                ) : item.type === "link" ? (
+                                  <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === 'dark' ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>🔗</div>
+                                ) : (
+                                  <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === 'dark' ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>📄</div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'} truncate`}>{item.label}</div>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                      itemStatus === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
+                                      itemStatus === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
+                                      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                                    }`}>
+                                      {itemStatus === "approved" ? "✅" : itemStatus === "rejected" ? "❌" : "⏳"} {getAttachmentStatusLabel(item.status)}
+                                    </span>
+                                    {item.description && (
+                                      <span className={`text-[10px] ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'}`} title={item.description}>💬</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+                            </button>
+
+                            {/* 🔥 Tombol Approve/Reject per attachment */}
+                            <div className={`flex gap-1 px-3 pb-3 ${isActive ? 'border-t pt-2' : ''} ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAttachmentStatus(item, "approved");
+                                }}
+                                disabled={itemStatus === "approved"}
+                                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
+                                  itemStatus === "approved"
+                                    ? 'bg-green-200 text-green-500 dark:bg-green-900 dark:text-green-300 cursor-not-allowed opacity-50'
+                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}
+                              >
+                                ✅ Approve
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAttachmentStatus(item, "rejected");
+                                }}
+                                disabled={itemStatus === "rejected"}
+                                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
+                                  itemStatus === "rejected"
+                                    ? 'bg-red-200 text-red-500 dark:bg-red-900 dark:text-red-300 cursor-not-allowed opacity-50'
+                                    : 'bg-red-600 text-white hover:bg-red-700'
+                                }`}
+                              >
+                                ❌ Reject
+                              </button>
                             </div>
-                          </button>
+                          </div>
                         );
                       });
                     })()}
                   </div>
                 </div>
 
-                {/* RIGHT - Detail Attachment */}
+                {/* RIGHT - Detail Attachment TANPA TOMBOL */}
                 <div className="flex-1 min-w-0">
                   {(() => {
                     const allAttachments = getProjectAttachments(selectedProject);
@@ -688,7 +1001,6 @@ export default function Progres({ theme, setTheme }) {
                       <div className={`${theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-2xl p-4 sm:p-6 min-h-[300px] transition-colors duration-200`}>
                         <AttachmentDetail 
                           attachment={attachment} 
-                          onStatusChange={setAttachmentStatus}
                           theme={theme}
                         />
                       </div>
@@ -697,27 +1009,39 @@ export default function Progres({ theme, setTheme }) {
                 </div>
               </div>
 
-              {/* FOOTER MODAL */}
+              {/* FOOTER MODAL - Tombol untuk seluruh project */}
               <div className={`sticky bottom-0 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} border-t px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3`}>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Decision:</span>
                   <span className={`text-xs px-3 py-1 rounded-full ${
-                    selectedProject.decision === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
-                    selectedProject.decision === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
+                    normalizeDecision(selectedProject.decision) === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
+                    normalizeDecision(selectedProject.decision) === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
                     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
                   }`}>
-                    {selectedProject.decision || "pending"}
+                    {getDecisionLabel(selectedProject.decision)}
                   </span>
                   {selectedProject.finished && (
                     <span className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">✅ Selesai</span>
                   )}
+                  {areAllAttachmentsApproved() && (
+                    <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                      ✅ Semua lampiran approved
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={approveAllAttachments}
+                    className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={areAllAttachmentsApproved()}
+                  >
+                    ✅ Approve All
+                  </button>
                   <button
                     onClick={() => handleDecision("approved")}
                     className="px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition"
                   >
-                     Approve
+                    ✅ Approve
                   </button>
                   <button
                     onClick={() => handleDecision("rejected")}
@@ -726,16 +1050,16 @@ export default function Progres({ theme, setTheme }) {
                     ❌ Reject
                   </button>
                   <button
-                    onClick={() => handleDecision("pending")}
+                    onClick={handleResetAll}
                     className={`px-4 py-2 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'} text-sm font-semibold transition`}
                   >
-                    ↩️ Reset
+                    ↩️ Reset All
                   </button>
                   <button
                     onClick={handleFinish}
                     className="px-4 py-2 rounded-xl bg-[#001d55] text-white text-sm font-semibold hover:bg-[#00327a] transition"
                   >
-                     Finish
+                    ✅ Finish
                   </button>
                 </div>
               </div>

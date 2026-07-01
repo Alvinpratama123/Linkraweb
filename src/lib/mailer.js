@@ -164,6 +164,69 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
 }
 
 // 🔥 PERBAIKI: Tambahkan try-catch dan return value
+export async function sendNewMemberCredentialsEmail({ to, name, email, password, position }) {
+  try {
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Akun Anda Telah Dibuat</title>
+</head>
+<body style="margin:0; padding:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7fb;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f7fb; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#001d55; padding:24px 32px; color:#ffffff;">
+              <div style="font-size:24px; font-weight:700;">Akun Anda Telah Dibuat</div>
+              <div style="font-size:13px; margin-top:6px; opacity:0.9;">PT Lintas Wahana Teknologi</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px; color:#1f2937;">
+              <p style="margin:0 0 12px; font-size:16px;">Halo <strong>${name}</strong>,</p>
+              <p style="margin:0 0 16px; line-height:1.6;">Admin telah membuat akun Anda untuk akses sistem. Berikut adalah informasi login Anda:</p>
+              <div style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin:16px 0;">
+                <div style="margin-bottom:8px;"><strong>Email:</strong> ${email}</div>
+                <div style="margin-bottom:8px;"><strong>Password:</strong> ${password}</div>
+                <div><strong>Posisi:</strong> ${position}</div>
+              </div>
+              <p style="margin:0 0 12px; line-height:1.6;">Silakan login di <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}" style="color:#001d55; font-weight:600;">sistem kami</a> dan segera ganti password setelah masuk.</p>
+              <p style="margin:0; color:#6b7280; font-size:13px;">Jika Anda tidak merasa membuat akun ini, silakan abaikan email ini.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 32px; font-size:12px; color:#6b7280; border-top:1px solid #e5e7eb;">
+              © ${new Date().getFullYear()} PT Lintas Wahana Teknologi
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    const info = await transporter.sendMail({
+      from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
+      to,
+      subject: "Akun Anda Telah Dibuat - PT Lintas Wahana Teknologi",
+      text: `Halo ${name}, akun Anda telah dibuat. Email: ${email}, Password: ${password}`,
+      html,
+    });
+
+    console.log(`✅ Credentials email terkirim ke ${to}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending credentials email:", error);
+    throw error;
+  }
+}
+
 export async function sendPasswordResetOtpEmail({ to, name, code }) {
   try {
     const logoPath = path.join(process.cwd(), "public/images/oip.png");

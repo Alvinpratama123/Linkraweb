@@ -108,6 +108,22 @@ export default async function handler(req, res) {
         });
       }
 
+      await prisma.notification.deleteMany({
+        where: { userId: id },
+      });
+
+      await prisma.project.deleteMany({
+        where: { userId: id },
+      });
+
+      await prisma.revisionComment.deleteMany({
+        where: { authorId: id },
+      });
+
+      await prisma.revisionReport.deleteMany({
+        where: { sentById: id },
+      });
+
       await prisma.user.delete({
         where: { id },
       });

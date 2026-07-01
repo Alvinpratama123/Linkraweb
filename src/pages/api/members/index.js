@@ -1,6 +1,8 @@
 // pages/api/members/index.js
 import { prisma } from "@/lib/prisma";
+import { createNotification, sendNotificationToAllUsers } from "@/lib/notification";
 import bcrypt from "bcryptjs";
+import { sendNewMemberCredentialsEmail } from "@/lib/mailer";
 
 export default async function handler(req, res) {
   // ─── GET ALL ────────────────────────────────────────────────
@@ -69,6 +71,49 @@ export default async function handler(req, res) {
           isVerified: true,
         },
       });
+
+      try {
+        await sendNewMemberCredentialsEmail({
+          to: newMember.email,
+          name: newMember.name,
+          email: newMember.email,
+          password,
+          position,
+        });
+      } catch (emailError) {
+        console.error("Failed to send credentials email:", emailError);
+      }
+
+      try {
+        const admins = await prisma.user.findMany({
+          where: { role: { in: ["admin", "ADMIN"] } },
+          select: { id: true, email: true, role: true, name: true },
+        });
+
+        for (const admin of admins) {
+          await createNotification({
+            userId: admin.id,
+            title: `👤 Member Baru: ${newMember.name}`,
+            message: `Member "${newMember.name}" telah ditambahkan dengan posisi ${position}.`,
+            type: "member",
+            link: "/dashboardAdmin/admin?tab=members",
+            icon: "👤",
+            color: "purple",
+          });
+        }
+
+        await createNotification({
+          userId: newMember.id,
+          title: `👤 Akun Anda Telah Dibuat`,
+          message: `Akun Anda berhasil dibuat sebagai member dengan posisi ${position}. Silakan cek email untuk informasi login.`,
+          type: "member",
+          link: "/memberDashboard/MemberDashboard",
+          icon: "👤",
+          color: "purple",
+        });
+      } catch (notificationError) {
+        console.error("Failed to create member notifications:", notificationError);
+      }
 
       return res.status(201).json({
         success: true,

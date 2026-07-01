@@ -205,12 +205,10 @@ export default async function handler(req, res) {
     }
 
     try {
-      // Hapus attachments dulu
       await prisma.attachment.deleteMany({
         where: { projectId: id },
       });
-      
-      // Hapus project
+
       await prisma.project.delete({
         where: { id: id },
       });

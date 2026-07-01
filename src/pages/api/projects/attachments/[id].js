@@ -37,6 +37,8 @@ export default async function handler(req, res) {
   }
 
   const userId = decoded.userId;
+  const userRole = decoded.role || "USER";
+  const isAdmin = userRole.toLowerCase() === "admin";
 
   // ─── 4. CEK ATTACHMENT ─────────────────────────────────────
   let attachment;
@@ -66,8 +68,8 @@ export default async function handler(req, res) {
     });
   }
 
-  // ─── 5. CEK AKSES (Hanya pemilik project yang bisa mengelola) ──
-  if (attachment.project.userId !== userId) {
+  // ─── 5. CEK AKSES (Pemilik project atau admin yang bisa mengelola) ──
+  if (!isAdmin && attachment.project.userId !== userId) {
     return res.status(403).json({
       success: false,
       message: "❌ Anda tidak memiliki akses ke attachment ini.",

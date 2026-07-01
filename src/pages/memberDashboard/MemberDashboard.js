@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/router";
 import { FaBars, FaTimes } from "react-icons/fa";
 import {
   MdDashboard,
@@ -32,7 +32,6 @@ import SettingsTema from "../settings/settingsTema";
 
 export default function MembersDashboard() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");
@@ -54,43 +53,57 @@ export default function MembersDashboard() {
 
   // ✅ CEK PARAMETER URL UNTUK NOTIFIKASI
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    const projectId = searchParams.get('id');
-    
-    if (tab === 'progress' || projectId) {
-      console.log('🔍 Opening Progress from URL:', { tab, projectId });
-      setSelectedMenu("Progress");
-    }
-  }, [searchParams]);
+    if (!router.isReady) return;
 
-  // 🔥 SYNC USER DATA DARI LOCAL STORAGE
+    const tab = Array.isArray(router.query.tab)
+      ? router.query.tab[0]
+      : router.query.tab;
+    const projectId = Array.isArray(router.query.id)
+      ? router.query.id[0]
+      : router.query.id;
+
+    const tabMap = {
+      dashboard: 'Dashboard',
+      projects: 'Projects',
+      progress: 'Progress',
+      revision: 'Revision Issues',
+      analytics: 'Analytics',
+      profile: 'Settings Profile',
+      settings: 'Settings Profile',
+      theme: 'Settings Tema',
+    };
+
+    if (tab && tabMap[tab]) {
+      setSelectedMenu(tabMap[tab]);
+      return;
+    }
+
+    if (tab === 'progress' || projectId) {
+      setSelectedMenu('Progress');
+    }
+  }, [router.isReady, router.query.tab, router.query.id]);
+
   useEffect(() => {
-    const syncUserData = () => {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUserData(parsedUser);
-        } catch (e) {
-          console.error("Error parsing user data:", e);
+    const syncUserData = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        const data = await response.json();
+
+        if (response.ok && data.success && data.user) {
+          setUserData(data.user);
+        } else {
+          setUserData(null);
+          router.push("/components/login");
         }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setUserData(null);
+        router.push("/components/login");
       }
     };
 
     syncUserData();
-
-    const handleStorageChange = (e) => {
-      if (e.key === "user") {
-        console.log("🔄 User data updated from another tab");
-        syncUserData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  }, [router]);
 
   // 🔥 FETCH USER DATA DARI API
   useEffect(() => {
@@ -102,6 +115,7 @@ export default function MembersDashboard() {
 
         if (!response.ok) {
           console.log("❌ Auth failed, redirecting to login");
+          clearAllStorage();
           router.push("/components/login");
           return;
         }
@@ -109,7 +123,6 @@ export default function MembersDashboard() {
         if (data.success && data.user) {
           console.log("✅ User data fetched:", data.user);
           setUserData(data.user);
-          localStorage.setItem("user", JSON.stringify(data.user));
 
           // Jika user adalah ADMIN, redirect ke DashboardAdmin
           if (data.user.role?.toUpperCase() === "ADMIN") {
@@ -119,20 +132,8 @@ export default function MembersDashboard() {
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            setUserData(parsedUser);
-            if (parsedUser.role?.toUpperCase() === "ADMIN") {
-              router.push("/dashboardAdmin/admin");
-            }
-          } catch (e) {
-            router.push("/components/login");
-          }
-        } else {
-          router.push("/components/login");
-        }
+        clearAllStorage();
+        router.push("/components/login");
       } finally {
         setLoading(false);
       }
@@ -145,20 +146,9 @@ export default function MembersDashboard() {
   const handleUserUpdate = useCallback((updatedUser) => {
     console.log("🔄 Updating user data:", updatedUser);
     setUserData(updatedUser);
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'user',
-      newValue: JSON.stringify(updatedUser)
-    }));
   }, []);
 
   const clearAllStorage = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("refresh_token");
-
     document.cookie.split(";").forEach((cookie) => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
@@ -200,7 +190,6 @@ export default function MembersDashboard() {
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
     { icon: <HiSun size={18} />, label: "Settings Tema" },
-    { icon: <HiKey size={18} />, label: "Change Password" },
   ];
 
   if (loading) {

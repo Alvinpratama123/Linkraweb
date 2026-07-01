@@ -1,5 +1,6 @@
 // pages/api/projects/upload.js
 import { prisma } from "@/lib/prisma";
+import { sendProjectNotificationToAllUsers } from "@/lib/notification";
 import formidable from "formidable";
 import fs from "fs";
 import path from "path";
@@ -195,11 +196,23 @@ export default async function handler(req, res) {
       // ─── SIMPAN PROJECT KE DATABASE ──────────────────────
       console.log("💾 Saving project to database...");
 
+      const normalizeProjectDate = (value) => {
+        if (!value) return new Date();
+        if (value instanceof Date) return value;
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (!trimmed) return new Date();
+          const parsed = new Date(trimmed);
+          if (!Number.isNaN(parsed.getTime())) return parsed;
+        }
+        return new Date();
+      };
+
       const projectData = {
         name: name.trim(),
         position: position || "Frontend",
         repoLink: repoLink || "",
-        date: date || new Date().toISOString().split('T')[0],
+        date: normalizeProjectDate(date),
         progress: progress || 0,
         decision: "pending",
         finished: false,
@@ -212,12 +225,25 @@ export default async function handler(req, res) {
 
       console.log("📦 Project data:", projectData);
 
-      // 🔥 Simpan project tanpa cek existing (biarkan duplicate)
-      const project = await prisma.project.create({
-        data: projectData,
+      const existingProject = await prisma.project.findFirst({
+        where: {
+          userId: userId,
+          name: projectData.name,
+        },
       });
 
-      console.log("✅ Project created with ID:", project.id);
+      const project = existingProject
+        ? await prisma.project.update({
+            where: { id: existingProject.id },
+            data: projectData,
+          })
+        : await prisma.project.create({
+            data: projectData,
+          });
+
+      console.log(`✅ Project ${existingProject ? "updated" : "created"} with ID:`, project.id);
+
+      await sendProjectNotificationToAllUsers(project, "upload", decoded.role || "member");
 
       // ─── SIMPAN ATTACHMENT ─────────────────────────────
       if (imageUrl) {
