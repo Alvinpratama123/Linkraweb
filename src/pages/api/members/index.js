@@ -1,26 +1,69 @@
 // pages/api/members/index.js
 import { prisma } from "@/lib/prisma";
-import { createNotification, sendNotificationToAllUsers } from "@/lib/notification";
+import { createNotification } from "@/lib/notification";
 import bcrypt from "bcryptjs";
 import { sendNewMemberCredentialsEmail } from "@/lib/mailer";
 
 export default async function handler(req, res) {
+  // ─── CORS ────────────────────────────────────────────────────
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // ─── GET ALL ────────────────────────────────────────────────
   if (req.method === "GET") {
     try {
-      const members = await prisma.user.findMany({
-        where: { role: { not: "admin" } },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          position: true,
-          profile: true,
-          role: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      const { role } = req.query;
+      
+      let members = [];
+      
+      if (role) {
+        const roleLower = role.toLowerCase();
+        console.log(`🔍 Filtering members by role: ${role} (lowercase: ${roleLower})`);
+        
+        members = await prisma.user.findMany({
+          where: {
+            role: roleLower,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            position: true,
+            profile: true,
+            role: true,
+            photo: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      } else {
+        console.log(`📋 Fetching all members`);
+        members = await prisma.user.findMany({
+          where: {
+            role: {
+              not: 'admin'
+            }
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            position: true,
+            profile: true,
+            role: true,
+            photo: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
+      console.log(`📋 GET members - role filter: ${role || 'all'}, found: ${members.length}`);
 
       return res.status(200).json({
         success: true,
@@ -30,7 +73,8 @@ export default async function handler(req, res) {
       console.error("GET members error:", error);
       return res.status(500).json({ 
         success: false, 
-        message: "Server Error" 
+        message: "Server Error",
+        detail: error.message 
       });
     }
   }
@@ -38,7 +82,7 @@ export default async function handler(req, res) {
   // ─── POST ────────────────────────────────────────────────────
   if (req.method === "POST") {
     try {
-      const { name, email, password, position, profile } = req.body;
+      const { name, email, password, position, profile, role } = req.body;
 
       if (!name || !email || !password || !position) {
         return res.status(400).json({ 
@@ -59,6 +103,7 @@ export default async function handler(req, res) {
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
+      const userRole = role ? role.toLowerCase() : 'member';
 
       const newMember = await prisma.user.create({
         data: {
@@ -67,10 +112,12 @@ export default async function handler(req, res) {
           password: hashedPassword,
           position: position,
           profile: profile || null,
-          role: "member",
+          role: userRole,
           isVerified: true,
         },
       });
+
+      console.log(`✅ Member baru dibuat: ${name} (${email}) dengan role: ${userRole}, position: ${position}`);
 
       try {
         await sendNewMemberCredentialsEmail({
@@ -86,7 +133,7 @@ export default async function handler(req, res) {
 
       try {
         const admins = await prisma.user.findMany({
-          where: { role: { in: ["admin", "ADMIN"] } },
+          where: { role: { in: ["admin"] } },
           select: { id: true, email: true, role: true, name: true },
         });
 
@@ -94,7 +141,7 @@ export default async function handler(req, res) {
           await createNotification({
             userId: admin.id,
             title: `👤 Member Baru: ${newMember.name}`,
-            message: `Member "${newMember.name}" telah ditambahkan dengan posisi ${position}.`,
+            message: `Member "${newMember.name}" telah ditambahkan dengan posisi ${position} dan role ${userRole.toUpperCase()}.`,
             type: "member",
             link: "/dashboardAdmin/admin?tab=members",
             icon: "👤",

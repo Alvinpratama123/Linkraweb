@@ -17,145 +17,334 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// 🔥 PERBAIKI: Tambahkan try-catch dan return value
-export async function sendRegisterOtpEmail({ to, name, code }) {
+// ─── AMBIL LOGO ────────────────────────────────────────────────
+function getLogoBase64() {
   try {
-    const logoPath = path.join(process.cwd(), "public/images/oip.png");
-    const logoExists = fs.existsSync(logoPath);
+    const logoPaths = [
+      path.join(process.cwd(), 'public/images/logo.png'),
+      path.join(process.cwd(), 'public/images/oip.png'),
+      path.join(process.cwd(), 'public/logo.png'),
+      path.join(process.cwd(), 'public/favicon.ico'),
+    ];
 
-    const html = `
+    for (const logoPath of logoPaths) {
+      if (fs.existsSync(logoPath)) {
+        const imageBuffer = fs.readFileSync(logoPath);
+        const base64 = imageBuffer.toString('base64');
+        const ext = path.extname(logoPath).substring(1);
+        return `data:image/${ext};base64,${base64}`;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading logo:', error);
+    return null;
+  }
+}
+
+// ─── HELPER: HTML EMAIL TEMPLATE ─────────────────────────────
+function getEmailTemplate({ 
+  title, 
+  subtitle, 
+  content, 
+  buttonText, 
+  buttonLink, 
+  footerNote,
+  showAudio = false,
+   audioUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/sounds/sounds.mp3`,
+}) {
+  const logoBase64 = getLogoBase64();
+  
+  return `
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Security Verification</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background-color: #f4f7fb;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    .header {
+      background: linear-gradient(135deg, #001d55, #003d9e);
+      padding: 24px 32px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .header-logo {
+      max-height: 50px;
+      margin-bottom: 12px;
+      filter: brightness(0) invert(1);
+    }
+    .header-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .header-subtitle {
+      font-size: 13px;
+      margin-top: 6px;
+      opacity: 0.9;
+    }
+    .body-content {
+      padding: 32px;
+      color: #1f2937;
+    }
+    .greeting {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+    .greeting strong {
+      color: #001d55;
+    }
+    .message-text {
+      margin: 0 0 16px;
+      line-height: 1.6;
+      color: #374151;
+    }
+    .code-box {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .code-box .label {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    .code-box .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #001d55;
+      letter-spacing: 4px;
+      font-family: ui-monospace, monospace;
+    }
+    .info-grid {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      border: 1px solid #e5e7eb;
+    }
+    .info-row {
+      padding: 8px 0;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    .info-label {
+      color: #6b7280;
+      font-size: 13px;
+    }
+    .info-value {
+      color: #1f2937;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .btn {
+      display: inline-block;
+      background: #001d55;
+      color: #ffffff;
+      padding: 12px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    .btn:hover {
+      background: #002d6e;
+    }
+    .audio-player {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 16px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .audio-player .label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .audio-player audio {
+      flex: 1;
+      min-width: 200px;
+      height: 36px;
+      border-radius: 4px;
+    }
+    .security-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+    .security-note .title {
+      color: #dc2626;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .security-note .item {
+      color: #6b7280;
+      font-size: 12.5px;
+      margin-bottom: 4px;
+      padding-left: 16px;
+      position: relative;
+    }
+    .security-note .item:before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: #dc2626;
+    }
+    .footer {
+      padding: 20px 32px 32px;
+      font-size: 12px;
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+    }
+    .footer-logo {
+      max-height: 30px;
+      margin-bottom: 8px;
+      opacity: 0.6;
+    }
+    .footer-company {
+      font-weight: 500;
+      color: #001d55;
+      margin-bottom: 4px;
+    }
+    .footer-note {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    @media (max-width: 480px) {
+      .body-content { padding: 20px; }
+      .header { padding: 20px; }
+      .code-box .value { font-size: 22px; }
+      .audio-player { flex-direction: column; align-items: stretch; }
+      .audio-player .label { text-align: center; }
+      .audio-player audio { min-width: auto; }
+    }
+  </style>
 </head>
-
-<body style="margin:0; padding:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #030712; -webkit-font-smoothing: antialiased;">
-
-<table width="100%" cellpadding="0" cellspacing="0" style="background: radial-gradient(circle at top, #0b1528, #030712); padding: 60px 0 80px 0;">
-<tr>
-<td align="center">
-
-  <table width="560" cellpadding="0" cellspacing="0" style="margin-bottom: -4px;">
-    <tr>
-      <td style="height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899); border-radius: 4px 4px 0 0;"></td>
-    </tr>
-  </table>
-
-  <table width="560" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-left: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0 0 24px 24px; overflow: hidden; box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.75);">
+<body style="margin:0; padding:32px 16px; background-color:#f4f7fb;">
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      ${logoBase64 ? `
+        <img src="${logoBase64}" alt="PT Lintas Wahana Teknologi" class="header-logo" />
+      ` : `
+        <div style="font-size: 28px; font-weight: 700;">LWT</div>
+      `}
+      <div class="header-title">${title}</div>
+      <div class="header-subtitle">${subtitle}</div>
+    </div>
     
-    <tr>
-      <td style="padding: 45px 40px 35px 40px; text-align: center; background: linear-gradient(180deg, rgba(30, 27, 75, 0.4) 0%, rgba(15, 23, 42, 0) 100%); border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
-        
-        ${logoExists ? `
-        <img src="cid:logo" style="height: 58px; margin-bottom: 16px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));" />
-        ` : ""}
-        
-        <div style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
-          PT Lintas Wahana Teknologi
-        </div>
-        
-        <div style="color: #38bdf8; font-size: 11px; font-weight: 600; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase;">
-          Secure Authentication System
-        </div>
-
-      </td>
-    </tr>
-
-    <tr>
-      <td style="padding: 45px 45px 35px 45px;">
-        
-        <div style="font-size: 22px; font-weight: 700; color: #ffffff; text-align: center; letter-spacing: -0.2px; line-height: 1.3;">
-          Verifikasi Keamanan Akun Anda
-        </div>
-        
-        <p style="text-align: center; color: #94a3b8; margin-top: 8px; margin-bottom: 35px; font-size: 13.5px;">
-          Gunakan kode OTP berikut untuk melanjutkan proses registrasi
-        </p>
-        
-        <div style="font-size: 14.5px; color: #e2e8f0; margin-bottom: 10px;">
-          Halo <span style="color: #ffffff; font-weight: 600;">${name}</span>,
-        </div>
-        
-        <p style="color: #94a3b8; font-size: 13.5px; line-height: 1.6; margin-top: 0;">
-          Kami menerima permintaan registrasi akun baru. Masukkan kode rahasia di bawah ini untuk memvalidasi identitas Anda.
-        </p>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 35px 0; background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(147, 51, 234, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 16px;">
-          <tr>
-            <td style="padding: 30px 20px; text-align: center;">
-              
-              <div style="font-size: 38px; letter-spacing: 12px; font-weight: 800; color: #3b82f6; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; text-shadow: 0 0 25px rgba(59, 130, 246, 0.4); padding-left: 12px;">
-                ${code}
-              </div>
-              
-              <div style="margin-top: 14px; font-size: 11px; color: #f43f5e; font-weight: 700; letter-spacing: 1.5px;">
-                SECURITY CODE • VALID FOR 15 MINUTES
-              </div>
-
-            </td>
-          </tr>
-        </table>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(30, 41, 59, 0.4); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.04);">
-          <tr>
-            <td style="padding: 20px; font-size: 12.5px; color: #94a3b8; line-height: 1.7;">
-              <div style="color: #cbd5e1; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🔒 Catatan Keamanan Penting:</div>
-              <div style="margin-bottom: 4px;">• Jangan pernah membagikan kode OTP ini kepada siapa pun.</div>
-              <div style="margin-bottom: 4px;">• Tim kami tidak akan pernah meminta kode verifikasi Anda.</div>
-              <div>• Kode ini akan kedaluwarsa secara otomatis dalam waktu 15 menit.</div>
-            </td>
-          </tr>
-        </table>
-
-      </td>
-    </tr>
-
-    <tr>
-      <td style="padding: 30px 40px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255, 255, 255, 0.05); background-color: #090f1c;">
-        <div style="font-weight: 500; color: #94a3b8; margin-bottom: 4px;">PT Lintas Wahana Teknologi</div>
-        <div style="margin-bottom: 16px; color: #475569;">Secure & Trusted Solution Provider</div>
-        <div>
-          © ${new Date().getFullYear()} PT Lintas Wahana Teknologi — All rights reserved.
-        </div>
-      </td>
-    </tr>
-
-  </table>
-
-</td>
-</tr>
-</table>
-
+    <!-- Body -->
+    <div class="body-content">
+      ${content}
+      
+      ${showAudio ? `
+      <!-- Audio Notification -->
+      <div class="audio-player">
+        <span class="label">🔊 Notifikasi Suara</span>
+        <audio controls>
+          <source src="${audioUrl}" type="audio/mpeg">
+          Browser Anda tidak mendukung pemutar audio.
+        </audio>
+      </div>
+      ` : ''}
+      
+      ${buttonText && buttonLink ? `
+      <div style="text-align: center; margin-top: 16px;">
+        <a href="${buttonLink}" class="btn">${buttonText} →</a>
+      </div>
+      ` : ''}
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      ${logoBase64 ? `
+        <img src="${logoBase64}" alt="PT Lintas Wahana Teknologi" class="footer-logo" />
+      ` : ''}
+      <div class="footer-company">PT Lintas Wahana Teknologi</div>
+      <div style="color:#9ca3af; font-size:11px; margin-bottom:4px;">Secure & Trusted Solution Provider</div>
+      <div style="color:#9ca3af; font-size:11px;">
+        © ${new Date().getFullYear()} PT Lintas Wahana Teknologi — All rights reserved.
+      </div>
+      ${footerNote ? `<div class="footer-note">${footerNote}</div>` : ''}
+    </div>
+  </div>
 </body>
 </html>
-    `;
+  `;
+}
 
-    const mailOptions = {
+// ─── SEND OTP EMAIL ───────────────────────────────────────────
+export async function sendRegisterOtpEmail({ to, name, code }) {
+  try {
+    const html = getEmailTemplate({
+      title: 'Verifikasi Akun',
+      subtitle: 'PT Lintas Wahana Teknologi',
+      content: `
+        <p class="greeting">Halo <strong>${name}</strong>,</p>
+        <p class="message-text">
+          Kami menerima permintaan registrasi akun baru. Masukkan kode verifikasi di bawah ini untuk memvalidasi identitas Anda.
+        </p>
+        <div class="code-box">
+          <div class="label">Kode Verifikasi</div>
+          <div class="value">${code}</div>
+          <div style="margin-top:8px; font-size:11px; color:#ef4444; font-weight:600; letter-spacing:1px;">
+            VALID UNTUK 15 MENIT
+          </div>
+        </div>
+        <div class="security-note">
+          <div class="title">Catatan Keamanan Penting</div>
+          <div class="item">Jangan pernah membagikan kode OTP ini kepada siapa pun.</div>
+          <div class="item">Tim kami tidak akan pernah meminta kode verifikasi Anda.</div>
+          <div class="item">Kode ini akan kedaluwarsa secara otomatis dalam waktu 15 menit.</div>
+        </div>
+      `,
+      buttonText: 'Login ke Sistem',
+      buttonLink: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/login',
+      footerNote: 'Email ini dikirim secara otomatis. Mohon tidak membalas email ini.',
+    });
+
+    const info = await transporter.sendMail({
       from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
       to: to,
-      subject: "🔐 Kode OTP Verifikasi Akun",
+      subject: "Kode Verifikasi Akun - PT Lintas Wahana Teknologi",
       text: `Halo ${name}, kode OTP Anda adalah ${code}. Berlaku 15 menit.`,
       html,
-    };
+    });
 
-    if (logoExists) {
-      mailOptions.attachments = [
-        {
-          filename: "oip.png",
-          path: logoPath,
-          cid: "logo",
-          contentDisposition: "inline",
-        },
-      ];
-    }
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email OTP terkirim ke ${to}`);
-    console.log(`📧 Message ID: ${info.messageId}`);
-    
+    console.log(`✅ OTP email sent to ${to}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("❌ Error sending OTP email:", error);
@@ -163,53 +352,45 @@ export async function sendRegisterOtpEmail({ to, name, code }) {
   }
 }
 
-// 🔥 PERBAIKI: Tambahkan try-catch dan return value
+// ─── SEND NEW MEMBER CREDENTIALS ─────────────────────────────
 export async function sendNewMemberCredentialsEmail({ to, name, email, password, position }) {
   try {
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Akun Anda Telah Dibuat</title>
-</head>
-<body style="margin:0; padding:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7fb;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f7fb; padding: 32px 16px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="background:#001d55; padding:24px 32px; color:#ffffff;">
-              <div style="font-size:24px; font-weight:700;">Akun Anda Telah Dibuat</div>
-              <div style="font-size:13px; margin-top:6px; opacity:0.9;">PT Lintas Wahana Teknologi</div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:32px; color:#1f2937;">
-              <p style="margin:0 0 12px; font-size:16px;">Halo <strong>${name}</strong>,</p>
-              <p style="margin:0 0 16px; line-height:1.6;">Admin telah membuat akun Anda untuk akses sistem. Berikut adalah informasi login Anda:</p>
-              <div style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin:16px 0;">
-                <div style="margin-bottom:8px;"><strong>Email:</strong> ${email}</div>
-                <div style="margin-bottom:8px;"><strong>Password:</strong> ${password}</div>
-                <div><strong>Posisi:</strong> ${position}</div>
-              </div>
-              <p style="margin:0 0 12px; line-height:1.6;">Silakan login di <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}" style="color:#001d55; font-weight:600;">sistem kami</a> dan segera ganti password setelah masuk.</p>
-              <p style="margin:0; color:#6b7280; font-size:13px;">Jika Anda tidak merasa membuat akun ini, silakan abaikan email ini.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 32px 32px; font-size:12px; color:#6b7280; border-top:1px solid #e5e7eb;">
-              © ${new Date().getFullYear()} PT Lintas Wahana Teknologi
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
+    const html = getEmailTemplate({
+      title: 'Akun Anda Telah Dibuat',
+      subtitle: 'PT Lintas Wahana Teknologi',
+      content: `
+        <p class="greeting">Halo <strong>${name}</strong>,</p>
+        <p class="message-text">
+          Admin telah membuat akun Anda untuk akses sistem. Berikut adalah informasi login Anda:
+        </p>
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Email</span>
+            <span class="info-value">${email}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Password</span>
+            <span class="info-value">${password}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Posisi</span>
+            <span class="info-value">${position}</span>
+          </div>
+        </div>
+        <p class="message-text">
+          Silakan login ke sistem dan segera ganti password setelah masuk untuk keamanan akun Anda.
+        </p>
+        <div class="security-note">
+          <div class="title">Catatan Penting</div>
+          <div class="item">Segera ganti password setelah login pertama kali.</div>
+          <div class="item">Jangan berikan kredensial ini kepada siapa pun.</div>
+          <div class="item">Hubungi admin jika ada masalah dengan akun Anda.</div>
+        </div>
+      `,
+      buttonText: 'Login ke Sistem',
+      buttonLink: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/login',
+      footerNote: 'Email ini dikirim secara otomatis. Mohon tidak membalas email ini.',
+    });
 
     const info = await transporter.sendMail({
       from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
@@ -219,7 +400,7 @@ export async function sendNewMemberCredentialsEmail({ to, name, email, password,
       html,
     });
 
-    console.log(`✅ Credentials email terkirim ke ${to}`);
+    console.log(`✅ Credentials email sent to ${to}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("❌ Error sending credentials email:", error);
@@ -227,147 +408,118 @@ export async function sendNewMemberCredentialsEmail({ to, name, email, password,
   }
 }
 
+// ─── SEND PASSWORD RESET OTP ─────────────────────────────────
 export async function sendPasswordResetOtpEmail({ to, name, code }) {
   try {
-    const logoPath = path.join(process.cwd(), "public/images/oip.png");
-    const logoExists = fs.existsSync(logoPath);
-
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Password Reset Security Code</title>
-</head>
-
-<body style="margin:0; padding:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #030712; -webkit-font-smoothing: antialiased;">
-
-<table width="100%" cellpadding="0" cellspacing="0" style="background: radial-gradient(circle at top, #0b1528, #030712); padding: 60px 0 80px 0;">
-<tr>
-<td align="center">
-
-  <table width="560" cellpadding="0" cellspacing="0" style="margin-bottom: -4px;">
-    <tr>
-      <td style="height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899); border-radius: 4px 4px 0 0;"></td>
-    </tr>
-  </table>
-
-  <table width="560" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-left: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0 0 24px 24px; overflow: hidden; box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.75);">
-    
-    <tr>
-      <td style="padding: 45px 40px 35px 40px; text-align: center; background: linear-gradient(180deg, rgba(30, 27, 75, 0.4) 0%, rgba(15, 23, 42, 0) 100%); border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
-        
-        ${logoExists ? `
-        <img src="cid:logo" style="height: 58px; margin-bottom: 16px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));" />
-        ` : ""}
-        
-        <div style="color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
-          PT Lintas Wahana Teknologi
-        </div>
-        
-        <div style="color: #38bdf8; font-size: 11px; font-weight: 600; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase;">
-          Password Reset Request
-        </div>
-
-      </td>
-    </tr>
-
-    <tr>
-      <td style="padding: 45px 45px 35px 45px;">
-        
-        <div style="font-size: 22px; font-weight: 700; color: #ffffff; text-align: center; letter-spacing: -0.2px; line-height: 1.3;">
-          Reset Password Akun Anda
-        </div>
-        
-        <p style="text-align: center; color: #94a3b8; margin-top: 8px; margin-bottom: 35px; font-size: 13.5px;">
-          Gunakan kode OTP berikut untuk mereset password Anda
+    const html = getEmailTemplate({
+      title: 'Reset Password',
+      subtitle: 'PT Lintas Wahana Teknologi',
+      content: `
+        <p class="greeting">Halo <strong>${name}</strong>,</p>
+        <p class="message-text">
+          Kami menerima permintaan reset password untuk akun Anda. Masukkan kode verifikasi di bawah ini untuk melanjutkan proses reset password.
         </p>
-        
-        <div style="font-size: 14.5px; color: #e2e8f0; margin-bottom: 10px;">
-          Halo <span style="color: #ffffff; font-weight: 600;">${name}</span>,
+        <div class="code-box">
+          <div class="label">Kode Reset Password</div>
+          <div class="value">${code}</div>
+          <div style="margin-top:8px; font-size:11px; color:#ef4444; font-weight:600; letter-spacing:1px;">
+            VALID UNTUK 15 MENIT
+          </div>
         </div>
-        
-        <p style="color: #94a3b8; font-size: 13.5px; line-height: 1.6; margin-top: 0;">
-          Kami menerima permintaan reset password untuk akun Anda. Masukkan kode rahasia di bawah ini untuk memvalidasi identitas Anda dan membuat password baru.
-        </p>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 35px 0; background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(147, 51, 234, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 16px;">
-          <tr>
-            <td style="padding: 30px 20px; text-align: center;">
-              
-              <div style="font-size: 38px; letter-spacing: 12px; font-weight: 800; color: #3b82f6; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; text-shadow: 0 0 25px rgba(59, 130, 246, 0.4); padding-left: 12px;">
-                ${code}
-              </div>
-              
-              <div style="margin-top: 14px; font-size: 11px; color: #f43f5e; font-weight: 700; letter-spacing: 1.5px;">
-                SECURITY CODE • VALID FOR 15 MINUTES
-              </div>
-
-            </td>
-          </tr>
-        </table>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(30, 41, 59, 0.4); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.04);">
-          <tr>
-            <td style="padding: 20px; font-size: 12.5px; color: #94a3b8; line-height: 1.7;">
-              <div style="color: #cbd5e1; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🔒 Catatan Keamanan Penting:</div>
-              <div style="margin-bottom: 4px;">• Jangan pernah membagikan kode OTP ini kepada siapa pun.</div>
-              <div style="margin-bottom: 4px;">• Tim kami tidak akan pernah meminta kode verifikasi Anda.</div>
-              <div>• Kode ini akan kedaluwarsa secara otomatis dalam waktu 15 menit.</div>
-            </td>
-          </tr>
-        </table>
-
-      </td>
-    </tr>
-
-    <tr>
-      <td style="padding: 30px 40px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255, 255, 255, 0.05); background-color: #090f1c;">
-        <div style="font-weight: 500; color: #94a3b8; margin-bottom: 4px;">PT Lintas Wahana Teknologi</div>
-        <div style="margin-bottom: 16px; color: #475569;">Secure & Trusted Solution Provider</div>
-        <div>
-          © ${new Date().getFullYear()} PT Lintas Wahana Teknologi — All rights reserved.
+        <div class="security-note">
+          <div class="title">Catatan Keamanan Penting</div>
+          <div class="item">Jangan pernah membagikan kode OTP ini kepada siapa pun.</div>
+          <div class="item">Tim kami tidak akan pernah meminta kode verifikasi Anda.</div>
+          <div class="item">Kode ini akan kedaluwarsa secara otomatis dalam waktu 15 menit.</div>
         </div>
-      </td>
-    </tr>
+      `,
+      buttonText: 'Reset Password',
+      buttonLink: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/reset-password',
+      footerNote: 'Email ini dikirim secara otomatis. Mohon tidak membalas email ini.',
+    });
 
-  </table>
-
-</td>
-</tr>
-</table>
-
-</body>
-</html>
-    `;
-
-    const mailOptions = {
+    const info = await transporter.sendMail({
       from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
       to: to,
-      subject: "🔑 Kode OTP Reset Password",
+      subject: "Reset Password - PT Lintas Wahana Teknologi",
       text: `Halo ${name}, kode OTP reset password Anda adalah ${code}. Berlaku 15 menit.`,
       html,
-    };
+    });
 
-    if (logoExists) {
-      mailOptions.attachments = [
-        {
-          filename: "oip.png",
-          path: logoPath,
-          cid: "logo",
-          contentDisposition: "inline",
-        },
-      ];
-    }
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email reset password terkirim ke ${to}`);
-    console.log(`📧 Message ID: ${info.messageId}`);
-    
+    console.log(`✅ Reset password email sent to ${to}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("❌ Error sending reset password email:", error);
     throw error;
   }
 }
+
+// ─── SEND NOTIFICATION EMAIL WITH AUDIO ──────────────────────
+export async function sendNotificationEmail({ to, name, title, message, type, link, icon }) {
+  try {
+    const typeLabels = {
+      project: { label: 'Project', color: '#3b82f6' },
+      member: { label: 'Member', color: '#8b5cf6' },
+      revision: { label: 'Revisi', color: '#f59e0b' },
+      system: { label: 'Sistem', color: '#6b7280' },
+      approved: { label: 'Disetujui', color: '#22c55e' },
+      rejected: { label: 'Ditolak', color: '#ef4444' },
+      finished: { label: 'Selesai', color: '#22c55e' },
+    };
+
+    const typeInfo = typeLabels[type] || typeLabels.system;
+    const iconDisplay = icon || '📢';
+
+    const html = getEmailTemplate({
+      title: title,
+      subtitle: `PT Lintas Wahana Teknologi • ${typeInfo.label}`,
+      content: `
+        <p class="greeting">Yth. <strong>${name}</strong>,</p>
+        <div style="background: #f7fafc; border-left: 4px solid ${typeInfo.color}; border-radius: 8px; padding: 16px 20px; margin: 16px 0;">
+          <p style="margin:0; color:#2d3748; line-height:1.7;">${message}</p>
+        </div>
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Status</span>
+            <span class="info-value">${typeInfo.label}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Waktu</span>
+            <span class="info-value">${new Date().toLocaleString('id-ID', { 
+              weekday: 'long', 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</span>
+          </div>
+        </div>
+      `,
+      buttonText: 'Lihat Detail',
+      buttonLink: link ? `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}${link}` : null,
+      showAudio: true,
+      footerNote: 'Email ini dikirim secara otomatis oleh sistem notifikasi. Mohon tidak membalas email ini.',
+    });
+
+    const info = await transporter.sendMail({
+      from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
+      to: to,
+      subject: `${iconDisplay} ${title}`,
+      html,
+    });
+
+    console.log(`✅ Notification email sent to ${to}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending notification email:", error);
+    throw error;
+  }
+}
+
+// ─── EXPORT ────────────────────────────────────────────────────
+export {
+  transporter,
+  getEmailTemplate,
+  getLogoBase64,
+};

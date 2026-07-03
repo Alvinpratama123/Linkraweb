@@ -1,3 +1,6 @@
+// src/pages/dashboardAdmin/components/revision.js
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import {
@@ -37,7 +40,8 @@ const approvalColor = (a, theme) =>
 // ─── Komponen kecil ───────────────────────────────────────────────────────────
 
 function RoleBadge({ role, size = "sm", theme = "light" }) {
-  const c = ROLE_COLORS[role] ?? { bg: "bg-gray-100", text: "text-gray-600" };
+  const displayRole = role ? role.toUpperCase() : 'MEMBER';
+  const c = ROLE_COLORS[displayRole] ?? { bg: "bg-gray-100", text: "text-gray-600" };
   const darkStyles = theme === 'dark' ? {
     bg: c.bg.replace('bg-gray-100', 'bg-gray-700').replace('bg-blue-100', 'bg-blue-900').replace('bg-green-100', 'bg-green-900').replace('bg-red-100', 'bg-red-900').replace('bg-purple-100', 'bg-purple-900').replace('bg-indigo-100', 'bg-indigo-900').replace('bg-pink-100', 'bg-pink-900').replace('bg-yellow-100', 'bg-yellow-900'),
     text: c.text.replace('text-gray-600', 'text-gray-300').replace('text-blue-700', 'text-blue-300').replace('text-green-700', 'text-green-300').replace('text-red-700', 'text-red-300').replace('text-purple-700', 'text-purple-300').replace('text-indigo-700', 'text-indigo-300').replace('text-pink-700', 'text-pink-300').replace('text-yellow-700', 'text-yellow-300')
@@ -47,7 +51,7 @@ function RoleBadge({ role, size = "sm", theme = "light" }) {
     <span className={`inline-flex items-center rounded-full font-semibold ${darkStyles.bg} ${darkStyles.text} ${
       size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm"
     }`}>
-      {role}
+      {displayRole}
     </span>
   );
 }
@@ -57,21 +61,16 @@ function RoleBadge({ role, size = "sm", theme = "light" }) {
 async function apiFetch(url, options) {
   try {
     const res = await fetch(url, options);
-    
     const text = await res.text();
-    
     let json;
     try {
       json = JSON.parse(text);
     } catch (parseError) {
-      console.error("Response bukan JSON:", text.substring(0, 200));
       throw new Error(`Server error: ${res.status} - ${res.statusText}`);
     }
-    
     if (!res.ok) {
-      throw new Error(json.error || json.message || `HTTP ${res.status}: ${res.statusText}`);
+      throw new Error(json.error || json.message || `HTTP ${res.status}`);
     }
-    
     return json;
   } catch (error) {
     console.error("API Fetch Error:", error);
@@ -81,8 +80,34 @@ async function apiFetch(url, options) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function Revision({ userRole = "QA", userName = "User", theme = "light", setTheme }) {
-  const myRole = userRole;
+export default function Revision({ userRole, userName, theme = "light", setTheme }) {
+  // 🔥 State untuk role dari database
+  const [dbUserRole, setDbUserRole] = useState(userRole || 'MEMBER');
+  const [dbUserName, setDbUserName] = useState(userName || 'User');
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  // 🔥 Fetch user role dari database
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (data.success && data.user) {
+          const roleFromDb = data.user.role?.toUpperCase() || 'MEMBER';
+          setDbUserRole(roleFromDb);
+          setDbUserName(data.user.name || userName);
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+    fetchUserRole();
+  }, []);
+
+  const myRole = dbUserRole || userRole || 'MEMBER';
+  const displayName = dbUserName || userName || 'User';
 
   // Tab
   const [activeTab, setActiveTab] = useState("inbox");
@@ -106,15 +131,51 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
   const [description,    setDescription]    = useState("");
   const [progress,       setProgress]       = useState("BELUM_DILAKUKAN");
   const [targetRole,     setTargetRole]     = useState("FRONTEND");
+  const [targetUserId,   setTargetUserId]   = useState("");
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [loadingUsers,   setLoadingUsers]   = useState(false);
   const [attachmentName, setAttachmentName] = useState("");
   const [attachmentData, setAttachmentData] = useState("");
   const [submitting,     setSubmitting]     = useState(false);
   const [submitError,    setSubmitError]    = useState("");
 
-  // Preview gambar
   const [previewImage, setPreviewImage] = useState("");
-
   const fileRef = useRef(null);
+
+  // ─── Fetch users by role ──
+  const fetchUsersByRole = async (role) => {
+    if (!role) {
+      setAvailableUsers([]);
+      setTargetUserId("");
+      return;
+    }
+    
+    setLoadingUsers(true);
+    try {
+      const roleLower = role.toLowerCase();
+      console.log(`🔍 Fetching users with role: ${roleLower}`);
+      const res = await fetch(`/api/members?role=${roleLower}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setAvailableUsers(data.members || []);
+        if (data.members && data.members.length === 1) {
+          setTargetUserId(data.members[0].id);
+        } else {
+          setTargetUserId("");
+        }
+      } else {
+        setAvailableUsers([]);
+        setTargetUserId("");
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      setAvailableUsers([]);
+      setTargetUserId("");
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   // ── Reset target ketika myRole berubah ──
   useEffect(() => {
@@ -127,6 +188,13 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
       }
     }
   }, [myRole]);
+
+  // ── Effect untuk fetch users ──
+  useEffect(() => {
+    if (targetRole) {
+      fetchUsersByRole(targetRole);
+    }
+  }, [targetRole]);
 
   // ── Fetch inbox ──
   const fetchInbox = async () => {
@@ -176,7 +244,6 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
     }
   };
 
-  // Panggil fetch saat filter/page/role berubah
   useEffect(() => { 
     if (activeTab === "inbox" && myRole) {
       fetchInbox(); 
@@ -224,6 +291,11 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
       toast.error("Role tidak ditemukan");
       return;
     }
+    if (!targetUserId) {
+      setSubmitError("Silakan pilih target user");
+      toast.error("Silakan pilih target user");
+      return;
+    }
     setSubmitting(true);
     setSubmitError("");
     
@@ -237,11 +309,10 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
         progress,
         senderRole: myRole,
         targetRole,
+        targetUserId: targetUserId,
         attachmentName: attachmentName || null,
         attachmentData: attachmentData || null,
       };
-
-      console.log("Submitting payload:", payload);
 
       const result = await apiFetch("/api/revisions", {
         method: "POST",
@@ -249,36 +320,19 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
         body: JSON.stringify(payload),
       });
 
-      console.log("Submit success:", result);
-
       toast.dismiss(loadingToast);
+      toast.success(`✅ Revisi berhasil dikirim!`);
 
-      if (result.email && result.email.success) {
-        toast.success(
-          `✅ Revisi berhasil dikirim! Notifikasi email terkirim ke ${result.email.users?.length || 0} penerima.`,
-          { duration: 5000 }
-        );
-      } else {
-        toast.success(
-          `✅ Revisi berhasil dikirim!`,
-          { duration: 4000 }
-        );
-      }
-
-      // Reset form
       setProjectName("");
       setDescription("");
       setAttachmentName("");
       setAttachmentData("");
       setProgress("BELUM_DILAKUKAN");
       setIssueType("MODUL");
+      setTargetUserId("");
       if (fileRef.current) fileRef.current.value = "";
       
-      try {
-        await fetchSent();
-      } catch (fetchError) {
-        console.error("Error fetching sent after submit:", fetchError);
-      }
+      await fetchSent();
       setActiveTab("sent");
       
     } catch (err) {
@@ -291,11 +345,8 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
     }
   };
 
-  // ── Update report (progress / approval) ──
+  // ── Update report ──
   const updateReport = async (id, changes) => {
-    console.log("🔄 Update report - ID:", id);
-    console.log("🔄 Changes:", changes);
-    
     const loadingToast = toast.loading("Mengupdate revisi...");
     
     try {
@@ -305,8 +356,6 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
         body: JSON.stringify(changes),
       });
       
-      console.log("✅ Update result:", result);
-      
       toast.dismiss(loadingToast);
       toast.success("✅ Revisi berhasil diupdate!");
       
@@ -314,27 +363,17 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
         setInboxReports((prev) => 
           prev.map((r) => r.id === id ? { ...r, ...result.data } : r)
         );
-        
         setSentReports((prev) => 
           prev.map((r) => r.id === id ? { ...r, ...result.data } : r)
         );
         
         setTimeout(async () => {
-          try {
-            if (activeTab === "inbox") {
-              await fetchInbox();
-            }
-            if (activeTab === "sent") {
-              await fetchSent();
-            }
-          } catch (refreshError) {
-            console.error("Error refreshing after update:", refreshError);
-          }
+          if (activeTab === "inbox") await fetchInbox();
+          if (activeTab === "sent") await fetchSent();
         }, 500);
       }
-      
     } catch (err) {
-      console.error("❌ Update error:", err);
+      console.error("Update error:", err);
       toast.dismiss(loadingToast);
       toast.error(`❌ Gagal update: ${err.message}`);
     }
@@ -347,27 +386,17 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
     const loadingToast = toast.loading("Menghapus revisi...");
     
     try {
-      await apiFetch(`/api/revisions?id=${id}`, { 
-        method: "DELETE" 
-      });
+      await apiFetch(`/api/revisions?id=${id}`, { method: "DELETE" });
       
       toast.dismiss(loadingToast);
       toast.success("✅ Revisi berhasil dihapus!");
       
       if (source === "inbox") {
         setInboxReports((prev) => prev.filter((r) => r.id !== id));
-        try {
-          await fetchInbox();
-        } catch (err) {
-          console.error("Error refreshing inbox after delete:", err);
-        }
+        await fetchInbox();
       } else if (source === "sent") {
         setSentReports((prev) => prev.filter((r) => r.id !== id));
-        try {
-          await fetchSent();
-        } catch (err) {
-          console.error("Error refreshing sent after delete:", err);
-        }
+        await fetchSent();
       }
     } catch (err) {
       console.error("Delete error:", err);
@@ -388,20 +417,6 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
             color: '#fff',
             borderRadius: '12px',
             padding: '16px',
-          },
-          success: {
-            duration: 5000,
-            iconTheme: {
-              primary: '#10b981',
-              secondary: '#fff',
-            },
-          },
-          error: {
-            duration: 5000,
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#fff',
-            },
           },
         }}
       />
@@ -424,9 +439,13 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
 
           <div className={`flex items-center gap-3 rounded-2xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} px-4 py-3 shadow-sm transition-colors duration-200`}>
             <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Role saya:</span>
-            <RoleBadge role={myRole} size="md" theme={theme} />
+            {loadingUser ? (
+              <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Memuat...</span>
+            ) : (
+              <RoleBadge role={myRole} size="md" theme={theme} />
+            )}
             <span className={`text-sm ${theme === 'dark' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'} border-l pl-3`}>
-              {userName}
+              {displayName}
             </span>
           </div>
         </div>
@@ -539,11 +558,19 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
                     {report.description || <span className={`italic ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada deskripsi.</span>}
                   </p>
 
+                  {/* 🔥 Tampilkan target user */}
+                  {report.targetUser && (
+                    <p className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} mb-3`}>
+                      Ditujukan ke: <span className={`font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                        {report.targetUser.name}
+                      </span> ({report.targetUser.email})
+                    </p>
+                  )}
+
                   <div className="grid gap-3 md:grid-cols-3">
                     <div>
                       <label className={`block text-xs font-semibold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-1.5`}>
-                        Ubah Progress
-                      </label>
+                        Ubah Progress                      </label>
                       <select
                         value={report.progress}
                         onChange={(e) => updateReport(report.id, { progress: e.target.value })}
@@ -682,6 +709,14 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
                 <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-2`}>
                   {report.description || <span className={`italic ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada deskripsi.</span>}
                 </p>
+                {/* 🔥 Tampilkan target user */}
+                {report.targetUser && (
+                  <p className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} mb-2`}>
+                    Ditujukan ke: <span className={`font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                      {report.targetUser.name}
+                    </span> ({report.targetUser.email})
+                  </p>
+                )}
                 <div className="flex gap-2 items-center">
                   <span className={`text-xs rounded-full ${theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'} px-2.5 py-1 font-medium`}>
                     {PROGRESS_LABELS[report.progress] ?? report.progress}
@@ -707,7 +742,7 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
             <div className="mb-6">
               <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Buat Revisi Baru</h2>
               <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                Laporan dikirim dari <RoleBadge role={myRole} theme={theme} /> ke role tujuan yang dipilih.
+                Laporan dikirim dari <RoleBadge role={myRole} theme={theme} /> ke user tujuan yang dipilih.
               </p>
             </div>
 
@@ -725,16 +760,58 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
                   />
                 </label>
                 <label className="block">
-                  <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Ditujukan ke *</span>
+                  <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Ditujukan ke Role *</span>
                   <select
                     value={targetRole}
-                    onChange={(e) => setTargetRole(e.target.value)}
+                    onChange={(e) => {
+                      setTargetRole(e.target.value);
+                      setTargetUserId("");
+                    }}
                     className={`mt-2 w-full h-11 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200`}
                   >
-                    {(SENDER_TARGET_MAP[myRole] || ["FRONTEND", "BACKEND", "QA","PM","UI/UX",]).map((r) => (
+                    {(SENDER_TARGET_MAP[myRole] || ["FRONTEND", "BACKEND", "QA", "PM", "UI/UX"]).map((r) => (
                       <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
                     ))}
                   </select>
+                </label>
+              </div>
+
+              {/* 🔥 Pilih User Spesifik */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block md:col-span-2">
+                  <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Ditujukan ke User * 
+                    {loadingUsers && <span className="ml-2 text-xs text-gray-400">⏳ Memuat...</span>}
+                  </span>
+                  <select
+                    value={targetUserId}
+                    onChange={(e) => setTargetUserId(e.target.value)}
+                    disabled={loadingUsers || availableUsers.length === 0}
+                    className={`mt-2 w-full h-11 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    required
+                  >
+                    <option value="">{loadingUsers ? 'Memuat data user...' : 'Pilih user...'}</option>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.email}) - {user.position || user.role}
+                      </option>
+                    ))}
+                  </select>
+                  {!loadingUsers && availableUsers.length === 0 && targetRole && (
+                    <p className={`mt-1 text-xs ${theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                      ⚠️ Belum ada user dengan role {ROLE_LABELS[targetRole] || targetRole}
+                    </p>
+                  )}
+                  {!loadingUsers && availableUsers.length === 1 && (
+                    <p className={`mt-1 text-xs ${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`}>
+                      ✅ {availableUsers[0].name} otomatis dipilih
+                    </p>
+                  )}
+                  {!loadingUsers && availableUsers.length > 1 && (
+                    <p className={`mt-1 text-xs ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
+                      📋 {availableUsers.length} user tersedia, pilih salah satu
+                    </p>
+                  )}
                 </label>
               </div>
 
@@ -794,7 +871,12 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
 
               <div className={`rounded-2xl ${theme === 'dark' ? 'bg-blue-900/30 border-blue-700 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-800'} border px-4 py-3 text-sm`}>
                 Laporan ini akan dikirim dari <strong>{ROLE_LABELS[myRole] || myRole}</strong> ke{" "}
-                <strong>{ROLE_LABELS[targetRole] || targetRole}</strong>.
+                <strong>{availableUsers.find(u => u.id === targetUserId)?.name || targetRole}</strong>
+                {targetUserId && availableUsers.find(u => u.id === targetUserId) && (
+                  <span className="block text-xs mt-1 opacity-75">
+                    Email: {availableUsers.find(u => u.id === targetUserId)?.email}
+                  </span>
+                )}
               </div>
 
               {submitError && (
@@ -805,7 +887,7 @@ export default function Revision({ userRole = "QA", userName = "User", theme = "
 
               <button
                 type="submit"
-                disabled={submitting || !projectName.trim()}
+                disabled={submitting || !projectName.trim() || !targetUserId}
                 className="h-12 rounded-2xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition"
               >
                 {submitting ? "Mengirim..." : "Kirim Revisi →"}

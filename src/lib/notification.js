@@ -5,49 +5,49 @@ import { sendRevisionNotification, sendNotificationToRole } from "./email";
 // ─── LABEL UNTUK TIPE NOTIFIKASI ─────────────────────────────
 const typeLabels = {
   project: {
-    label: '📁 Project',
+    label: 'Project',
     icon: '📁',
     color: '#3b82f6',
     bgColor: '#dbeafe',
   },
   member: {
-    label: '👤 Member',
+    label: 'Member',
     icon: '👤',
     color: '#8b5cf6',
     bgColor: '#ede9fe',
   },
   revision: {
-    label: '📝 Revisi',
+    label: 'Revisi',
     icon: '📝',
     color: '#f59e0b',
     bgColor: '#fef3c7',
   },
   system: {
-    label: '🔔 Sistem',
+    label: 'Sistem',
     icon: '🔔',
     color: '#6b7280',
     bgColor: '#f3f4f6',
   },
   approved: {
-    label: '✅ Disetujui',
+    label: 'Disetujui',
     icon: '✅',
     color: '#22c55e',
     bgColor: '#dcfce7',
   },
   rejected: {
-    label: '❌ Ditolak',
+    label: 'Ditolak',
     icon: '❌',
     color: '#ef4444',
     bgColor: '#fee2e2',
   },
   finished: {
-    label: '🎉 Selesai',
+    label: 'Selesai',
     icon: '🎉',
     color: '#22c55e',
     bgColor: '#dcfce7',
   },
   upload: {
-    label: '📤 Upload',
+    label: 'Upload',
     icon: '📤',
     color: '#3b82f6',
     bgColor: '#dbeafe',
@@ -91,13 +91,36 @@ function getCategoryLabel(name) {
   return 'Project';
 }
 
+// ─── 🔥 PERBAIKI: BUILD DASHBOARD LINK ──────────────────────
 function buildDashboardLink(userRole, tab) {
   const normalizedRole = (userRole || '').toLowerCase();
-  const basePath = normalizedRole === 'admin' || normalizedRole === 'administrator'
-    ? '/dashboardAdmin/admin'
-    : '/memberDashboard/MemberDashboard';
+  
+  // 🔥 Mapping role ke path yang benar
+  const rolePathMap = {
+    'admin': '/dashboardAdmin/admin',
+    'administrator': '/dashboardAdmin/admin',
+    'member': '/memberDashboard/MemberDashboard',
+    'frontend': '/memberDashboard/MemberDashboard',
+    'backend': '/memberDashboard/MemberDashboard',
+    'qa': '/memberDashboard/MemberDashboard',
+    'pm': '/memberDashboard/MemberDashboard',
+    'ui/ux': '/memberDashboard/MemberDashboard',
+  };
 
-  return tab ? `${basePath}?tab=${tab}` : basePath;
+  const basePath = rolePathMap[normalizedRole] || '/memberDashboard/MemberDashboard';
+
+  // 🔥 Mapping tab ke parameter yang benar
+  const tabMap = {
+    'progress': 'progress',
+    'dashboard': 'dashboard',
+    'revision': 'revision',
+    'analytics': 'analytics',
+    'profile': 'profile',
+  };
+
+  const validTab = tabMap[tab] || 'dashboard';
+  
+  return `${basePath}?tab=${validTab}`;
 }
 
 // ─── KIRIM EMAIL NOTIFIKASI ──────────────────────────────────
@@ -123,6 +146,10 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
     const typeInfo = typeLabels[type] || typeLabels.system;
     const iconDisplay = icon || typeInfo.icon || '🔔';
     const roleDisplay = roleLabels[user.role?.toLowerCase()] || user.role || 'Member';
+
+    // 🔥 Pastikan link menggunakan base URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const fullLink = link ? `${baseUrl}${link}` : null;
 
     const html = `
 <!DOCTYPE html>
@@ -286,15 +313,15 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
       </div>
       <div class="info-card">
         <div class="info-row">
-          <span class="info-label">📌 Status</span>
+          <span class="info-label">Status</span>
           <span class="info-value"><span class="badge">${typeInfo.label || type}</span></span>
         </div>
         <div class="info-row">
-          <span class="info-label">👤 Role</span>
+          <span class="info-label">Role</span>
           <span class="info-value">${roleDisplay}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">⏰ Waktu</span>
+          <span class="info-label">Waktu</span>
           <span class="info-value">${new Date().toLocaleString('id-ID', { 
             weekday: 'long', 
             day: 'numeric', 
@@ -305,10 +332,10 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
           })}</span>
         </div>
       </div>
-      ${link ? `
+      ${fullLink ? `
       <div style="text-align: center;">
-        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link}" class="btn">
-          🔍 Lihat Detail
+        <a href="${fullLink}" class="btn">
+          Lihat Detail →
         </a>
       </div>
       ` : ''}
@@ -381,14 +408,10 @@ export async function sendNotificationToAllUsers({ title, message, type, link, i
 
     const results = [];
     for (const user of users) {
-      let userLink = link;
-      
       const userRole = user.role?.toLowerCase();
-      const isAdmin = userRole === 'admin' || userRole === 'administrator';
-      if (userLink && userLink.includes('/dashboardAdmin') && !isAdmin) {
-        userLink = userLink.replace('/dashboardAdmin/admin', '/memberDashboard/MemberDashboard');
-        userLink = userLink.replace('/dashboardAdmin', '/memberDashboard/MemberDashboard');
-      }
+      
+      // 🔥 Gunakan buildDashboardLink untuk setiap user
+      const userLink = link ? buildDashboardLink(userRole, 'progress') : null;
 
       const notification = await prisma.notification.create({
         data: {
@@ -422,36 +445,33 @@ export async function sendNotificationToAllUsers({ title, message, type, link, i
 
 // ─── NOTIFIKASI PROJECT KE SEMUA USER ────────────────────────
 export async function sendProjectNotificationToAllUsers(project, action, senderRole) {
-  const adminLink = buildDashboardLink('admin', 'progress');
-  const memberLink = buildDashboardLink('member', 'progress');
-  
   const category = getCategoryLabel(project.name);
   const senderDisplay = roleLabels[senderRole?.toLowerCase()] || senderRole || 'User';
 
   const notifications = {
     upload: {
-      title: `📁 Project Baru: ${project.name}`,
+      title: `Project Baru: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah diupload oleh ${senderDisplay}. Silakan tinjau project tersebut.`,
       type: "project",
       icon: "📁",
       color: "blue",
     },
     approved: {
-      title: `✅ Project Disetujui: ${project.name}`,
+      title: `Project Disetujui: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah disetujui oleh ${senderDisplay}. Project siap untuk dilanjutkan.`,
       type: "approved",
       icon: "✅",
       color: "green",
     },
     rejected: {
-      title: `❌ Project Ditolak: ${project.name}`,
+      title: `Project Ditolak: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah ditolak oleh ${senderDisplay}. Silakan periksa kembali project tersebut.`,
       type: "rejected",
       icon: "❌",
       color: "red",
     },
     finished: {
-      title: `🎉 Project Selesai: ${project.name}`,
+      title: `Project Selesai: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah selesai dikerjakan! Selamat! 🎉`,
       type: "finished",
       icon: "🎉",
@@ -462,11 +482,12 @@ export async function sendProjectNotificationToAllUsers(project, action, senderR
   const notif = notifications[action];
   if (!notif) return null;
 
+  // 🔥 Tidak perlu link di sini karena akan di-generate per user di sendNotificationToAllUsers
   return await sendNotificationToAllUsers({
     title: notif.title,
     message: notif.message,
     type: notif.type,
-    link: adminLink,
+    link: null, // Akan di-generate berdasarkan role user
     icon: notif.icon,
     color: notif.color,
   });
@@ -486,28 +507,28 @@ export async function createProjectNotification(project, userId, action, senderR
 
   const notifications = {
     upload: {
-      title: `📁 Project Baru: ${project.name}`,
+      title: `Project Baru: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah diupload oleh ${senderDisplay}.`,
       type: "project",
       icon: "📁",
       color: "blue",
     },
     approved: {
-      title: `✅ Project Disetujui: ${project.name}`,
+      title: `Project Disetujui: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah disetujui oleh ${senderDisplay}.`,
       type: "approved",
       icon: "✅",
       color: "green",
     },
     rejected: {
-      title: `❌ Project Ditolak: ${project.name}`,
+      title: `Project Ditolak: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah ditolak oleh ${senderDisplay}.`,
       type: "rejected",
       icon: "❌",
       color: "red",
     },
     finished: {
-      title: `🎉 Project Selesai: ${project.name}`,
+      title: `Project Selesai: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah selesai dikerjakan! 🎉`,
       type: "finished",
       icon: "🎉",
@@ -542,7 +563,7 @@ export async function createMemberNotification(member, userId, action) {
 
     return await createNotification({
       userId,
-      title: `👤 Member Baru: ${member.name}`,
+      title: `Member Baru: ${member.name}`,
       message: `Member "${member.name}" telah ditambahkan dengan posisi ${positionDisplay}.`,
       type: "member",
       link: link,
@@ -565,7 +586,7 @@ export async function createRevisionNotification(revision, userId, action) {
 
     return await createNotification({
       userId,
-      title: `📝 Revisi Baru: ${revision.projectName}`,
+      title: `Revisi Baru: ${revision.projectName}`,
       message: `Ada revisi baru untuk project "${revision.projectName}". Silakan periksa dan tindak lanjuti.`,
       type: "revision",
       link: link,
@@ -575,3 +596,12 @@ export async function createRevisionNotification(revision, userId, action) {
   }
   return null;
 }
+
+// ─── EKSPORT ────────────────────────────────────────────────────
+export {
+  typeLabels,
+  roleLabels,
+  categoryLabels,
+  getCategoryLabel,
+  buildDashboardLink,
+};

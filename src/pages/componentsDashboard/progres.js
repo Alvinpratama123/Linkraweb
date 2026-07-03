@@ -1,7 +1,8 @@
 // pages/dashboardAdmin/components/progres.js
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import Swal from 'sweetalert2';
 
 const formatDate = (iso) => {
   try {
@@ -24,18 +25,47 @@ const normalizeDecision = (value) => {
   return "pending";
 };
 
-const normalizeAttachmentStatus = (value) => {
-  const normalized = String(value || "pending").toLowerCase();
-  if (normalized === "approved") return "approved";
-  if (normalized === "rejected") return "rejected";
-  return "pending";
-};
-
 const getDecisionLabel = (value) => {
   const normalized = normalizeDecision(value);
   if (normalized === "approved") return "Approved";
   if (normalized === "rejected") return "Rejected";
   return "Pending";
+};
+
+const getDecisionIcon = (value) => {
+  const normalized = normalizeDecision(value);
+  if (normalized === "approved") return "✓";
+  if (normalized === "rejected") return "✗";
+  return "○";
+};
+
+const decisionBadgeClass = (value, theme) => {
+  const normalized = normalizeDecision(value);
+  if (normalized === "approved") {
+    return theme === "dark" 
+      ? "bg-green-900/50 text-green-300 border-green-700" 
+      : "bg-green-50 text-green-700 border-green-200";
+  }
+  if (normalized === "rejected") {
+    return theme === "dark" 
+      ? "bg-red-900/50 text-red-300 border-red-700" 
+      : "bg-red-50 text-red-700 border-red-200";
+  }
+  return theme === "dark" 
+    ? "bg-yellow-900/50 text-yellow-300 border-yellow-700" 
+    : "bg-yellow-50 text-yellow-700 border-yellow-200";
+};
+
+const getInitial = (text) => {
+  const clean = String(text || "").trim();
+  return clean ? clean.charAt(0).toUpperCase() : "?";
+};
+
+const normalizeAttachmentStatus = (value) => {
+  const normalized = String(value || "pending").toLowerCase();
+  if (normalized === "approved") return "approved";
+  if (normalized === "rejected") return "rejected";
+  return "pending";
 };
 
 const getAttachmentStatusLabel = (value) => {
@@ -45,138 +75,749 @@ const getAttachmentStatusLabel = (value) => {
   return "Pending";
 };
 
-// 🔥 Komponen untuk menampilkan attachment detail - TANPA TOMBOL
-const AttachmentDetail = ({ attachment, theme }) => {
-  if (!attachment) {
+// Toast notification menggunakan SweetAlert2
+const showToast = (icon, title, message) => {
+  const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+      toast.addEventListener('mouseenter', Swal.stopTimer);
+      toast.addEventListener('mouseleave', Swal.resumeTimer);
+    }
+  });
+
+  Toast.fire({
+    icon: icon,
+    title: title,
+    text: message,
+  });
+};
+
+// ─── FUNGSI GET NOTIFICATION LINK ────────────────────────────
+const getNotificationLink = (role, tab = 'progress') => {
+  const normalizedRole = (role || '').toLowerCase();
+  
+  if (normalizedRole === 'admin' || normalizedRole === 'administrator') {
+    return `/dashboardAdmin/admin?tab=${tab}`;
+  }
+  
+  return `/memberDashboard/MemberDashboard?tab=${tab}`;
+};
+
+// ─── FUNGSI NOTIFIKASI KE USER SPESIFIK ──────────────────────
+const addNotificationToUser = async (userId, title, message, type = "info", link = null) => {
+  try {
+    console.log(`📢 [Progres] Sending notification to user ${userId}: ${title}`);
+    
+    const res = await fetch("/api/notifications", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json" 
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        userId,
+        title,
+        message,
+        type,
+        link: link || "/memberDashboard/MemberDashboard?tab=progress",
+        icon: type === "success" ? "✓" : type === "error" ? "✗" : type === "warning" ? "⚠" : "📢",
+        color: type === "success" ? "green" : type === "error" ? "red" : type === "warning" ? "orange" : "blue",
+      }),
+    });
+    
+    const data = await res.json();
+    console.log(`📢 [Progres] Notification to user response:`, data);
+    return data;
+  } catch (error) {
+    console.error("Add notification to user error:", error);
+  }
+};
+
+// ─── FUNGSI NOTIFIKASI KE ADMIN (CURRENT USER) ──────────────
+const addNotificationToAdmin = async (title, message, type = "info", link = null) => {
+  try {
+    const meRes = await fetch('/api/auth/me', { 
+      credentials: 'include' 
+    });
+    const meData = await meRes.json();
+    
+    if (!meData.success || !meData.user) {
+      console.error('❌ Cannot get current user');
+      return;
+    }
+    
+    const userId = meData.user.id;
+    const userRole = meData.user.role || 'member';
+    const notificationLink = link || getNotificationLink(userRole, 'progress');
+    
+    return await addNotificationToUser(userId, title, message, type, notificationLink);
+  } catch (error) {
+    console.error("Add notification to admin error:", error);
+  }
+};
+
+// ─── FUNGSI NOTIFIKASI KE MEMBER ──────────────────────────────
+const addNotificationToMember = async (userId, title, message, type = "info") => {
+  try {
+    console.log(`📢 [Progres] Sending notification to MEMBER ${userId}: ${title}`);
+    
+    // 🔥 Tambahkan timestamp agar member dashboard melakukan refresh
+    const memberLink = `/memberDashboard/MemberDashboard?tab=progress&refresh=${Date.now()}`;
+    
+    return await addNotificationToUser(userId, title, message, type, memberLink);
+  } catch (error) {
+    console.error("Add notification to member error:", error);
+  }
+};
+
+// Kumpulkan semua lampiran (gambar, modul, link) milik satu role/project
+const getRoleAttachments = (role) => {
+  if (!role) return [];
+  const attachments = [];
+  const overrides = role.attachmentStatusOverrides || {};
+
+  if (role.attachments && role.attachments.length > 0) {
+    role.attachments.forEach((item) => {
+      attachments.push({
+        ...item,
+        status: normalizeAttachmentStatus(item.status || overrides[item.id] || "pending"),
+        label: item.name || (item.type === "image" ? "Gambar" : item.type === "link" ? "Link" : "File"),
+        url: item.url || item.data || "",
+        data: item.url || item.data || "",
+      });
+    });
+  }
+
+  if (role.imageUrl) {
+    const exists = attachments.some((a) => a.url === role.imageUrl);
+    if (!exists) {
+      attachments.push({
+        id: `image-${role.id}`,
+        type: "image",
+        name: "Gambar Project",
+        label: "Gambar Project",
+        url: role.imageUrl,
+        data: role.imageUrl,
+        description: role.imageDescription || null,
+        createdAt: role.createdAt || role.date,
+        status: normalizeAttachmentStatus(overrides[`image-${role.id}`] || "pending"),
+      });
+    }
+  }
+
+  if (role.moduleUrl) {
+    attachments.push({
+      id: `module-${role.id}`,
+      type: "module",
+      name: "Modul Project",
+      label: "Modul Project",
+      url: role.moduleUrl,
+      data: role.moduleUrl,
+      description: "Modul pembelajaran",
+      createdAt: role.createdAt || role.date,
+      status: normalizeAttachmentStatus(overrides[`module-${role.id}`] || "pending"),
+    });
+  }
+
+  if (role.repoLink) {
+    attachments.push({
+      id: `repo-${role.id}`,
+      type: "link",
+      name: role.repoLink,
+      label: "Project Link",
+      url: role.repoLink,
+      data: role.repoLink,
+      createdAt: role.date || role.createdAt || "",
+      description: "Link repository / demo project",
+      status: normalizeAttachmentStatus(overrides[`repo-${role.id}`] || "pending"),
+    });
+  }
+
+  return attachments;
+};
+
+// Avatar kecil untuk foto role
+const RoleAvatar = ({ project, theme, size = "w-11 h-11" }) => {
+  const photoUrl = project.imageUrl;
+  const label = project.user?.email || project.name;
+
+  if (photoUrl) {
     return (
-      <div className={`text-center py-12 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-        <p className="text-4xl mb-3">📎</p>
-        <p>Pilih lampiran untuk melihat detail</p>
-      </div>
+      <img
+        src={photoUrl}
+        alt={label}
+        className={`${size} rounded-full object-cover flex-shrink-0 border-2 ${
+          theme === "dark" ? "border-gray-600" : "border-gray-200"
+        }`}
+        onError={(e) => {
+          e.target.onerror = null;
+          e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Crect width='44' height='44' fill='%23e5e7eb'/%3E%3C/svg%3E";
+        }}
+      />
     );
   }
 
-  const attachmentUrl = attachment.url || attachment.data || "";
-  const statusLabel = normalizeAttachmentStatus(attachment.status);
-  const statusColors = {
-    approved: theme === 'dark' ? "bg-green-900 text-green-200 border-green-700" : "bg-green-100 text-green-700 border-green-200",
-    rejected: theme === 'dark' ? "bg-red-900 text-red-200 border-red-700" : "bg-red-100 text-red-700 border-red-200",
-    pending: theme === 'dark' ? "bg-yellow-900 text-yellow-200 border-yellow-700" : "bg-yellow-50 text-yellow-700 border-yellow-200",
-  };
+  return (
+    <div
+      className={`${size} rounded-full flex-shrink-0 flex items-center justify-center text-sm font-semibold ${
+        theme === "dark" 
+          ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700" 
+          : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+      }`}
+    >
+      {getInitial(label)}
+    </div>
+  );
+};
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "approved": return "✅";
-      case "rejected": return "❌";
-      default: return "⏳";
-    }
-  };
+// Komponen Dropdown untuk Action per Role
+const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const status = normalizeDecision(role.decision);
 
   return (
-    <div className="flex flex-col gap-4">
-      {attachment.description && (
-        <div className={`${theme === 'dark' ? 'bg-blue-900/30 border-blue-700' : 'bg-blue-50 border-blue-200'} border rounded-xl p-4`}>
-          <div className="flex items-start gap-2">
-            <span className="text-blue-500 text-lg">📝</span>
-            <div>
-              <p className={`text-xs font-semibold ${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'} uppercase tracking-wide`}>Keterangan</p>
-              <p className={`text-sm ${theme === 'dark' ? 'text-blue-300' : 'text-blue-800'} mt-1`}>{attachment.description}</p>
+    <div className="relative inline-block">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+          theme === "dark" 
+            ? "bg-gray-700 hover:bg-gray-600 text-gray-200" 
+            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+        }`}
+      >
+        Actions
+        <svg className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          
+          <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-lg border z-50 ${
+            theme === "dark" 
+              ? "bg-gray-800 border-gray-700" 
+              : "bg-white border-gray-200"
+          }`}>
+            <div className="py-1">
+              <div className={`px-4 py-2 border-b ${theme === "dark" ? "border-gray-700" : "border-gray-100"}`}>
+                <div className={`text-xs ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                  {role.user?.email || role.position || "Role"}
+                </div>
+                <div className={`text-xs font-semibold mt-0.5 ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+                  Status: {getDecisionLabel(status)}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onViewDetail(role);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center gap-3 ${
+                  theme === "dark" 
+                    ? "hover:bg-gray-700 text-gray-200" 
+                    : "hover:bg-gray-50 text-gray-700"
+                }`}
+              >
+                Lihat Detail
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onDecision(role, "approved");
+                }}
+                disabled={status === "approved"}
+                className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center gap-3 ${
+                  status === "approved"
+                    ? theme === "dark" ? "text-gray-500 cursor-not-allowed" : "text-gray-400 cursor-not-allowed"
+                    : theme === "dark" 
+                      ? "hover:bg-gray-700 text-green-400" 
+                      : "hover:bg-gray-50 text-green-600"
+                }`}
+              >
+                Approve
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onDecision(role, "rejected");
+                }}
+                disabled={status === "rejected"}
+                className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center gap-3 ${
+                  status === "rejected"
+                    ? theme === "dark" ? "text-gray-500 cursor-not-allowed" : "text-gray-400 cursor-not-allowed"
+                    : theme === "dark" 
+                      ? "hover:bg-gray-700 text-red-400" 
+                      : "hover:bg-gray-50 text-red-600"
+                }`}
+              >
+                Reject
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onDecision(role, "pending");
+                }}
+                disabled={status === "pending"}
+                className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center gap-3 ${
+                  status === "pending"
+                    ? theme === "dark" ? "text-gray-500 cursor-not-allowed" : "text-gray-400 cursor-not-allowed"
+                    : theme === "dark" 
+                      ? "hover:bg-gray-700 text-yellow-400" 
+                      : "hover:bg-gray-50 text-yellow-600"
+                }`}
+              >
+                Reset ke Pending
+              </button>
+
+              <div className={`border-t ${theme === "dark" ? "border-gray-700" : "border-gray-100"}`} />
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  if (confirm(`Yakin ingin menghapus role "${role.user?.email || role.position}" ini?`)) {
+                    onDelete(role);
+                  }
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center gap-3 ${
+                  theme === "dark" 
+                    ? "hover:bg-gray-700 text-red-400" 
+                    : "hover:bg-red-50 text-red-600"
+                }`}
+              >
+                Hapus Role
+              </button>
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className={`text-xs px-3 py-1 rounded-full border ${statusColors[statusLabel] || statusColors.pending}`}>
-          {getStatusIcon(statusLabel)} {getAttachmentStatusLabel(statusLabel)}
-        </span>
-        <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-          {formatDate(attachment.createdAt)}
-        </span>
-        {attachment.type === "link" && (
-          <span className={`text-xs ${theme === 'dark' ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-700'} px-2 py-0.5 rounded-full`}>🔗 Link</span>
-        )}
-        {attachment.type === "image" && (
-          <span className={`text-xs ${theme === 'dark' ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700'} px-2 py-0.5 rounded-full`}>🖼️ Gambar</span>
-        )}
-        {attachment.type === "module" && (
-          <span className={`text-xs ${theme === 'dark' ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700'} px-2 py-0.5 rounded-full`}>📄 PDF</span>
-        )}
-      </div>
-
-      {attachment.type === "image" ? (
-        <div className={`relative rounded-2xl overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-900'} min-h-[300px] flex items-center justify-center`}>
-          <img
-            src={attachmentUrl}
-            alt={attachment.name || "Preview"}
-            className="w-full max-h-[70vh] object-contain"
-            onError={(e) => {
-              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='sans-serif' font-size='14'%3EGagal memuat gambar%3C/text%3E%3C/svg%3E";
-            }}
-          />
-        </div>
-      ) : attachment.type === "link" ? (
-        <div className={`rounded-2xl border-2 border-dashed ${theme === 'dark' ? 'border-blue-700 bg-blue-900/20' : 'border-blue-300 bg-blue-50/50'} p-8 text-center min-h-[200px] flex flex-col items-center justify-center`}>
-          <div className="text-5xl mb-4">🔗</div>
-          <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'} mb-2 break-all`}>
-            {attachment.name || attachment.label}
-          </div>
-          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-4`}>Klik tombol di bawah untuk membuka link</p>
-          <a href={attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition">
-            <span>🔗</span> Buka Link
-          </a>
-        </div>
-      ) : (
-        <div className={`rounded-2xl border-2 border-dashed ${theme === 'dark' ? 'border-gray-700 bg-gray-800/50' : 'border-gray-300 bg-gray-50'} p-8 text-center min-h-[200px] flex flex-col items-center justify-center`}>
-          <div className="text-5xl mb-4">📄</div>
-          <div className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'} mb-2`}>
-            {attachment.name || attachment.label}
-          </div>
-          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-4`}>Klik tombol di bawah untuk mengunduh file</p>
-          <a href={attachmentUrl} target="_blank" rel="noreferrer" download={attachment.name || "file"} className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition">
-            <span>⬇️</span> Unduh {attachment.name || "File"}
-          </a>
-        </div>
+        </>
       )}
     </div>
   );
 };
 
-export default function Progres({ theme, setTheme }) {
-  const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
-  const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState(0);
-  const [filterDate, setFilterDate] = useState("");
-  const [projectSearch, setProjectSearch] = useState("");
+// Modal "Lihat Detail" dengan tombol Approve/Reject per attachment
+const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus, onApproveAll, onResetAll }) => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [attachmentSearch, setAttachmentSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState("grid");
+  const [localAttachments, setLocalAttachments] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // 🔥 Fungsi untuk menambahkan notifikasi ke database
-  const addNotification = async (title, message, type = "info", link = null) => {
+  useEffect(() => {
+    if (role) {
+      const attachments = getRoleAttachments(role);
+      setLocalAttachments(attachments);
+      setSelectedIndex(0);
+      setAttachmentSearch("");
+    }
+  }, [role]);
+
+  const filteredAttachments = localAttachments.filter((item) => {
+    const search = attachmentSearch.trim().toLowerCase();
+    if (!search) return true;
+    return (
+      item.name?.toLowerCase().includes(search) ||
+      item.label?.toLowerCase().includes(search) ||
+      item.description?.toLowerCase().includes(search)
+    );
+  });
+
+  const activeAttachment = filteredAttachments[selectedIndex] || null;
+  const status = normalizeDecision(role?.decision || "pending");
+  
+  const totalItems = localAttachments.length;
+  const approvedItems = localAttachments.filter(a => normalizeAttachmentStatus(a.status) === "approved").length;
+  const progressPercent = totalItems > 0 ? Math.round((approvedItems / totalItems) * 100) : 0;
+  const allAttachmentsApproved = totalItems > 0 && approvedItems === totalItems;
+
+  const handleStatusChange = async (attachment, newStatus) => {
+    setLoading(true);
+    
     try {
-      const res = await fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          title,
-          message,
-          type,
-          link,
-          icon: type === "success" ? "✅" : type === "error" ? "❌" : type === "warning" ? "⚠️" : "📢",
-          color: type === "success" ? "green" : type === "error" ? "red" : type === "warning" ? "orange" : "blue",
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        console.error("Failed to add notification:", data.message);
+      if (attachment.id && !attachment.id.toString().startsWith('image-') && !attachment.id.toString().startsWith('module-') && !attachment.id.toString().startsWith('repo-')) {
+        const res = await fetch(`/api/projects/attachments/${attachment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.message || 'Gagal update status');
+        }
+        
+        setLocalAttachments(prev => 
+          prev.map(item => 
+            item.id === attachment.id 
+              ? { ...item, status: newStatus }
+              : item
+          )
+        );
+        
+        await onAttachmentStatus(role, attachment, newStatus);
+        
+        const statusLabel = getAttachmentStatusLabel(newStatus);
+        showToast('success', `${newStatus === 'approved' ? '✓' : '✗'} ${statusLabel}`, `"${attachment.label}" telah di-${statusLabel.toLowerCase()}`);
+        
+        const updatedAttachments = localAttachments.map(item => 
+          item.id === attachment.id ? { ...item, status: newStatus } : item
+        );
+        const allApproved = updatedAttachments.every(item => normalizeAttachmentStatus(item.status) === "approved");
+        
+        if (allApproved) {
+          showToast('success', '✓ Semua Approved', 'Semua lampiran telah di-approve!');
+          await onDecision(role, 'approved');
+        }
+      } else {
+        await onAttachmentStatus(role, attachment, newStatus);
+        
+        setLocalAttachments(prev => 
+          prev.map(item => 
+            item.id === attachment.id 
+              ? { ...item, status: newStatus }
+              : item
+          )
+        );
+        
+        const statusLabel = getAttachmentStatusLabel(newStatus);
+        showToast('success', `${newStatus === 'approved' ? '✓' : '✗'} ${statusLabel}`, `"${attachment.label}" telah di-${statusLabel.toLowerCase()}`);
       }
-      return data;
     } catch (error) {
-      console.error("Add notification error:", error);
+      console.error('Error updating attachment status:', error);
+      showToast('error', '✗ Gagal', error.message || 'Terjadi kesalahan');
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (!role) return null;
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center ${theme === "dark" ? "bg-black/80" : "bg-black/60"} p-2 sm:p-4`}
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className={`relative max-w-6xl w-full max-h-[95vh] rounded-2xl overflow-hidden ${theme === "dark" ? "bg-gray-800" : "bg-white"} shadow-2xl`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* HEADER MODAL */}
+        <div className={`sticky top-0 z-10 ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} border-b px-4 sm:px-6 py-4 flex items-center justify-between`}>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <RoleAvatar project={role} theme={theme} size="w-12 h-12" />
+            <div className="min-w-0">
+              <h2 className={`text-lg sm:text-xl font-bold ${theme === "dark" ? "text-white" : "text-gray-900"} truncate`}>{role.user?.email || "-"}</h2>
+              <p className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                {role.user?.position || role.position || "-"} • {role.name}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className={`w-10 h-10 rounded-full ${theme === "dark" ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-600"} flex items-center justify-center text-xl transition`}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* BODY MODAL */}
+        <div className="flex flex-col lg:flex-row gap-4 p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-160px)]">
+          {/* LEFT - List Attachment */}
+          <div className="lg:w-80 flex-shrink-0 space-y-4">
+            {/* Progress Bar */}
+            <div className={`rounded-xl p-3 ${theme === "dark" ? "bg-gray-700/50" : "bg-gray-50"}`}>
+              <div className="flex items-center justify-between text-xs">
+                <span className={`${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                  Progress Pengerjaan
+                </span>
+                <span className={`font-semibold ${
+                  progressPercent === 100 
+                    ? "text-green-600" 
+                    : theme === "dark" ? "text-blue-400" : "text-[#001d55]"
+                }`}>
+                  {progressPercent}%
+                </span>
+              </div>
+              <div className={`w-full h-2 rounded-full overflow-hidden mt-1 ${theme === "dark" ? "bg-gray-600" : "bg-gray-200"}`}>
+                <div 
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    progressPercent === 100 
+                      ? "bg-green-600" 
+                      : progressPercent >= 70 
+                      ? "bg-blue-600" 
+                      : progressPercent >= 40 
+                      ? "bg-yellow-600" 
+                      : "bg-red-600"
+                  }`} 
+                  style={{ width: `${progressPercent}%` }} 
+                />
+              </div>
+              <div className="flex justify-between text-[10px] mt-1">
+                <span className={theme === "dark" ? "text-gray-500" : "text-gray-400"}>
+                  {approvedItems} dari {totalItems} selesai
+                </span>
+                <span className={
+                  progressPercent === 100 
+                    ? "text-green-600 font-semibold" 
+                    : theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }>
+                  {progressPercent === 100 ? "Selesai!" : `${progressPercent}%`}
+                </span>
+              </div>
+            </div>
+
+            <div className="relative">
+              <input
+                type="search"
+                value={attachmentSearch}
+                onChange={(e) => {
+                  setAttachmentSearch(e.target.value);
+                  setSelectedIndex(0);
+                }}
+                placeholder="Cari lampiran..."
+                className={`w-full h-11 pl-9 border ${theme === "dark" ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400" : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
+              />
+            </div>
+
+            <div className="space-y-3 max-h-[50vh] lg:max-h-[55vh] overflow-y-auto pr-1">
+              {filteredAttachments.length === 0 ? (
+                <div className={`text-center py-8 ${theme === "dark" ? "text-gray-500" : "text-gray-400"} text-sm`}>
+                  <p>Tidak ada lampiran</p>
+                  <p className="text-xs mt-1">Coba kata kunci lain</p>
+                </div>
+              ) : (
+                filteredAttachments.map((item, idx) => {
+                  const isActive = selectedIndex === idx;
+                  const itemStatus = normalizeAttachmentStatus(item.status);
+
+                  return (
+                    <div
+                      key={`attach-${item.id || idx}`}
+                      className={`w-full rounded-xl border-2 transition-all ${
+                        isActive
+                          ? `border-blue-600 ${theme === "dark" ? "bg-blue-900/30 shadow-lg shadow-blue-900/20" : "bg-blue-50 shadow-md"}`
+                          : theme === "dark"
+                          ? "border-gray-700 hover:border-gray-600"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <button onClick={() => setSelectedIndex(idx)} className="w-full text-left p-3">
+                        <div className="flex items-start gap-3">
+                          {item.type === "image" ? (
+                            <img src={item.url || item.data} alt={item.name} className="w-12 h-10 object-cover rounded-lg flex-shrink-0" />
+                          ) : item.type === "link" ? (
+                            <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === "dark" ? "bg-blue-900/50 text-blue-400" : "bg-blue-100 text-blue-700"}`}>
+                              🔗
+                            </div>
+                          ) : (
+                            <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === "dark" ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                              📄
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"} truncate`}>{item.label}</div>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${decisionBadgeClass(itemStatus, theme)}`}>
+                                {getDecisionIcon(itemStatus)} {getAttachmentStatusLabel(item.status)}
+                              </span>
+                              {item.description && (
+                                <span className={`text-[10px] ${theme === "dark" ? "text-blue-400" : "text-blue-500"}`} title={item.description}>
+                                  💬
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      <div className={`flex gap-1 px-3 pb-3 ${isActive ? "border-t pt-2" : ""} ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!loading) {
+                              handleStatusChange(item, "approved");
+                            }
+                          }}
+                          disabled={itemStatus === "approved" || loading}
+                          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
+                            itemStatus === "approved" || loading
+                              ? "bg-green-200 text-green-500 dark:bg-green-900/50 dark:text-green-300 cursor-not-allowed opacity-50"
+                              : "bg-green-600 text-white hover:bg-green-700"
+                          }`}
+                        >
+                          {loading ? "⏳" : "✓"} Approve
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!loading) {
+                              handleStatusChange(item, "rejected");
+                            }
+                          }}
+                          disabled={itemStatus === "rejected" || loading}
+                          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
+                            itemStatus === "rejected" || loading
+                              ? "bg-red-200 text-red-500 dark:bg-red-900/50 dark:text-red-300 cursor-not-allowed opacity-50"
+                              : "bg-red-600 text-white hover:bg-red-700"
+                          }`}
+                        >
+                          {loading ? "⏳" : "✗"} Reject
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT - Detail Attachment Preview */}
+          <div className="flex-1 min-w-0">
+            <div className={`${theme === "dark" ? "bg-gray-700/50" : "bg-gray-50"} rounded-2xl p-4 sm:p-6 min-h-[300px] transition-colors duration-200`}>
+              {activeAttachment ? (
+                <div className="flex flex-col gap-4">
+                  {activeAttachment.description && (
+                    <div className={`${theme === "dark" ? "bg-blue-900/30 border-blue-700" : "bg-blue-50 border-blue-200"} border rounded-xl p-4`}>
+                      <p className={`text-sm ${theme === "dark" ? "text-blue-300" : "text-blue-800"}`}>{activeAttachment.description}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className={`text-xs px-3 py-1 rounded-full border ${decisionBadgeClass(normalizeAttachmentStatus(activeAttachment.status), theme)}`}>
+                      {getDecisionIcon(normalizeAttachmentStatus(activeAttachment.status))} {getAttachmentStatusLabel(activeAttachment.status)}
+                    </span>
+                    <span className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>
+                      {formatDate(activeAttachment.createdAt)}
+                    </span>
+                    {activeAttachment.type === "link" && (
+                      <span className={`text-xs ${theme === "dark" ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-700"} px-2 py-0.5 rounded-full`}>Link</span>
+                    )}
+                    {activeAttachment.type === "image" && (
+                      <span className={`text-xs ${theme === "dark" ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-700"} px-2 py-0.5 rounded-full`}>Gambar</span>
+                    )}
+                    {activeAttachment.type === "module" && (
+                      <span className={`text-xs ${theme === "dark" ? "bg-red-900 text-red-300" : "bg-red-100 text-red-700"} px-2 py-0.5 rounded-full`}>PDF</span>
+                    )}
+                  </div>
+
+                  {activeAttachment.type === "image" ? (
+                    <div className={`relative rounded-2xl overflow-hidden ${theme === "dark" ? "bg-gray-800" : "bg-gray-900"} min-h-[300px] flex items-center justify-center`}>
+                      <img
+                        src={activeAttachment.url}
+                        alt={activeAttachment.name}
+                        className="w-full max-h-[60vh] object-contain"
+                        onError={(e) => {
+                          e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='sans-serif' font-size='14'%3EGagal memuat gambar%3C/text%3E%3C/svg%3E";
+                        }}
+                      />
+                    </div>
+                  ) : activeAttachment.type === "link" ? (
+                    <div className={`rounded-2xl border-2 border-dashed ${theme === "dark" ? "border-blue-700 bg-blue-900/20" : "border-blue-300 bg-blue-50/50"} p-8 text-center min-h-[200px] flex flex-col items-center justify-center`}>
+                      <div className="text-5xl mb-4">🔗</div>
+                      <div className={`text-sm font-semibold ${theme === "dark" ? "text-gray-200" : "text-gray-800"} mb-4 break-all`}>
+                        {activeAttachment.name || activeAttachment.label}
+                      </div>
+                      <a href={activeAttachment.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                        Buka Link
+                      </a>
+                    </div>
+                  ) : (
+                    <div className={`rounded-2xl border-2 border-dashed ${theme === "dark" ? "border-gray-700 bg-gray-800/50" : "border-gray-300 bg-gray-50"} p-8 text-center min-h-[200px] flex flex-col items-center justify-center`}>
+                      <div className="text-5xl mb-4">📄</div>
+                      <div className={`text-sm font-semibold ${theme === "dark" ? "text-gray-200" : "text-gray-800"} mb-4`}>
+                        {activeAttachment.name || activeAttachment.label}
+                      </div>
+                      <a href={activeAttachment.url} target="_blank" rel="noreferrer" download={activeAttachment.name || "file"} className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition">
+                        Unduh {activeAttachment.name || "File"}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={`text-center py-12 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                  <p className="text-4xl mb-3">📎</p>
+                  <p>Pilih lampiran untuk melihat detail</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* FOOTER MODAL */}
+        <div className={`sticky bottom-0 ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} border-t px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+              Progress:
+            </span>
+            <span className={`text-xs px-3 py-1 rounded-full ${
+              progressPercent === 100 
+                ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                : progressPercent >= 70 
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                : progressPercent >= 40 
+                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300"
+                : "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+            }`}>
+              {progressPercent}%
+            </span>
+            <span className={`text-xs px-3 py-1 rounded-full ${theme === "dark" ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
+              {approvedItems}/{totalItems} approved
+            </span>
+            {status && (
+              <>
+                <span className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+                  Status:
+                </span>
+                <span className={`text-xs px-3 py-1 rounded-full border ${decisionBadgeClass(status, theme)}`}>
+                  {getDecisionIcon(status)} {getDecisionLabel(status)}
+                </span>
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onApproveAll(role)}
+              disabled={allAttachmentsApproved || loading}
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              Approve All
+            </button>
+            <button
+              onClick={() => onResetAll(role)}
+              disabled={loading}
+              className={`px-4 py-2 rounded-xl border ${theme === "dark" ? "border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"} text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+            >
+              Reset All
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── KOMPONEN UTAMA ────────────────────────────────────────────
+function Progres({ theme, setTheme }) {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterDate, setFilterDate] = useState("");
+  const [moduleSearch, setModuleSearch] = useState("");
+  const [selectedModuleName, setSelectedModuleName] = useState(null);
+  const [roleSearch, setRoleSearch] = useState("");
+  const [detailRoleId, setDetailRoleId] = useState(null);
 
   const fetchProjects = async () => {
     try {
@@ -185,12 +826,6 @@ export default function Progres({ theme, setTheme }) {
       if (data.success) {
         const nextProjects = data.projects || [];
         setProjects(nextProjects);
-        if (selectedProject?.id) {
-          const freshSelected = nextProjects.find((project) => project.id === selectedProject.id);
-          if (freshSelected) {
-            setSelectedProject({ ...freshSelected });
-          }
-        }
         return nextProjects;
       }
       return [];
@@ -207,866 +842,860 @@ export default function Progres({ theme, setTheme }) {
   }, []);
 
   useEffect(() => {
-    if (selectedProject) {
-      setSelectedAttachmentIndex(0);
-      setAttachmentSearch("");
-    }
-  }, [selectedProject?.id]);
+    setRoleSearch("");
+    setDetailRoleId(null);
+  }, [selectedModuleName]);
 
   const syncProjectState = (updatedProject) => {
     if (!updatedProject?.id) return;
-
-    const normalizedProject = {
-      ...updatedProject,
-      decision: normalizeDecision(updatedProject.decision),
-      attachments: updatedProject.attachments || [],
-      user: updatedProject.user || null,
-      attachmentStatusOverrides: updatedProject.attachmentStatusOverrides || {},
-    };
-
-    setProjects((prev) => prev.map((project) => (project.id === normalizedProject.id ? { ...project, ...normalizedProject } : project)));
-    setSelectedProject((prev) => (prev?.id === normalizedProject.id ? { ...prev, ...normalizedProject } : prev));
+    setProjects((prev) =>
+      prev.map((project) => (project.id === updatedProject.id ? { ...project, ...updatedProject } : project))
+    );
   };
 
-  // 🔥 Fungsi untuk mendapatkan semua attachment dari project
-  const getProjectAttachments = (project) => {
-    if (!project) return [];
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const matchesDate = !filterDate || project.date === filterDate;
+      return matchesDate;
+    });
+  }, [projects, filterDate]);
 
-    const attachments = [];
-
-    const attachmentStatusOverrides = project.attachmentStatusOverrides || {};
-
-    if (project.attachments && project.attachments.length > 0) {
-      project.attachments.forEach((item) => {
-        attachments.push({
-          ...item,
-          status: normalizeAttachmentStatus(item.status || attachmentStatusOverrides[item.id] || "pending"),
-          label: item.name || (item.type === "image" ? "Gambar" : item.type === "link" ? "Link" : "File"),
-          data: item.url || null,
-          description: item.description || null,
-        });
-      });
-    }
-
-    if (project.imageUrl) {
-      const exists = attachments.some(a => a.url === project.imageUrl);
-      if (!exists) {
-        attachments.push({
-          id: `image-${project.id}`,
-          type: "image",
-          name: "Gambar Project",
-          label: "Gambar Project",
-          url: project.imageUrl,
-          data: project.imageUrl,
-          description: project.imageDescription || null,
-          createdAt: project.createdAt || project.date,
-          status: normalizeAttachmentStatus(attachmentStatusOverrides[`image-${project.id}`] || "pending"),
-        });
-      }
-    }
-
-    if (project.imageDescription2) {
-      attachments.push({
-        id: `image2-${project.id}`,
-        type: "image",
-        name: "Keterangan Tambahan",
-        label: "Keterangan Tambahan",
-        url: project.imageUrl || "",
-        data: project.imageUrl || "",
-        description: project.imageDescription2,
-        createdAt: project.createdAt || project.date,
-        status: normalizeAttachmentStatus(attachmentStatusOverrides[`image2-${project.id}`] || "pending"),
-        isAdditionalDescription: true,
-      });
-    }
-
-    if (project.moduleUrl) {
-      const exists = attachments.some(a => a.url === project.moduleUrl);
-      if (!exists) {
-        attachments.push({
-          id: `module-${project.id}`,
-          type: "module",
-          name: "Modul Project",
-          label: "Modul Project",
-          url: project.moduleUrl,
-          data: project.moduleUrl,
-          description: "Modul pembelajaran",
-          createdAt: project.createdAt || project.date,
-          status: normalizeAttachmentStatus(attachmentStatusOverrides[`module-${project.id}`] || "pending"),
-        });
-      }
-    }
-
-    if (project.repoLink) {
-      attachments.push({
-        id: `repo-${project.id}`,
-        type: "link",
-        name: project.repoLink,
-        label: "Project Link",
-        data: project.repoLink,
-        url: project.repoLink,
-        createdAt: project.date || project.createdAt || "",
-        status: normalizeAttachmentStatus(attachmentStatusOverrides[`repo-${project.id}`] || "pending"),
-        description: "Link repository / demo project",
-      });
-    }
-
-    return attachments;
-  };
-
-  // 🔥 Fungsi untuk approve semua attachment sekaligus
-  const approveAllAttachments = async () => {
-    if (!selectedProject) return;
-
-    const allAttachments = getProjectAttachments(selectedProject);
-    const overrides = { ...(selectedProject.attachmentStatusOverrides || {}) };
-
-    allAttachments.forEach(att => {
-      overrides[att.id] = "approved";
+  const modules = useMemo(() => {
+    const map = new Map();
+    filteredProjects.forEach((project) => {
+      const key = project.name || "(Tanpa Nama)";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(project);
     });
 
-    const optimisticProject = {
-      ...selectedProject,
-      decision: "approved",
-      finished: false,
-      attachmentStatusOverrides: overrides,
-    };
+    const list = Array.from(map.entries()).map(([name, roles]) => {
+      const totalRole = roles.length;
+      const totalProgress = roles.reduce((sum, r) => sum + (Number(r.progress) || 0), 0);
+      const avgProgress = totalRole > 0 ? Math.round(totalProgress / totalRole) : 0;
 
-    syncProjectState(optimisticProject);
+      const decisions = roles.map((r) => normalizeDecision(r.decision));
+      let status = "pending";
+      if (decisions.length > 0 && decisions.every((d) => d === "approved")) status = "approved";
+      else if (decisions.some((d) => d === "rejected")) status = "rejected";
 
-    try {
-      await fetch(`/api/projects/${selectedProject.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          decision: "approved",
-          finished: false,
-          attachmentStatusOverrides: overrides 
-        }),
-      });
-
-      // 🔥 Notifikasi Approve All
-      await addNotification(
-        `✅ Semua lampiran di-approve`,
-        `Semua lampiran pada project "${selectedProject.name}" telah di-approve`,
-        "success",
-        `/dashboardAdmin/progres`
-      );
-
-      const updatedProjects = await fetchProjects();
-      const updatedProject = updatedProjects.find((p) => p.id === selectedProject.id);
-      if (updatedProject) {
-        syncProjectState(updatedProject);
-      }
-    } catch (error) {
-      console.error("Approve all error:", error);
-    }
-  };
-
-  // 🔥 Fungsi Reset - mereset semua status
-  const handleResetAll = async () => {
-    if (!selectedProject) return;
-    if (!window.confirm("Yakin ingin mereset semua status project ini?")) return;
-
-    const allAttachments = getProjectAttachments(selectedProject);
-    const overrides = { ...(selectedProject.attachmentStatusOverrides || {}) };
-
-    allAttachments.forEach(att => {
-      overrides[att.id] = "pending";
+      return { name, roles, totalRole, avgProgress, status };
     });
 
-    const optimisticProject = {
-      ...selectedProject,
-      decision: "pending",
-      finished: false,
-      attachmentStatusOverrides: overrides,
-    };
+    const search = moduleSearch.trim().toLowerCase();
+    return search ? list.filter((m) => m.name.toLowerCase().includes(search)) : list;
+  }, [filteredProjects, moduleSearch]);
 
-    syncProjectState(optimisticProject);
+  const activeModuleRoles = useMemo(() => {
+    if (!selectedModuleName) return [];
+    return projects.filter((p) => (p.name || "(Tanpa Nama)") === selectedModuleName);
+  }, [projects, selectedModuleName]);
 
-    try {
-      await fetch(`/api/projects/${selectedProject.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          decision: "pending",
-          finished: false,
-          attachmentStatusOverrides: overrides 
-        }),
-      });
-
-      // 🔥 Notifikasi Reset All
-      await addNotification(
-        `↩️ Semua status di-reset`,
-        `Semua status pada project "${selectedProject.name}" telah di-reset ke Pending`,
-        "info",
-        `/dashboardAdmin/progres`
+  const filteredRoles = useMemo(() => {
+    const search = roleSearch.trim().toLowerCase();
+    if (!search) return activeModuleRoles;
+    return activeModuleRoles.filter((role) => {
+      return (
+        role.user?.email?.toLowerCase().includes(search) ||
+        role.position?.toLowerCase().includes(search) ||
+        role.user?.position?.toLowerCase().includes(search)
       );
+    });
+  }, [activeModuleRoles, roleSearch]);
 
-      const updatedProjects = await fetchProjects();
-      const updatedProject = updatedProjects.find((p) => p.id === selectedProject.id);
-      if (updatedProject) {
-        syncProjectState(updatedProject);
-      }
-    } catch (error) {
-      console.error("Reset all error:", error);
-    }
-  };
+  const activeModuleAllApproved =
+    activeModuleRoles.length > 0 && activeModuleRoles.every((r) => normalizeDecision(r.decision) === "approved");
 
-  const handleDecision = async (decision) => {
-    if (!selectedProject) return;
+  const overallModuleProgress = useMemo(() => {
+    if (activeModuleRoles.length === 0) return 0;
     
+    const totalProgress = activeModuleRoles.reduce((sum, role) => {
+      return sum + (Number(role.progress) || 0);
+    }, 0);
+    
+    const average = Math.round(totalProgress / activeModuleRoles.length);
+    
+    const allComplete = activeModuleRoles.every(role => Number(role.progress) >= 100);
+    if (allComplete && activeModuleRoles.length > 0) {
+      return 100;
+    }
+    
+    return Math.min(average, 100);
+  }, [activeModuleRoles]);
+
+  const calculateProgressFromAttachments = useCallback((role) => {
+    const attachments = getRoleAttachments(role);
+    if (attachments.length === 0) return 0;
+    
+    const approvedCount = attachments.filter(a => 
+      normalizeAttachmentStatus(a.status) === "approved"
+    ).length;
+    
+    return Math.round((approvedCount / attachments.length) * 100);
+  }, []);
+
+  const detailRole = useMemo(
+    () => activeModuleRoles.find((r) => r.id === detailRoleId) || null,
+    [activeModuleRoles, detailRoleId]
+  );
+
+  // ─── HANDLE ROLE DECISION ────────────────────────────────────
+  const handleRoleDecision = async (role, decision) => {
     const normalizedDecision = normalizeDecision(decision);
     const decisionLabel = getDecisionLabel(decision);
-    
+
+    syncProjectState({ ...role, decision: normalizedDecision });
+
     try {
-      const res = await fetch(`/api/projects/${selectedProject.id}`, {
+      const res = await fetch(`/api/projects/${role.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, finished: false }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (normalizedDecision === "approved") {
-          const allAttachments = getProjectAttachments(selectedProject);
-          const overrides = { ...(selectedProject.attachmentStatusOverrides || {}) };
-          
-          allAttachments.forEach(att => {
-            overrides[att.id] = "approved";
-          });
-          
-          const projectWithOverrides = {
-            ...data.project,
-            finished: false,
-            attachmentStatusOverrides: overrides,
-          };
-          
-          syncProjectState(projectWithOverrides);
-          
-          try {
-            await fetch(`/api/projects/${selectedProject.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                finished: false,
-                attachmentStatusOverrides: overrides 
-              }),
-            });
-          } catch (err) {
-            console.error("Error saving attachment overrides:", err);
-          }
-        } else {
-          syncProjectState(data.project);
-        }
-
-        // 🔥 Notifikasi Decision
-        const statusIcon = normalizedDecision === "approved" ? "✅" : normalizedDecision === "rejected" ? "❌" : "↩️";
-        const notifType = normalizedDecision === "approved" ? "success" : normalizedDecision === "rejected" ? "error" : "info";
-        await addNotification(
-          `${statusIcon} Decision ${decisionLabel}`,
-          `Project "${selectedProject.name}" telah di-${decisionLabel.toLowerCase()}`,
-          notifType,
-          `/dashboardAdmin/progres`
-        );
-      }
-    } catch (error) {
-      console.error("Decision error:", error);
-    }
-  };
-
-  const handleFinish = async () => {
-    if (!selectedProject) return;
-    try {
-      const res = await fetch(`/api/projects/${selectedProject.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ finished: true }),
+        body: JSON.stringify({ decision: normalizedDecision }),
       });
       const data = await res.json();
       if (data.success) {
         syncProjectState(data.project);
-
-        // 🔥 Notifikasi Finish
-        await addNotification(
-          `🎉 Project Selesai`,
-          `Project "${selectedProject.name}" telah ditandai sebagai selesai`,
-          "success",
-          `/dashboardAdmin/progres`
+        showToast('success', `${decision === 'approved' ? '✓' : decision === 'rejected' ? '✗' : '○'} ${decisionLabel}`, `Role "${role.user?.email || role.position}" telah di-${decisionLabel.toLowerCase()}`);
+        
+        const statusIcon = decision === 'approved' ? '✓' : decision === 'rejected' ? '✗' : '○';
+        const notifType = decision === 'approved' ? 'success' : decision === 'rejected' ? 'error' : 'info';
+        const statusLabel = decisionLabel.toLowerCase();
+        
+        // 🔥 1. Kirim notifikasi ke ADMIN (yang melakukan aksi)
+        await addNotificationToAdmin(
+          `${statusIcon} Role ${decisionLabel}`,
+          `Role "${role.user?.email || role.position}" pada module "${role.name}" telah di-${statusLabel}`,
+          notifType
         );
-      }
-    } catch (error) {
-      console.error("Finish error:", error);
-    }
-  };
-
-  const handleDeleteProject = async (projectId) => {
-    if (!window.confirm("Yakin ingin menghapus project ini?")) return;
-    try {
-      const projectToDelete = projects.find(p => p.id === projectId);
-      await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
-      setProjects((prev) => prev.filter((p) => p.id !== projectId));
-      if (selectedProject?.id === projectId) setSelectedProject(null);
-
-      // 🔥 Notifikasi Delete
-      if (projectToDelete) {
-        await addNotification(
-          `🗑️ Project Dihapus`,
-          `Project "${projectToDelete.name}" telah dihapus`,
-          "error",
-          `/dashboardAdmin/progres`
-        );
-      }
-    } catch (error) {
-      console.error("Delete project error:", error);
-    }
-  };
-
-  // 🔥 setAttachmentStatus TIDAK mengubah decision project
-  const setAttachmentStatus = async (attachment, status) => {
-    if (!attachment) return;
-
-    const normalizedStatus = normalizeAttachmentStatus(status);
-    const statusLabel = getAttachmentStatusLabel(status);
-    const isGeneratedAttachment = attachment.type === "link" ||
-      attachment.id?.toString?.().startsWith?.("image-") ||
-      attachment.id?.toString?.().startsWith?.("module-") ||
-      attachment.id?.toString?.().startsWith?.("repo-");
-
-    const nextOverrides = {
-      ...(selectedProject?.attachmentStatusOverrides || {}),
-    };
-
-    nextOverrides[attachment.id] = normalizedStatus;
-
-    const optimisticProject = {
-      ...selectedProject,
-      attachmentStatusOverrides: nextOverrides,
-      attachments: (selectedProject?.attachments || []).map((item) =>
-        item.id === attachment.id ? { ...item, status: normalizedStatus } : item
-      ),
-    };
-
-    syncProjectState(optimisticProject);
-
-    // 🔥 Notifikasi perubahan status attachment
-    const statusIcon = normalizedStatus === "approved" ? "✅" : normalizedStatus === "rejected" ? "❌" : "↩️";
-    const notifType = normalizedStatus === "approved" ? "success" : normalizedStatus === "rejected" ? "error" : "info";
-    await addNotification(
-      `${statusIcon} ${attachment.label} ${statusLabel}`,
-      `Lampiran "${attachment.label}" pada project "${selectedProject?.name}" telah di-${statusLabel.toLowerCase()}`,
-      notifType,
-      `/dashboardAdmin/progres`
-    );
-
-    if (isGeneratedAttachment) {
-      try {
-        await fetch(`/api/projects/${selectedProject.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ attachmentStatusOverrides: nextOverrides }),
-        });
-      } catch (error) {
-        console.error("Update overrides error:", error);
-      }
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/projects/attachments/${attachment.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: normalizedStatus }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        const updatedProjects = await fetchProjects();
-        const updatedProject = updatedProjects.find((p) => p.id === selectedProject.id);
-        if (updatedProject) {
-          syncProjectState(updatedProject);
+        
+        // 🔥 2. Kirim notifikasi ke MEMBER (pemilik role/project)
+        if (role.user?.id) {
+          await addNotificationToMember(
+            role.user.id,
+            `${statusIcon} Project ${decisionLabel}`,
+            `Project "${role.name}" Anda telah di-${statusLabel} oleh admin`,
+            notifType
+          );
         }
       }
     } catch (error) {
+      console.error("Role decision error:", error);
+      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat mengupdate status');
+    }
+  };
+
+  // ─── HANDLE APPROVE ALL ROLES ───────────────────────────────
+  const handleApproveAllRoles = async () => {
+    if (!selectedModuleName || activeModuleRoles.length === 0) return;
+
+    const rolesToNotify = [...activeModuleRoles];
+
+    activeModuleRoles.forEach((role) => {
+      syncProjectState({ ...role, decision: "approved" });
+    });
+
+    try {
+      await Promise.all(
+        activeModuleRoles.map((role) =>
+          fetch(`/api/projects/${role.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decision: "approved" }),
+          })
+        )
+      );
+
+      showToast('success', '✓ Berhasil', `Semua role pada module "${selectedModuleName}" telah di-approve`);
+      
+      // 🔥 1. Kirim notifikasi ke ADMIN
+      await addNotificationToAdmin(
+        `✓ Semua Role di-approve`,
+        `Semua role pada module "${selectedModuleName}" telah di-approve`,
+        'success'
+      );
+      
+      // 🔥 2. Kirim notifikasi ke setiap MEMBER yang role-nya di-approve
+      for (const role of rolesToNotify) {
+        if (role.user?.id) {
+          await addNotificationToMember(
+            role.user.id,
+            `✓ Project ${role.name} Disetujui`,
+            `Project "${role.name}" Anda telah disetujui oleh admin`,
+            'success'
+          );
+        }
+      }
+
+      const updated = await fetchProjects();
+      updated.filter((p) => (p.name || "(Tanpa Nama)") === selectedModuleName).forEach((p) => syncProjectState(p));
+    } catch (error) {
+      console.error("Approve all roles error:", error);
+      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat approve semua role');
+    }
+  };
+
+  // ─── HANDLE RESET ALL ROLES ─────────────────────────────────
+  const handleResetAllRoles = async () => {
+    if (!selectedModuleName || activeModuleRoles.length === 0) return;
+    
+    const result = await Swal.fire({
+      title: 'Yakin ingin mereset?',
+      text: `Semua status role pada module "${selectedModuleName}" akan direset ke Pending`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Reset!',
+      cancelButtonText: 'Batal'
+    });
+
+    if (!result.isConfirmed) return;
+
+    const rolesToNotify = [...activeModuleRoles];
+
+    activeModuleRoles.forEach((role) => {
+      syncProjectState({ ...role, decision: "pending" });
+    });
+
+    try {
+      await Promise.all(
+        activeModuleRoles.map((role) =>
+          fetch(`/api/projects/${role.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decision: "pending" }),
+          })
+        )
+      );
+
+      showToast('info', '○ Reset', `Semua status role pada module "${selectedModuleName}" telah direset ke Pending`);
+      
+      // 🔥 1. Kirim notifikasi ke ADMIN
+      await addNotificationToAdmin(
+        `○ Reset Semua Role`,
+        `Semua status role pada module "${selectedModuleName}" telah direset ke Pending`,
+        'info'
+      );
+      
+      // 🔥 2. Kirim notifikasi ke setiap MEMBER
+      for (const role of rolesToNotify) {
+        if (role.user?.id) {
+          await addNotificationToMember(
+            role.user.id,
+            `○ Status Direset`,
+            `Status project "${role.name}" Anda telah direset ke Pending oleh admin`,
+            'info'
+          );
+        }
+      }
+
+      const updated = await fetchProjects();
+      updated.filter((p) => (p.name || "(Tanpa Nama)") === selectedModuleName).forEach((p) => syncProjectState(p));
+    } catch (error) {
+      console.error("Reset all roles error:", error);
+      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat reset semua role');
+    }
+  };
+
+  // ─── HANDLE DELETE ROLE ──────────────────────────────────────
+  const handleDeleteRole = async (role) => {
+    const result = await Swal.fire({
+      title: 'Yakin ingin menghapus?',
+      text: `Role "${role.user?.email || role.position}" akan dihapus permanen`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await fetch(`/api/projects/${role.id}`, { method: "DELETE" });
+      setProjects((prev) => prev.filter((p) => p.id !== role.id));
+      if (detailRoleId === role.id) setDetailRoleId(null);
+
+      showToast('success', '✓ Dihapus', `Role "${role.user?.email || role.position}" telah dihapus`);
+      
+      // 🔥 Kirim notifikasi ke ADMIN
+      await addNotificationToAdmin(
+        `🗑 Role Dihapus`,
+        `Role "${role.user?.email || role.position}" pada module "${role.name}" telah dihapus`,
+        'error'
+      );
+    } catch (error) {
+      console.error("Delete role error:", error);
+      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat menghapus role');
+    }
+  };
+
+  // ─── HANDLE ATTACHMENT STATUS ───────────────────────────────
+  const handleAttachmentStatus = async (role, attachment, status) => {
+    const normalizedStatus = normalizeAttachmentStatus(status);
+    const nextOverrides = { 
+      ...(role.attachmentStatusOverrides || {}), 
+      [attachment.id]: normalizedStatus 
+    };
+
+    const attachments = getRoleAttachments(role);
+    const updatedAttachments = attachments.map(item => 
+      item.id === attachment.id ? { ...item, status: normalizedStatus } : item
+    );
+    const approvedCount = updatedAttachments.filter(a => 
+      normalizeAttachmentStatus(a.status) === "approved"
+    ).length;
+    const newProgress = attachments.length > 0 
+      ? Math.round((approvedCount / attachments.length) * 100) 
+      : 0;
+
+    const optimisticRole = {
+      ...role,
+      progress: newProgress,
+      attachmentStatusOverrides: nextOverrides,
+      attachments: (role.attachments || []).map((item) => 
+        item.id === attachment.id ? { ...item, status: normalizedStatus } : item
+      ),
+    };
+    syncProjectState(optimisticRole);
+
+    try {
+      const res = await fetch(`/api/projects/${role.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          progress: newProgress,
+          attachmentStatusOverrides: nextOverrides 
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        syncProjectState(data.project);
+        
+        const statusIcon = normalizedStatus === 'approved' ? '✓' : '✗';
+        const notifType = normalizedStatus === 'approved' ? 'success' : 'error';
+        const statusLabel = getAttachmentStatusLabel(normalizedStatus).toLowerCase();
+        
+        // 🔥 1. Kirim notifikasi ke ADMIN
+        await addNotificationToAdmin(
+          `${statusIcon} Lampiran ${getAttachmentStatusLabel(normalizedStatus)}`,
+          `Lampiran "${attachment.label}" pada role "${role.user?.email || role.position}" telah di-${statusLabel}`,
+          notifType
+        );
+        
+        // 🔥 2. Kirim notifikasi ke MEMBER (pemilik role)
+        if (role.user?.id) {
+          await addNotificationToMember(
+            role.user.id,
+            `${statusIcon} Lampiran ${getAttachmentStatusLabel(normalizedStatus)}`,
+            `Lampiran "${attachment.label}" pada project "${role.name}" Anda telah di-${statusLabel}`,
+            notifType
+          );
+        }
+      } else {
+        syncProjectState(role);
+        throw new Error(data.message || 'Gagal update status');
+      }
+    } catch (error) {
       console.error("Update attachment status error:", error);
+      syncProjectState(role);
+      throw error;
     }
   };
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesDate = !filterDate || project.date === filterDate;
-    const searchTerm = projectSearch.trim().toLowerCase();
-    const matchesName = !searchTerm || project.name?.toLowerCase().includes(searchTerm);
-    return matchesDate && matchesName;
-  });
+  // ─── HANDLE APPROVE ALL ATTACHMENTS ─────────────────────────
+  const handleApproveAllAttachmentsForRole = async (role) => {
+    const allAttachments = getRoleAttachments(role);
+    const overrides = { ...(role.attachmentStatusOverrides || {}) };
+    const attachmentIds = [];
 
-  const renderImageCell = (project) => {
-    const imageAttachment = project.attachments?.find((a) => a.type === "image");
-    const imageUrl = project.imageUrl || imageAttachment?.url;
+    allAttachments.forEach((att) => {
+      overrides[att.id] = "approved";
+      if (att.id && !att.id.toString().startsWith('image-') && !att.id.toString().startsWith('module-') && !att.id.toString().startsWith('repo-')) {
+        attachmentIds.push(att.id);
+      }
+    });
 
-    if (imageUrl) {
-      return (
-        <button
-          type="button"
-          onClick={() => setSelectedProject(project)}
-          className="group inline-flex items-center rounded-lg overflow-hidden"
-        >
-          <img
-            src={imageUrl}
-            alt={project.name}
-            className="w-20 h-14 object-cover rounded-lg transition duration-200 group-hover:scale-105"
-            onError={(e) => {
-              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='56'%3E%3Crect width='80' height='56' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='sans-serif' font-size='10'%3ENo Image%3C/text%3E%3C/svg%3E";
-            }}
-          />
-        </button>
+    const newProgress = allAttachments.length > 0 ? 100 : 0;
+
+    const optimisticRole = { 
+      ...role, 
+      decision: "approved", 
+      progress: newProgress,
+      attachmentStatusOverrides: overrides 
+    };
+    syncProjectState(optimisticRole);
+
+    try {
+      for (const attId of attachmentIds) {
+        await fetch(`/api/projects/attachments/${attId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'approved' }),
+        });
+      }
+
+      await fetch(`/api/projects/${role.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          decision: "approved", 
+          progress: newProgress,
+          attachmentStatusOverrides: overrides 
+        }),
+      });
+
+      showToast('success', '✓ Berhasil', `Semua lampiran pada role "${role.user?.email || role.position}" telah di-approve`);
+      
+      // 🔥 1. Kirim notifikasi ke ADMIN
+      await addNotificationToAdmin(
+        `✓ Semua Lampiran di-approve`,
+        `Semua lampiran pada role "${role.user?.email || role.position}" telah di-approve`,
+        'success'
       );
+      
+      // 🔥 2. Kirim notifikasi ke MEMBER
+      if (role.user?.id) {
+        await addNotificationToMember(
+          role.user.id,
+          `✓ Semua Lampiran Disetujui`,
+          `Semua lampiran pada project "${role.name}" Anda telah disetujui`,
+          'success'
+        );
+      }
+
+      const updated = await fetchProjects();
+      const updatedRole = updated.find((p) => p.id === role.id);
+      if (updatedRole) syncProjectState(updatedRole);
+    } catch (error) {
+      console.error("Approve all attachments error:", error);
+      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat approve semua lampiran');
+      syncProjectState(role);
     }
-    return <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>;
   };
 
-  const renderModuleCell = (project) => {
-    const moduleUrl = project.moduleUrl;
+  // ─── HANDLE RESET ALL ATTACHMENTS ───────────────────────────
+  const handleResetAllForRole = async (role) => {
+    const result = await Swal.fire({
+      title: 'Yakin ingin mereset?',
+      text: `Semua status pada role "${role.user?.email || role.position}" akan direset ke Pending`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Reset!',
+      cancelButtonText: 'Batal'
+    });
 
-    if (moduleUrl) {
-      return (
-        <div className="space-y-1">
-          <a
-            href={moduleUrl}
-            target="_blank"
-            rel="noreferrer"
-            download
-            className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'}`}
-          >
-            📄 Download Modul
-          </a>
-        </div>
+    if (!result.isConfirmed) return;
+
+    const allAttachments = getRoleAttachments(role);
+    const overrides = { ...(role.attachmentStatusOverrides || {}) };
+    const attachmentIds = [];
+
+    allAttachments.forEach((att) => {
+      overrides[att.id] = "pending";
+      if (att.id && !att.id.toString().startsWith('image-') && !att.id.toString().startsWith('module-') && !att.id.toString().startsWith('repo-')) {
+        attachmentIds.push(att.id);
+      }
+    });
+
+    const newProgress = 0;
+
+    const optimisticRole = { 
+      ...role, 
+      decision: "pending", 
+      progress: newProgress,
+      attachmentStatusOverrides: overrides 
+    };
+    syncProjectState(optimisticRole);
+
+    try {
+      for (const attId of attachmentIds) {
+        await fetch(`/api/projects/attachments/${attId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'pending' }),
+        });
+      }
+
+      await fetch(`/api/projects/${role.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          decision: "pending", 
+          progress: newProgress,
+          attachmentStatusOverrides: overrides 
+        }),
+      });
+
+      showToast('info', '○ Reset', `Semua status pada role "${role.user?.email || role.position}" telah direset ke Pending`);
+      
+      // 🔥 1. Kirim notifikasi ke ADMIN
+      await addNotificationToAdmin(
+        `○ Reset Semua Status`,
+        `Semua status pada role "${role.user?.email || role.position}" telah direset ke Pending`,
+        'info'
       );
-    }
+      
+      // 🔥 2. Kirim notifikasi ke MEMBER
+      if (role.user?.id) {
+        await addNotificationToMember(
+          role.user.id,
+          `○ Status Direset`,
+          `Status project "${role.name}" Anda telah direset ke Pending oleh admin`,
+          'info'
+        );
+      }
 
-    const moduleAttachment = project.attachments?.find((item) => item.type === "module");
-    if (moduleAttachment) {
-      return (
-        <div className="space-y-1">
-          <a
-            href={moduleAttachment.url}
-            target="_blank"
-            rel="noreferrer"
-            download={moduleAttachment.name}
-            className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'}`}
-          >
-            {moduleAttachment.name || "Download"}
-          </a>
-        </div>
-      );
+      const updated = await fetchProjects();
+      const updatedRole = updated.find((p) => p.id === role.id);
+      if (updatedRole) syncProjectState(updatedRole);
+    } catch (error) {
+      console.error("Reset all error:", error);
+      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat reset semua status');
+      syncProjectState(role);
     }
-
-    return <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>;
   };
 
-  const areAllAttachmentsApproved = () => {
-    if (!selectedProject) return false;
-    const allAttachments = getProjectAttachments(selectedProject);
-    if (allAttachments.length === 0) return false;
-    return allAttachments.every(att => normalizeAttachmentStatus(att.status) === "approved");
+  // Fungsi untuk kembali ke halaman module
+  const handleBackToModule = () => {
+    setSelectedModuleName(null);
+    setRoleSearch("");
+    setDetailRoleId(null);
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#1a1a2e]' : 'bg-[#eef2f7]'} p-4 md:p-8 transition-colors duration-200`}>
+    <div className={`min-h-screen ${theme === "dark" ? "bg-[#1a1a2e]" : "bg-[#eef2f7]"} p-4 md:p-8 transition-colors duration-200`}>
       <div className="max-w-6xl mx-auto">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className={`text-xs font-semibold tracking-widest ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} uppercase`}>
-              Progress Project
-            </p>
-            <h1 className={`text-3xl md:text-4xl font-bold ${theme === 'dark' ? 'text-white' : 'text-[#001d55]'} mt-2`}>
-              Daftar Progress Project
-            </h1>
-          </div>
-          <div className={`flex items-center gap-2 rounded-xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} p-1`}>
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                viewMode === "grid" 
-                  ? "bg-blue-600 text-white" 
-                  : theme === 'dark' ? "text-gray-400 hover:bg-gray-700" : "text-gray-500 hover:bg-gray-100"
-              }`}
-            >
-              📊 Grid
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                viewMode === "list" 
-                  ? "bg-blue-600 text-white" 
-                  : theme === 'dark' ? "text-gray-400 hover:bg-gray-700" : "text-gray-500 hover:bg-gray-100"
-              }`}
-            >
-              📋 List
-            </button>
-          </div>
+        <div className="mb-6">
+          <p className={`text-xs font-semibold tracking-widest ${theme === "dark" ? "text-gray-400" : "text-gray-500"} uppercase`}>
+            Progress Project
+          </p>
+          <h1 className={`text-3xl md:text-4xl font-bold ${theme === "dark" ? "text-white" : "text-[#001d55]"} mt-2`}>
+            {selectedModuleName ? selectedModuleName : "Daftar Module"}
+          </h1>
         </div>
 
-        <div className={`${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-2xl shadow-sm border p-5 md:p-8 transition-colors duration-200`}>
-          {projects.length > 0 && (
-            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="grid gap-4 md:grid-cols-2 w-full md:w-auto">
-                <div className="flex flex-col gap-2">
-                  <label className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Filter Tanggal</label>
-                  <input
-                    type="date"
-                    value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    className={`w-full h-12 border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
-                  />
+        <div className={`${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} rounded-2xl shadow-sm border p-5 md:p-8 transition-colors duration-200`}>
+          {!selectedModuleName ? (
+            <>
+              {/* HALAMAN UTAMA: DAFTAR MODULE */}
+              {projects.length > 0 && (
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                  <div className="grid gap-4 md:grid-cols-2 w-full md:w-auto">
+                    <div className="flex flex-col gap-2">
+                      <label className={`text-sm font-semibold ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+                        Filter Tanggal
+                      </label>
+                      <input
+                        type="date"
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        className={`w-full h-12 border ${theme === "dark" ? "border-gray-600 bg-gray-700 text-white" : "border-gray-300 bg-white text-gray-900"} rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className={`text-sm font-semibold ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+                        Cari Nama Module
+                      </label>
+                      <input
+                        type="text"
+                        value={moduleSearch}
+                        onChange={(e) => setModuleSearch(e.target.value)}
+                        placeholder="Cari module..."
+                        className={`w-full h-12 border ${theme === "dark" ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400" : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"} rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
+                      />
+                    </div>
+                  </div>
+                  {(filterDate || moduleSearch) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterDate("");
+                        setModuleSearch("");
+                      }}
+                      className={`h-12 px-4 rounded-xl border ${theme === "dark" ? "border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"} transition flex items-center gap-2`}
+                    >
+                      Reset filter
+                    </button>
+                  )}
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className={`text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Cari Nama Project</label>
-                  <input
-                    type="text"
-                    value={projectSearch}
-                    onChange={(e) => setProjectSearch(e.target.value)}
-                    placeholder="Cari project..."
-                    className={`w-full h-12 border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
-                  />
+              )}
+
+              {loading ? (
+                <div className={`text-center py-16 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Memuat data...</div>
+              ) : projects.length === 0 ? (
+                <div className={`text-center py-16 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                  Belum ada project yang diupload. Silakan tambah project di halaman Projects.
                 </div>
-              </div>
-              {(filterDate || projectSearch) && (
+              ) : modules.length === 0 ? (
+                <div className={`text-center py-16 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Tidak ada module yang cocok dengan filter saat ini.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className={`border-b ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Nama Module</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Total Role</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Progress</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Status</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modules.map((module) => (
+                        <tr
+                          key={module.name}
+                          className={`border-b ${theme === "dark" ? "border-gray-700 hover:bg-gray-700/50" : "border-gray-100 hover:bg-gray-50"} transition cursor-pointer`}
+                          onClick={() => setSelectedModuleName(module.name)}
+                        >
+                          <td className={`py-4 px-3 font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-700"}`}>{module.name}</td>
+                          <td className={`py-4 px-3 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>{module.totalRole} role</td>
+                          <td className="py-4 px-3">
+                            <div className="flex items-center gap-3 min-w-[140px]">
+                              <span className={`text-sm font-semibold ${theme === "dark" ? "text-blue-400" : "text-[#001d55]"}`}>{module.avgProgress}%</span>
+                              <div className={`w-full ${theme === "dark" ? "bg-gray-700" : "bg-gray-200"} h-2 rounded-full overflow-hidden`}>
+                                <div className="h-2 rounded-full bg-[#001d55]" style={{ width: `${module.avgProgress}%` }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-3">
+                            <span className={`text-xs px-2 py-1 rounded-full border ${decisionBadgeClass(module.status, theme)}`}>
+                              {getDecisionIcon(module.status)} {getDecisionLabel(module.status)}
+                            </span>
+                          </td>
+                          <td className="py-4 px-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedModuleName(module.name);
+                              }}
+                              className={`text-sm ${theme === "dark" ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:underline"}`}
+                            >
+                              Lihat Detail
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* HALAMAN DETAIL: TABLE ROLE */}
+              <div className="mb-5">
                 <button
                   type="button"
-                  onClick={() => { setFilterDate(""); setProjectSearch(""); }}
-                  className={`h-12 px-4 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'} transition`}
+                  onClick={handleBackToModule}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+                    theme === "dark" 
+                      ? "bg-gray-700 hover:bg-gray-600 text-gray-200" 
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  }`}
                 >
-                  Reset filter
+                  ← Kembali ke Daftar Module
                 </button>
-              )}
-            </div>
-          )}
+              </div>
 
-          {loading ? (
-            <div className={`text-center py-16 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Memuat data...</div>
-          ) : projects.length === 0 ? (
-            <div className={`text-center py-16 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-              Belum ada project yang diupload. Silakan tambah project di halaman Projects.
-            </div>
-          ) : filteredProjects.length === 0 ? (
-            <div className={`text-center py-16 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-              Tidak ada project untuk tanggal {filterDate}. Silakan hapus filter atau pilih tanggal lain.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr className={`border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Gambar</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Nama Project</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Pemilik</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Posisi</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Tanggal</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Link</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Progress</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Modul</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Status</th>
-                    <th className={`py-4 px-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProjects.map((project) => {
-                    return (
-                      <tr key={project.id} className={`border-b ${theme === 'dark' ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-100 hover:bg-gray-50'} transition`}>
-                        <td className="py-4 px-3">{renderImageCell(project)}</td>
-                        <td className={`py-4 px-3 font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>{project.name}</td>
-                        <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                          <div className="space-y-1">
-                            <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>
-                              {project.user?.email || '-'}
-                            </div>
-                            <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {project.user?.position || project.position || '-'}
-                            </div>
-                            <div className={`text-[11px] ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
-                              {project.user?.role || 'member'}
-                            </div>
-                          </div>
-                        </td>
-                        <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{project.position}</td>
-                        <td className={`py-4 px-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                          {project.date ? new Date(project.date).toLocaleDateString('id-ID') : '-'}
-                        </td>
-                        <td className="py-4 px-3">
-                          {project.repoLink ? (
-                            <a href={project.repoLink} target="_blank" rel="noreferrer" className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'}`}>
-                              Buka Link
-                            </a>
-                          ) : (
-                            <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tidak ada</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-3">
-                          <div className="flex items-center gap-3 min-w-[120px]">
-                            <span className={`text-sm font-semibold ${theme === 'dark' ? 'text-blue-400' : 'text-[#001d55]'}`}>{project.progress}%</span>
-                            <div className={`w-full ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} h-2 rounded-full overflow-hidden`}>
-                              <div className="h-2 rounded-full bg-[#001d55]" style={{ width: `${project.progress}%` }} />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-3">{renderModuleCell(project)}</td>
-                        <td className="py-4 px-3">
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            normalizeDecision(project.decision) === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
-                            normalizeDecision(project.decision) === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
-                            "bg-yellow-50 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-                          }`}>
-                            {getDecisionLabel(project.decision)}
-                          </span>
-                        </td>
-                        <td className="py-4 px-3">
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setSelectedProject(project)} className={`text-sm ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:underline'}`}>Lihat</button>
-                            <button onClick={() => handleDeleteProject(project.id)} className={`text-sm ${theme === 'dark' ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-800'} px-2 py-1 rounded`}>Hapus</button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* 🔥 MODAL DETAIL PROJECT */}
-        {selectedProject && (
-          <div
-            className={`fixed inset-0 z-50 flex items-center justify-center ${theme === 'dark' ? 'bg-black/80' : 'bg-black/60'} p-2 sm:p-4`}
-            role="dialog"
-            aria-modal="true"
-            onClick={() => setSelectedProject(null)}
-          >
-            <div
-              className={`relative max-w-6xl w-full max-h-[95vh] rounded-2xl overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-2xl`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* HEADER MODAL */}
-              <div className={`sticky top-0 z-10 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} border-b px-4 sm:px-6 py-4 flex items-center justify-between`}>
-                <div className="flex-1 min-w-0">
-                  <h2 className={`text-lg sm:text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} truncate`}>
-                    {selectedProject.name}
-                  </h2>
-                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {selectedProject.position} • {selectedProject.date ? new Date(selectedProject.date).toLocaleDateString('id-ID') : '-'}
+              {/* Progress KESELURUHAN module */}
+              <div className={`mb-6 rounded-2xl border p-5 ${theme === "dark" ? "border-gray-700 bg-gray-700/30" : "border-gray-200 bg-gray-50"}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className={`text-sm font-semibold ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                    Persentase Progres Keseluruhan
                   </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProject(null)}
-                    className={`w-10 h-10 rounded-full ${theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} flex items-center justify-center text-xl transition`}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-
-              {/* BODY MODAL */}
-              <div className="flex flex-col lg:flex-row gap-4 p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-80px)]">
-                {/* LEFT - List Attachment dengan tombol Approve/Reject per item */}
-                <div className="lg:w-80 flex-shrink-0 space-y-4">
-                  <div>
-                    <input
-                      type="search"
-                      value={attachmentSearch}
-                      onChange={(e) => { setAttachmentSearch(e.target.value); setSelectedAttachmentIndex(0); }}
-                      placeholder="Cari lampiran..."
-                      className={`w-full h-11 border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400'} rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
-                    />
-                  </div>
-
-                  <div className={`space-y-3 max-h-[50vh] lg:max-h-[60vh] overflow-y-auto pr-1 ${theme === 'dark' ? 'scrollbar-thin scrollbar-thumb-gray-600' : ''}`}>
-                    {(() => {
-                      const allAttachments = getProjectAttachments(selectedProject);
-                      const filteredAttachments = allAttachments.filter((item) => {
-                        const search = attachmentSearch.trim().toLowerCase();
-                        if (!search) return true;
-                        return item.name?.toLowerCase().includes(search) || 
-                               item.label?.toLowerCase().includes(search) ||
-                               item.description?.toLowerCase().includes(search);
-                      });
-
-                      if (filteredAttachments.length === 0) {
-                        return (
-                          <div className={`text-center py-8 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} text-sm`}>
-                            <p>Tidak ada lampiran</p>
-                            <p className="text-xs mt-1">Coba kata kunci lain</p>
-                          </div>
-                        );
-                      }
-
-                      return filteredAttachments.map((item, idx) => {
-                        const globalIndex = filteredAttachments.indexOf(item);
-                        const isActive = selectedAttachmentIndex === globalIndex;
-                        const itemStatus = normalizeAttachmentStatus(item.status);
-
-                        return (
-                          <div
-                            key={`attach-${item.id || idx}`}
-                            className={`w-full rounded-xl border-2 transition-all ${
-                              isActive 
-                                ? `border-blue-600 ${theme === 'dark' ? 'bg-blue-900/30 shadow-lg shadow-blue-900/20' : 'bg-blue-50 shadow-md'}`
-                                : theme === 'dark' 
-                                  ? `border-gray-700 hover:border-gray-600` 
-                                  : `border-gray-200 hover:border-gray-300`
-                            }`}
-                          >
-                            {/* Bagian header attachment - bisa diklik untuk lihat detail */}
-                            <button
-                              onClick={() => setSelectedAttachmentIndex(globalIndex)}
-                              className="w-full text-left p-3"
-                            >
-                              <div className="flex items-start gap-3">
-                                {item.type === "image" ? (
-                                  <img src={item.url || item.data} alt={item.name} className="w-12 h-10 object-cover rounded-lg flex-shrink-0" />
-                                ) : item.type === "link" ? (
-                                  <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === 'dark' ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>🔗</div>
-                                ) : (
-                                  <div className={`w-12 h-10 flex items-center justify-center rounded-lg text-lg flex-shrink-0 ${theme === 'dark' ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>📄</div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'} truncate`}>{item.label}</div>
-                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                      itemStatus === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
-                                      itemStatus === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
-                                      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-                                    }`}>
-                                      {itemStatus === "approved" ? "✅" : itemStatus === "rejected" ? "❌" : "⏳"} {getAttachmentStatusLabel(item.status)}
-                                    </span>
-                                    {item.description && (
-                                      <span className={`text-[10px] ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'}`} title={item.description}>💬</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </button>
-
-                            {/* 🔥 Tombol Approve/Reject per attachment */}
-                            <div className={`flex gap-1 px-3 pb-3 ${isActive ? 'border-t pt-2' : ''} ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setAttachmentStatus(item, "approved");
-                                }}
-                                disabled={itemStatus === "approved"}
-                                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
-                                  itemStatus === "approved"
-                                    ? 'bg-green-200 text-green-500 dark:bg-green-900 dark:text-green-300 cursor-not-allowed opacity-50'
-                                    : 'bg-green-600 text-white hover:bg-green-700'
-                                }`}
-                              >
-                                ✅ Approve
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setAttachmentStatus(item, "rejected");
-                                }}
-                                disabled={itemStatus === "rejected"}
-                                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
-                                  itemStatus === "rejected"
-                                    ? 'bg-red-200 text-red-500 dark:bg-red-900 dark:text-red-300 cursor-not-allowed opacity-50'
-                                    : 'bg-red-600 text-white hover:bg-red-700'
-                                }`}
-                              >
-                                ❌ Reject
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                </div>
-
-                {/* RIGHT - Detail Attachment TANPA TOMBOL */}
-                <div className="flex-1 min-w-0">
-                  {(() => {
-                    const allAttachments = getProjectAttachments(selectedProject);
-                    const filteredAttachments = allAttachments.filter((item) => {
-                      const search = attachmentSearch.trim().toLowerCase();
-                      if (!search) return true;
-                      return item.name?.toLowerCase().includes(search) || 
-                             item.label?.toLowerCase().includes(search) ||
-                             item.description?.toLowerCase().includes(search);
-                    });
-                    const attachment = filteredAttachments[selectedAttachmentIndex];
-
-                    return (
-                      <div className={`${theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-2xl p-4 sm:p-6 min-h-[300px] transition-colors duration-200`}>
-                        <AttachmentDetail 
-                          attachment={attachment} 
-                          theme={theme}
-                        />
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* FOOTER MODAL - Tombol untuk seluruh project */}
-              <div className={`sticky bottom-0 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} border-t px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3`}>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Decision:</span>
-                  <span className={`text-xs px-3 py-1 rounded-full ${
-                    normalizeDecision(selectedProject.decision) === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" :
-                    normalizeDecision(selectedProject.decision) === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
-                    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                  <span className={`text-xl font-bold ${
+                    overallModuleProgress === 100 
+                      ? "text-green-600" 
+                      : theme === "dark" ? "text-blue-400" : "text-[#001d55]"
                   }`}>
-                    {getDecisionLabel(selectedProject.decision)}
+                    {overallModuleProgress}%
                   </span>
-                  {selectedProject.finished && (
-                    <span className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">✅ Selesai</span>
-                  )}
-                  {areAllAttachmentsApproved() && (
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                      ✅ Semua lampiran approved
-                    </span>
-                  )}
+                </div>
+                <div className={`w-full h-3 rounded-full overflow-hidden ${theme === "dark" ? "bg-gray-700" : "bg-gray-200"}`}>
+                  <div 
+                    className={`h-3 rounded-full transition-all duration-500 ${
+                      overallModuleProgress === 100 
+                        ? "bg-green-600" 
+                        : overallModuleProgress >= 70 
+                        ? "bg-blue-600" 
+                        : overallModuleProgress >= 40 
+                        ? "bg-yellow-600" 
+                        : "bg-red-600"
+                    }`} 
+                    style={{ width: `${overallModuleProgress}%` }} 
+                  />
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span className={theme === "dark" ? "text-gray-500" : "text-gray-400"}>0%</span>
+                  <span className={theme === "dark" ? "text-gray-500" : "text-gray-400"}>75%</span>
+                  <span className={theme === "dark" ? "text-gray-500" : "text-gray-400"}>100%</span>
+                </div>
+                <p className={`text-xs mt-2 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                  Rata-rata progress dari {activeModuleRoles.length} role pada module ini.
+                  {overallModuleProgress === 100 && " ✓ Semua role sudah selesai!"}
+                </p>
+              </div>
+
+              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="relative flex-1 md:w-72">
+                  <input
+                    type="text"
+                    value={roleSearch}
+                    onChange={(e) => setRoleSearch(e.target.value)}
+                    placeholder="Cari role (email / posisi)..."
+                    className={`w-full h-11 pl-9 border ${theme === "dark" ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400" : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
+                  />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={approveAllAttachments}
-                    className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={areAllAttachmentsApproved()}
+                    onClick={handleApproveAllRoles}
+                    disabled={activeModuleAllApproved}
+                    className="h-11 px-4 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    ✅ Approve All
+                    Approve All
                   </button>
                   <button
-                    onClick={() => handleDecision("approved")}
-                    className="px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition"
+                    onClick={handleResetAllRoles}
+                    className={`h-11 px-4 rounded-xl border ${theme === "dark" ? "border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"} text-sm font-semibold transition flex items-center gap-2`}
                   >
-                    ✅ Approve
-                  </button>
-                  <button
-                    onClick={() => handleDecision("rejected")}
-                    className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
-                  >
-                    ❌ Reject
-                  </button>
-                  <button
-                    onClick={handleResetAll}
-                    className={`px-4 py-2 rounded-xl border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'} text-sm font-semibold transition`}
-                  >
-                    ↩️ Reset All
-                  </button>
-                  <button
-                    onClick={handleFinish}
-                    className="px-4 py-2 rounded-xl bg-[#001d55] text-white text-sm font-semibold hover:bg-[#00327a] transition"
-                  >
-                    ✅ Finish
+                    Reset All
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+
+              {activeModuleAllApproved && (
+                <div className={`mb-4 inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border ${decisionBadgeClass("approved", theme)}`}>
+                  ✓ Semua role pada module ini sudah approved
+                </div>
+              )}
+
+              {filteredRoles.length === 0 ? (
+                <div className={`text-center py-16 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Tidak ada role yang cocok dengan pencarian.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className={`border-b ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Foto</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Email</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Posisi</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Link</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Progress</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Status</th>
+                        <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRoles.map((role) => {
+                        const status = normalizeDecision(role.decision);
+                        const roleProgress = Number(role.progress) || 0;
+                        return (
+                          <tr key={role.id} className={`border-b ${theme === "dark" ? "border-gray-700 hover:bg-gray-700/50" : "border-gray-100 hover:bg-gray-50"} transition`}>
+                            <td className="py-3 px-3">
+                              <RoleAvatar project={role} theme={theme} />
+                            </td>
+                            <td className={`py-3 px-3 ${theme === "dark" ? "text-gray-200" : "text-gray-700"}`}>
+                              <div className="text-sm font-medium">{role.user?.email || "-"}</div>
+                              <div className={`text-[11px] ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}>{role.user?.role || "member"}</div>
+                            </td>
+                            <td className={`py-3 px-3 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>{role.user?.position || role.position || "-"}</td>
+                            <td className="py-3 px-3">
+                              {role.repoLink ? (
+                                <a href={role.repoLink} target="_blank" rel="noreferrer" className={`text-sm ${theme === "dark" ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:underline"}`}>
+                                  Buka Link
+                                </a>
+                              ) : (
+                                <span className={`text-sm ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>Tidak ada</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-3 min-w-[120px]">
+                                <span className={`text-sm font-semibold ${
+                                  roleProgress === 100 
+                                    ? "text-green-600" 
+                                    : theme === "dark" ? "text-blue-400" : "text-[#001d55]"
+                                }`}>
+                                  {roleProgress}%
+                                </span>
+                                <div className={`w-full ${theme === "dark" ? "bg-gray-700" : "bg-gray-200"} h-2 rounded-full overflow-hidden`}>
+                                  <div 
+                                    className={`h-2 rounded-full transition-all duration-500 ${
+                                      roleProgress === 100 
+                                        ? "bg-green-600" 
+                                        : roleProgress >= 70 
+                                        ? "bg-blue-600" 
+                                        : roleProgress >= 40 
+                                        ? "bg-yellow-600" 
+                                        : "bg-red-600"
+                                    }`} 
+                                    style={{ width: `${roleProgress}%` }} 
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className={`text-xs px-2 py-1 rounded-full border ${decisionBadgeClass(status, theme)}`}>
+                                {getDecisionIcon(status)} {getDecisionLabel(status)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3">
+                              <RoleDropdown
+                                role={role}
+                                theme={theme}
+                                onDecision={handleRoleDecision}
+                                onDelete={handleDeleteRole}
+                                onViewDetail={(r) => setDetailRoleId(r.id)}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
+
+      {detailRole && (
+        <RoleDetailModal
+          role={detailRole}
+          theme={theme}
+          onClose={() => setDetailRoleId(null)}
+          onDecision={handleRoleDecision}
+          onAttachmentStatus={handleAttachmentStatus}
+          onApproveAll={handleApproveAllAttachmentsForRole}
+          onResetAll={handleResetAllForRole}
+        />
+      )}
     </div>
   );
 }
+
+// ─── EKSPORT ────────────────────────────────────────────────────
+export default Progres;
+
+// ─── EKSPORT NAMED (opsional untuk komponen lain) ─────────────
+export {
+  getRoleAttachments,
+  normalizeAttachmentStatus,
+  getAttachmentStatusLabel,
+  formatDate,
+  normalizeDecision,
+  getDecisionLabel,
+  getDecisionIcon,
+  decisionBadgeClass,
+  RoleAvatar,
+  RoleDropdown,
+  RoleDetailModal,
+  showToast,
+  addNotificationToUser,
+  addNotificationToAdmin,
+  addNotificationToMember,
+  getNotificationLink,
+};
