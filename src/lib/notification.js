@@ -111,7 +111,7 @@ function buildDashboardLink(userRole, tab) {
 
   // 🔥 Mapping tab ke parameter yang benar
   const tabMap = {
-    'progress': 'progress',
+    'progres': 'progres',
     'dashboard': 'dashboard',
     'revision': 'revision',
     'analytics': 'analytics',

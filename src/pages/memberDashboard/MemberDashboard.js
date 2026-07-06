@@ -41,6 +41,9 @@ export default function MembersDashboard() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedProject, setSelectedProject] = useState(null);
 
   const isDark = theme === "dark";
 
@@ -51,16 +54,29 @@ export default function MembersDashboard() {
     return user.role || "Member";
   };
 
-  // ✅ CEK PARAMETER URL UNTUK NOTIFIKASI
+  // 🔥 FUNGSI UNTUK REFRESH DATA
+  const refreshData = useCallback(() => {
+    console.log('🔄 [MemberDashboard] Refreshing data...');
+    setRefreshKey(prev => prev + 1);
+    window.dispatchEvent(new CustomEvent('refresh-progress'));
+    window.dispatchEvent(new Event('refresh-data'));
+  }, []);
+
+  // ✅ CEK PARAMETER URL UNTUK NOTIFIKASI DAN FORCE REFRESH
   useEffect(() => {
     if (!router.isReady) return;
 
     const tab = Array.isArray(router.query.tab)
       ? router.query.tab[0]
       : router.query.tab;
-    const projectId = Array.isArray(router.query.id)
-      ? router.query.id[0]
-      : router.query.id;
+    const project = Array.isArray(router.query.project)
+      ? router.query.project[0]
+      : router.query.project;
+    const refresh = Array.isArray(router.query.refresh)
+      ? router.query.refresh[0]
+      : router.query.refresh;
+
+    console.log('📥 [MemberDashboard] URL params:', { tab, project, refresh });
 
     const tabMap = {
       dashboard: 'Dashboard',
@@ -73,15 +89,112 @@ export default function MembersDashboard() {
       theme: 'Settings Tema',
     };
 
+    // 🔥 Set menu berdasarkan tab
     if (tab && tabMap[tab]) {
+      console.log(`📋 [MemberDashboard] Setting selected menu to: ${tabMap[tab]}`);
       setSelectedMenu(tabMap[tab]);
-      return;
-    }
-
-    if (tab === 'progress' || projectId) {
+    } else if (tab === 'progress') {
       setSelectedMenu('Progress');
     }
-  }, [router.isReady, router.query.tab, router.query.id]);
+
+    // 🔥 Set project jika ada
+    if (project) {
+      console.log(`📋 [MemberDashboard] Setting selected project to: ${decodeURIComponent(project)}`);
+      setSelectedProject(decodeURIComponent(project));
+    }
+
+    // 🔥 Jika ada refresh, lakukan refresh data
+    if (refresh) {
+      console.log('🔄 [MemberDashboard] Force refresh detected, refreshing data...');
+      setTimeout(() => {
+        refreshData();
+      }, 200);
+      
+      // 🔥 HAPUS PARAMETER REFRESH DARI URL TAPI PERTAHANKAN TAB DAN PROJECT
+      let cleanUrl = '/memberDashboard/MemberDashboard';
+      const params = new URLSearchParams();
+      if (tab) params.append('tab', tab);
+      if (project) params.append('project', project);
+      if (params.toString()) {
+        cleanUrl += `?${params.toString()}`;
+      }
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, [router.isReady, router.query.tab, router.query.project, router.query.refresh, refreshData]);
+
+  // 🔥 FETCH NOTIFICATION COUNT
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      try {
+        const response = await fetch('/api/notifications/count', {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log('ℹ️ Notification count endpoint not found');
+            setNotificationCount(0);
+            return;
+          }
+          console.error('Error fetching notification count:', response.status);
+          setNotificationCount(0);
+          return;
+        }
+        
+        const data = await response.json();
+        if (data.success) {
+          setNotificationCount(data.count || 0);
+        } else {
+          setNotificationCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching notification count:', error);
+        setNotificationCount(0);
+      }
+    };
+
+    if (userData) {
+      fetchNotificationCount();
+      const interval = setInterval(fetchNotificationCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userData]);
+
+  // 🔥 LISTEN FOR REFRESH EVENTS
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('🔄 [MemberDashboard] Refresh event received');
+      refreshData();
+    };
+
+    window.addEventListener('refresh-data', handleRefresh);
+    return () => window.removeEventListener('refresh-data', handleRefresh);
+  }, [refreshData]);
+
+  // 🔥 LISTEN FOR NOTIFICATION CLICK
+  useEffect(() => {
+    const handleNotificationClick = (event) => {
+      console.log('🔔 [MemberDashboard] Notification clicked:', event.detail);
+      const { tab, project, refresh } = event.detail || {};
+      
+      if (tab) {
+        setSelectedMenu(tab);
+      }
+      
+      if (project) {
+        setSelectedProject(project);
+      }
+      
+      if (refresh) {
+        setTimeout(() => {
+          refreshData();
+        }, 300);
+      }
+    };
+
+    window.addEventListener('notification-click', handleNotificationClick);
+    return () => window.removeEventListener('notification-click', handleNotificationClick);
+  }, [refreshData]);
 
   useEffect(() => {
     const syncUserData = async () => {
@@ -124,7 +237,6 @@ export default function MembersDashboard() {
           console.log("✅ User data fetched:", data.user);
           setUserData(data.user);
 
-          // Jika user adalah ADMIN, redirect ke DashboardAdmin
           if (data.user.role?.toUpperCase() === "ADMIN") {
             console.log("🔀 User is ADMIN, redirecting to Admin Dashboard");
             router.push("/dashboardAdmin/admin");
@@ -232,6 +344,7 @@ export default function MembersDashboard() {
             key={menu.label}
             onClick={() => {
               setSelectedMenu(menu.label);
+              setSelectedProject(null); // Reset project ketika pindah menu
               if (isMobile) setMobileSidebarOpen(false);
             }}
             className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-2 text-sm md:text-base transition-all ${
@@ -241,7 +354,14 @@ export default function MembersDashboard() {
             }`}
           >
             {menu.icon}
-            {(!collapsed || isMobile) && <span>{menu.label}</span>}
+            {(!collapsed || isMobile) && (
+              <span className="flex-1 text-left">{menu.label}</span>
+            )}
+            {(!collapsed || isMobile) && menu.label === "Progress" && notificationCount > 0 && (
+              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                {notificationCount}
+              </span>
+            )}
           </button>
         ))}
 
@@ -270,6 +390,7 @@ export default function MembersDashboard() {
                   key={sub.label}
                   onClick={() => {
                     setSelectedMenu(sub.label);
+                    setSelectedProject(null);
                     if (isMobile) setMobileSidebarOpen(false);
                   }}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
@@ -412,7 +533,13 @@ export default function MembersDashboard() {
             <Dashboard userData={userData} theme={theme} />
           )}
           {selectedMenu === "Progress" && (
-            <Progres theme={theme} setTheme={setTheme} userData={userData} />
+            <Progres 
+              theme={theme} 
+              setTheme={setTheme} 
+              userData={userData}
+              selectedProject={selectedProject}
+              key={`progress-${refreshKey}`}
+            />
           )}
           {selectedMenu === "Revision Issues" && (
             <Revision

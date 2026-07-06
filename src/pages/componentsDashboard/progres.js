@@ -1,4 +1,4 @@
-// pages/dashboardAdmin/components/progres.js
+// pages/componentsDashboard/progres.js
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -96,54 +96,114 @@ const showToast = (icon, title, message) => {
   });
 };
 
+// ─── HELPER: FETCH WITH AUTH HANDLING ─────────────────────────
+const fetchWithAuth = async (url, options = {}) => {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      console.error('❌ Unauthorized request, redirecting to login');
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.href = '/components/login';
+      }
+      throw new Error('Unauthorized');
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+        console.error('❌ Received HTML instead of JSON, redirecting to login');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/components/login';
+        }
+        throw new Error('Received HTML response');
+      }
+      throw new Error(text || `HTTP ${response.status}`);
+    }
+
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error('❌ Invalid JSON response:', text.substring(0, 200));
+      throw new Error('Invalid JSON response');
+    }
+  } catch (error) {
+    console.error('❌ Fetch error:', error);
+    throw error;
+  }
+};
+
 // ─── FUNGSI GET NOTIFICATION LINK ────────────────────────────
-const getNotificationLink = (role, tab = 'progress') => {
+const getNotificationLink = (role, tab = 'progress', projectName = null) => {
   const normalizedRole = (role || '').toLowerCase();
   
+  let baseUrl;
   if (normalizedRole === 'admin' || normalizedRole === 'administrator') {
-    return `/dashboardAdmin/admin?tab=${tab}`;
+    baseUrl = '/dashboardAdmin/admin';
+  } else {
+    baseUrl = '/memberDashboard/MemberDashboard';
   }
   
-  return `/memberDashboard/MemberDashboard?tab=${tab}`;
+  let url = `${baseUrl}?tab=${tab}`;
+  if (projectName) {
+    url += `&project=${encodeURIComponent(projectName)}`;
+  }
+  url += `&refresh=${Date.now()}`;
+  
+  return url;
 };
 
 // ─── FUNGSI NOTIFIKASI KE USER SPESIFIK ──────────────────────
 const addNotificationToUser = async (userId, title, message, type = "info", link = null) => {
   try {
-    console.log(`📢 [Progres] Sending notification to user ${userId}: ${title}`);
+    if (!userId) {
+      console.error('❌ [Progres] User ID is required');
+      return { success: false, error: 'User ID required' };
+    }
     
-    const res = await fetch("/api/notifications", {
+    console.log(`📢 [Progres] Sending notification to user ${userId}: ${title}`);
+    console.log(`📢 [Progres] Link: ${link}`);
+    
+    const data = await fetchWithAuth("/api/notifications", {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json" 
-      },
-      credentials: "include",
       body: JSON.stringify({
         userId,
         title,
         message,
         type,
-        link: link || "/memberDashboard/MemberDashboard?tab=progress",
+        link: link || `/memberDashboard/MemberDashboard?tab=progress&refresh=${Date.now()}`,
         icon: type === "success" ? "✓" : type === "error" ? "✗" : type === "warning" ? "⚠" : "📢",
         color: type === "success" ? "green" : type === "error" ? "red" : type === "warning" ? "orange" : "blue",
       }),
     });
     
-    const data = await res.json();
-    console.log(`📢 [Progres] Notification to user response:`, data);
+    console.log(`✅ [Progres] Notification to user response:`, data);
     return data;
   } catch (error) {
-    console.error("Add notification to user error:", error);
+    console.error("❌ Add notification to user error:", error);
+    return { success: false, error: error.message };
   }
 };
 
 // ─── FUNGSI NOTIFIKASI KE ADMIN (CURRENT USER) ──────────────
 const addNotificationToAdmin = async (title, message, type = "info", link = null) => {
   try {
-    const meRes = await fetch('/api/auth/me', { 
-      credentials: 'include' 
-    });
-    const meData = await meRes.json();
+    const meData = await fetchWithAuth('/api/auth/me');
     
     if (!meData.success || !meData.user) {
       console.error('❌ Cannot get current user');
@@ -156,21 +216,33 @@ const addNotificationToAdmin = async (title, message, type = "info", link = null
     
     return await addNotificationToUser(userId, title, message, type, notificationLink);
   } catch (error) {
-    console.error("Add notification to admin error:", error);
+    console.error("❌ Add notification to admin error:", error);
   }
 };
 
 // ─── FUNGSI NOTIFIKASI KE MEMBER ──────────────────────────────
-const addNotificationToMember = async (userId, title, message, type = "info") => {
+const addNotificationToMember = async (userId, title, message, type = "info", projectName = null) => {
   try {
-    console.log(`📢 [Progres] Sending notification to MEMBER ${userId}: ${title}`);
+    if (!userId) {
+      console.error('❌ [Progres] Cannot send notification to member: userId is required');
+      return { success: false, error: 'User ID required' };
+    }
     
-    // 🔥 Tambahkan timestamp agar member dashboard melakukan refresh
-    const memberLink = `/memberDashboard/MemberDashboard?tab=progress&refresh=${Date.now()}`;
+    console.log(`📢 [Progres] Sending notification to MEMBER ${userId}: ${title}`);
+    console.log(`📢 [Progres] Project: ${projectName}`);
+    
+    // Buat link dengan project name
+    let memberLink;
+    if (projectName) {
+      memberLink = `/memberDashboard/MemberDashboard?tab=progress&project=${encodeURIComponent(projectName)}&refresh=${Date.now()}`;
+    } else {
+      memberLink = `/memberDashboard/MemberDashboard?tab=progress&refresh=${Date.now()}`;
+    }
     
     return await addNotificationToUser(userId, title, message, type, memberLink);
   } catch (error) {
-    console.error("Add notification to member error:", error);
+    console.error("❌ Add notification to member error:", error);
+    return { success: false, error: error.message };
   }
 };
 
@@ -443,13 +515,11 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
     
     try {
       if (attachment.id && !attachment.id.toString().startsWith('image-') && !attachment.id.toString().startsWith('module-') && !attachment.id.toString().startsWith('repo-')) {
-        const res = await fetch(`/api/projects/attachments/${attachment.id}`, {
+        const data = await fetchWithAuth(`/api/projects/attachments/${attachment.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus }),
         });
         
-        const data = await res.json();
         if (!data.success) {
           throw new Error(data.message || 'Gagal update status');
         }
@@ -511,7 +581,6 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
         className={`relative max-w-6xl w-full max-h-[95vh] rounded-2xl overflow-hidden ${theme === "dark" ? "bg-gray-800" : "bg-white"} shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* HEADER MODAL */}
         <div className={`sticky top-0 z-10 ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} border-b px-4 sm:px-6 py-4 flex items-center justify-between`}>
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <RoleAvatar project={role} theme={theme} size="w-12 h-12" />
@@ -533,11 +602,8 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
           </div>
         </div>
 
-        {/* BODY MODAL */}
         <div className="flex flex-col lg:flex-row gap-4 p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-160px)]">
-          {/* LEFT - List Attachment */}
           <div className="lg:w-80 flex-shrink-0 space-y-4">
-            {/* Progress Bar */}
             <div className={`rounded-xl p-3 ${theme === "dark" ? "bg-gray-700/50" : "bg-gray-50"}`}>
               <div className="flex items-center justify-between text-xs">
                 <span className={`${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
@@ -684,7 +750,6 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
             </div>
           </div>
 
-          {/* RIGHT - Detail Attachment Preview */}
           <div className="flex-1 min-w-0">
             <div className={`${theme === "dark" ? "bg-gray-700/50" : "bg-gray-50"} rounded-2xl p-4 sm:p-6 min-h-[300px] transition-colors duration-200`}>
               {activeAttachment ? (
@@ -756,7 +821,6 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
           </div>
         </div>
 
-        {/* FOOTER MODAL */}
         <div className={`sticky bottom-0 ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} border-t px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3`}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
@@ -810,27 +874,40 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
 };
 
 // ─── KOMPONEN UTAMA ────────────────────────────────────────────
-function Progres({ theme, setTheme }) {
+function Progres({ theme, setTheme, userData, selectedProject }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState("");
   const [moduleSearch, setModuleSearch] = useState("");
-  const [selectedModuleName, setSelectedModuleName] = useState(null);
+  const [selectedModuleName, setSelectedModuleName] = useState(selectedProject || null);
   const [roleSearch, setRoleSearch] = useState("");
   const [detailRoleId, setDetailRoleId] = useState(null);
 
+  // 🔥 EFFECT UNTUK SELECTED PROJECT DARI PARENT
+  useEffect(() => {
+    if (selectedProject) {
+      console.log(`📋 [Progres] Setting selected module to: ${selectedProject}`);
+      setSelectedModuleName(selectedProject);
+    }
+  }, [selectedProject]);
+
+  // ─── FETCH PROJECTS ──────────────────────────────────────────
   const fetchProjects = async () => {
     try {
-      const res = await fetch("/api/projects");
-      const data = await res.json();
+      console.log('🔄 [Progres] Fetching projects...');
+      setLoading(true);
+      
+      const data = await fetchWithAuth("/api/projects");
+      
       if (data.success) {
         const nextProjects = data.projects || [];
         setProjects(nextProjects);
+        console.log('✅ [Progres] Projects fetched:', nextProjects.length);
         return nextProjects;
       }
       return [];
     } catch (error) {
-      console.error("Fetch projects error:", error);
+      console.error("❌ Fetch projects error:", error);
       return [];
     } finally {
       setLoading(false);
@@ -839,6 +916,17 @@ function Progres({ theme, setTheme }) {
 
   useEffect(() => {
     fetchProjects();
+    
+    const handleRefresh = () => {
+      console.log('🔄 [Progres] Refresh triggered by notification');
+      fetchProjects();
+    };
+    
+    window.addEventListener('refresh-progress', handleRefresh);
+    
+    return () => {
+      window.removeEventListener('refresh-progress', handleRefresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -922,17 +1010,6 @@ function Progres({ theme, setTheme }) {
     return Math.min(average, 100);
   }, [activeModuleRoles]);
 
-  const calculateProgressFromAttachments = useCallback((role) => {
-    const attachments = getRoleAttachments(role);
-    if (attachments.length === 0) return 0;
-    
-    const approvedCount = attachments.filter(a => 
-      normalizeAttachmentStatus(a.status) === "approved"
-    ).length;
-    
-    return Math.round((approvedCount / attachments.length) * 100);
-  }, []);
-
   const detailRole = useMemo(
     () => activeModuleRoles.find((r) => r.id === detailRoleId) || null,
     [activeModuleRoles, detailRoleId]
@@ -946,12 +1023,11 @@ function Progres({ theme, setTheme }) {
     syncProjectState({ ...role, decision: normalizedDecision });
 
     try {
-      const res = await fetch(`/api/projects/${role.id}`, {
+      const data = await fetchWithAuth(`/api/projects/${role.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ decision: normalizedDecision }),
       });
-      const data = await res.json();
+      
       if (data.success) {
         syncProjectState(data.project);
         showToast('success', `${decision === 'approved' ? '✓' : decision === 'rejected' ? '✗' : '○'} ${decisionLabel}`, `Role "${role.user?.email || role.position}" telah di-${decisionLabel.toLowerCase()}`);
@@ -969,17 +1045,35 @@ function Progres({ theme, setTheme }) {
         
         // 🔥 2. Kirim notifikasi ke MEMBER (pemilik role/project)
         if (role.user?.id) {
+          console.log(`📢 [Progres] Sending notification to MEMBER ${role.user.id} for role decision`);
           await addNotificationToMember(
             role.user.id,
             `${statusIcon} Project ${decisionLabel}`,
             `Project "${role.name}" Anda telah di-${statusLabel} oleh admin`,
-            notifType
+            notifType,
+            role.name
           );
+        }
+        
+        // 🔥 3. Kirim notifikasi ke ALL MEMBERS yang terlibat dalam project ini
+        const allRolesInProject = projects.filter(p => p.name === role.name);
+        for (const r of allRolesInProject) {
+          if (r.user?.id && r.user.id !== role.user?.id && r.user.id !== userData?.id) {
+            console.log(`📢 [Progres] Sending notification to other member ${r.user.id} in same project`);
+            await addNotificationToMember(
+              r.user.id,
+              `${statusIcon} Update Project ${decisionLabel}`,
+              `Project "${role.name}" telah di-${statusLabel} oleh admin`,
+              notifType,
+              role.name
+            );
+          }
         }
       }
     } catch (error) {
-      console.error("Role decision error:", error);
-      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat mengupdate status');
+      console.error("❌ Role decision error:", error);
+      showToast('error', '✗ Gagal', error.message || 'Terjadi kesalahan saat mengupdate status');
+      syncProjectState(role);
     }
   };
 
@@ -996,9 +1090,8 @@ function Progres({ theme, setTheme }) {
     try {
       await Promise.all(
         activeModuleRoles.map((role) =>
-          fetch(`/api/projects/${role.id}`, {
+          fetchWithAuth(`/api/projects/${role.id}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ decision: "approved" }),
           })
         )
@@ -1013,14 +1106,15 @@ function Progres({ theme, setTheme }) {
         'success'
       );
       
-      // 🔥 2. Kirim notifikasi ke setiap MEMBER yang role-nya di-approve
+      // 🔥 2. Kirim notifikasi ke setiap MEMBER
       for (const role of rolesToNotify) {
         if (role.user?.id) {
           await addNotificationToMember(
             role.user.id,
             `✓ Project ${role.name} Disetujui`,
             `Project "${role.name}" Anda telah disetujui oleh admin`,
-            'success'
+            'success',
+            role.name
           );
         }
       }
@@ -1028,7 +1122,7 @@ function Progres({ theme, setTheme }) {
       const updated = await fetchProjects();
       updated.filter((p) => (p.name || "(Tanpa Nama)") === selectedModuleName).forEach((p) => syncProjectState(p));
     } catch (error) {
-      console.error("Approve all roles error:", error);
+      console.error("❌ Approve all roles error:", error);
       showToast('error', '✗ Gagal', 'Terjadi kesalahan saat approve semua role');
     }
   };
@@ -1059,9 +1153,8 @@ function Progres({ theme, setTheme }) {
     try {
       await Promise.all(
         activeModuleRoles.map((role) =>
-          fetch(`/api/projects/${role.id}`, {
+          fetchWithAuth(`/api/projects/${role.id}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ decision: "pending" }),
           })
         )
@@ -1069,21 +1162,20 @@ function Progres({ theme, setTheme }) {
 
       showToast('info', '○ Reset', `Semua status role pada module "${selectedModuleName}" telah direset ke Pending`);
       
-      // 🔥 1. Kirim notifikasi ke ADMIN
       await addNotificationToAdmin(
         `○ Reset Semua Role`,
         `Semua status role pada module "${selectedModuleName}" telah direset ke Pending`,
         'info'
       );
       
-      // 🔥 2. Kirim notifikasi ke setiap MEMBER
       for (const role of rolesToNotify) {
         if (role.user?.id) {
           await addNotificationToMember(
             role.user.id,
             `○ Status Direset`,
             `Status project "${role.name}" Anda telah direset ke Pending oleh admin`,
-            'info'
+            'info',
+            role.name
           );
         }
       }
@@ -1091,7 +1183,7 @@ function Progres({ theme, setTheme }) {
       const updated = await fetchProjects();
       updated.filter((p) => (p.name || "(Tanpa Nama)") === selectedModuleName).forEach((p) => syncProjectState(p));
     } catch (error) {
-      console.error("Reset all roles error:", error);
+      console.error("❌ Reset all roles error:", error);
       showToast('error', '✗ Gagal', 'Terjadi kesalahan saat reset semua role');
     }
   };
@@ -1112,21 +1204,23 @@ function Progres({ theme, setTheme }) {
     if (!result.isConfirmed) return;
 
     try {
-      await fetch(`/api/projects/${role.id}`, { method: "DELETE" });
+      await fetchWithAuth(`/api/projects/${role.id}`, { 
+        method: "DELETE",
+      });
+      
       setProjects((prev) => prev.filter((p) => p.id !== role.id));
       if (detailRoleId === role.id) setDetailRoleId(null);
 
       showToast('success', '✓ Dihapus', `Role "${role.user?.email || role.position}" telah dihapus`);
       
-      // 🔥 Kirim notifikasi ke ADMIN
       await addNotificationToAdmin(
         `🗑 Role Dihapus`,
         `Role "${role.user?.email || role.position}" pada module "${role.name}" telah dihapus`,
         'error'
       );
     } catch (error) {
-      console.error("Delete role error:", error);
-      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat menghapus role');
+      console.error("❌ Delete role error:", error);
+      showToast('error', '✗ Gagal', error.message || 'Terjadi kesalahan saat menghapus role');
     }
   };
 
@@ -1160,15 +1254,14 @@ function Progres({ theme, setTheme }) {
     syncProjectState(optimisticRole);
 
     try {
-      const res = await fetch(`/api/projects/${role.id}`, {
+      const data = await fetchWithAuth(`/api/projects/${role.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           progress: newProgress,
           attachmentStatusOverrides: nextOverrides 
         }),
       });
-      const data = await res.json();
+      
       if (data.success) {
         syncProjectState(data.project);
         
@@ -1176,28 +1269,43 @@ function Progres({ theme, setTheme }) {
         const notifType = normalizedStatus === 'approved' ? 'success' : 'error';
         const statusLabel = getAttachmentStatusLabel(normalizedStatus).toLowerCase();
         
-        // 🔥 1. Kirim notifikasi ke ADMIN
         await addNotificationToAdmin(
           `${statusIcon} Lampiran ${getAttachmentStatusLabel(normalizedStatus)}`,
           `Lampiran "${attachment.label}" pada role "${role.user?.email || role.position}" telah di-${statusLabel}`,
           notifType
         );
         
-        // 🔥 2. Kirim notifikasi ke MEMBER (pemilik role)
         if (role.user?.id) {
           await addNotificationToMember(
             role.user.id,
             `${statusIcon} Lampiran ${getAttachmentStatusLabel(normalizedStatus)}`,
             `Lampiran "${attachment.label}" pada project "${role.name}" Anda telah di-${statusLabel}`,
-            notifType
+            notifType,
+            role.name
           );
         }
+        
+        const allAttachments = getRoleAttachments(data.project);
+        const allApproved = allAttachments.every(a => 
+          normalizeAttachmentStatus(a.status) === "approved"
+        );
+        
+        if (allApproved && role.user?.id) {
+          await addNotificationToMember(
+            role.user.id,
+            `✓ Semua Lampiran Selesai`,
+            `Semua lampiran pada project "${role.name}" Anda telah selesai direview dan disetujui!`,
+            'success',
+            role.name
+          );
+        }
+        
       } else {
         syncProjectState(role);
         throw new Error(data.message || 'Gagal update status');
       }
     } catch (error) {
-      console.error("Update attachment status error:", error);
+      console.error("❌ Update attachment status error:", error);
       syncProjectState(role);
       throw error;
     }
@@ -1228,16 +1336,14 @@ function Progres({ theme, setTheme }) {
 
     try {
       for (const attId of attachmentIds) {
-        await fetch(`/api/projects/attachments/${attId}`, {
+        await fetchWithAuth(`/api/projects/attachments/${attId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'approved' }),
         });
       }
 
-      await fetch(`/api/projects/${role.id}`, {
+      await fetchWithAuth(`/api/projects/${role.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           decision: "approved", 
           progress: newProgress,
@@ -1247,20 +1353,19 @@ function Progres({ theme, setTheme }) {
 
       showToast('success', '✓ Berhasil', `Semua lampiran pada role "${role.user?.email || role.position}" telah di-approve`);
       
-      // 🔥 1. Kirim notifikasi ke ADMIN
       await addNotificationToAdmin(
         `✓ Semua Lampiran di-approve`,
         `Semua lampiran pada role "${role.user?.email || role.position}" telah di-approve`,
         'success'
       );
       
-      // 🔥 2. Kirim notifikasi ke MEMBER
       if (role.user?.id) {
         await addNotificationToMember(
           role.user.id,
           `✓ Semua Lampiran Disetujui`,
           `Semua lampiran pada project "${role.name}" Anda telah disetujui`,
-          'success'
+          'success',
+          role.name
         );
       }
 
@@ -1268,8 +1373,8 @@ function Progres({ theme, setTheme }) {
       const updatedRole = updated.find((p) => p.id === role.id);
       if (updatedRole) syncProjectState(updatedRole);
     } catch (error) {
-      console.error("Approve all attachments error:", error);
-      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat approve semua lampiran');
+      console.error("❌ Approve all attachments error:", error);
+      showToast('error', '✗ Gagal', error.message || 'Terjadi kesalahan saat approve semua lampiran');
       syncProjectState(role);
     }
   };
@@ -1312,16 +1417,14 @@ function Progres({ theme, setTheme }) {
 
     try {
       for (const attId of attachmentIds) {
-        await fetch(`/api/projects/attachments/${attId}`, {
+        await fetchWithAuth(`/api/projects/attachments/${attId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'pending' }),
         });
       }
 
-      await fetch(`/api/projects/${role.id}`, {
+      await fetchWithAuth(`/api/projects/${role.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           decision: "pending", 
           progress: newProgress,
@@ -1331,20 +1434,19 @@ function Progres({ theme, setTheme }) {
 
       showToast('info', '○ Reset', `Semua status pada role "${role.user?.email || role.position}" telah direset ke Pending`);
       
-      // 🔥 1. Kirim notifikasi ke ADMIN
       await addNotificationToAdmin(
         `○ Reset Semua Status`,
         `Semua status pada role "${role.user?.email || role.position}" telah direset ke Pending`,
         'info'
       );
       
-      // 🔥 2. Kirim notifikasi ke MEMBER
       if (role.user?.id) {
         await addNotificationToMember(
           role.user.id,
           `○ Status Direset`,
           `Status project "${role.name}" Anda telah direset ke Pending oleh admin`,
-          'info'
+          'info',
+          role.name
         );
       }
 
@@ -1352,13 +1454,12 @@ function Progres({ theme, setTheme }) {
       const updatedRole = updated.find((p) => p.id === role.id);
       if (updatedRole) syncProjectState(updatedRole);
     } catch (error) {
-      console.error("Reset all error:", error);
-      showToast('error', '✗ Gagal', 'Terjadi kesalahan saat reset semua status');
+      console.error("❌ Reset all error:", error);
+      showToast('error', '✗ Gagal', error.message || 'Terjadi kesalahan saat reset semua status');
       syncProjectState(role);
     }
   };
 
-  // Fungsi untuk kembali ke halaman module
   const handleBackToModule = () => {
     setSelectedModuleName(null);
     setRoleSearch("");
@@ -1380,7 +1481,6 @@ function Progres({ theme, setTheme }) {
         <div className={`${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} rounded-2xl shadow-sm border p-5 md:p-8 transition-colors duration-200`}>
           {!selectedModuleName ? (
             <>
-              {/* HALAMAN UTAMA: DAFTAR MODULE */}
               {projects.length > 0 && (
                 <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                   <div className="grid gap-4 md:grid-cols-2 w-full md:w-auto">
@@ -1485,7 +1585,6 @@ function Progres({ theme, setTheme }) {
             </>
           ) : (
             <>
-              {/* HALAMAN DETAIL: TABLE ROLE */}
               <div className="mb-5">
                 <button
                   type="button"
@@ -1500,7 +1599,6 @@ function Progres({ theme, setTheme }) {
                 </button>
               </div>
 
-              {/* Progress KESELURUHAN module */}
               <div className={`mb-6 rounded-2xl border p-5 ${theme === "dark" ? "border-gray-700 bg-gray-700/30" : "border-gray-200 bg-gray-50"}`}>
                 <div className="flex items-center justify-between mb-2">
                   <p className={`text-sm font-semibold ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
@@ -1677,10 +1775,8 @@ function Progres({ theme, setTheme }) {
   );
 }
 
-// ─── EKSPORT ────────────────────────────────────────────────────
 export default Progres;
 
-// ─── EKSPORT NAMED (opsional untuk komponen lain) ─────────────
 export {
   getRoleAttachments,
   normalizeAttachmentStatus,
