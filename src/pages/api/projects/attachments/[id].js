@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key-change-in-production");
   } catch (err) {
     return res.status(401).json({
       success: false,

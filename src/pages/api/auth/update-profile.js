@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key-change-in-production");
     } catch (err) {
       return res.status(401).json({ success: false, message: "Token tidak valid atau sudah expired" });
     }
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
         photo:    updatedUser.photo,
         position: updatedUser.position, // ← FIX: sertakan position di token
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "your-secret-key-change-in-production",
       { expiresIn: "7d" }
     );
 

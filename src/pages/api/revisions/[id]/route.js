@@ -1,70 +1,65 @@
-import { NextResponse } from "next/server";
+// pages/api/revisions/[id]/route.js
 import { prisma } from "@/lib/prisma";
 
-// GET /api/revisions/:id
-export async function GET(_req, { params }) {
+export default async function handler(req, res) {
+  const { id } = req.query;
+
   try {
-    const report = await prisma.revisionReport.findUnique({
-      where: { id: params.id },
-      include: {
-        sentBy:   { select: { id: true, name: true, role: true } },
-        comments: {
-          orderBy: { createdAt: "asc" },
-          include: { author: { select: { id: true, name: true, role: true } } },
+    // GET /api/revisions/[id]
+    if (req.method === "GET") {
+      const report = await prisma.revisionReport.findUnique({
+        where: { id },
+        include: {
+          sentBy: { select: { id: true, name: true, role: true } },
+          comments: {
+            orderBy: { createdAt: "asc" },
+            include: { author: { select: { id: true, name: true, role: true } } },
+          },
         },
-      },
-    });
-    if (!report)
-      return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
-    return NextResponse.json({ data: report });
+      });
+      if (!report)
+        return res.status(404).json({ error: "Laporan tidak ditemukan" });
+      return res.status(200).json({ data: report });
+    }
+
+    // PATCH /api/revisions/[id]
+    if (req.method === "PATCH") {
+      const { progress, approval, approvalNote, attachmentName, attachmentUrl, attachmentData } = req.body;
+
+      const existing = await prisma.revisionReport.findUnique({ where: { id } });
+      if (!existing)
+        return res.status(404).json({ error: "Laporan tidak ditemukan" });
+
+      const updated = await prisma.revisionReport.update({
+        where: { id },
+        data: {
+          ...(progress !== undefined && { progress }),
+          ...(approval !== undefined && { approval }),
+          ...(approvalNote !== undefined && { approvalNote }),
+          ...(attachmentName !== undefined && { attachmentName }),
+          ...(attachmentUrl !== undefined && { attachmentUrl }),
+          ...(attachmentData !== undefined &&
+              process.env.NODE_ENV !== "production" && { attachmentData }),
+        },
+        include: { sentBy: { select: { id: true, name: true, role: true } } },
+      });
+
+      return res.status(200).json({ data: updated });
+    }
+
+    // DELETE /api/revisions/[id]
+    if (req.method === "DELETE") {
+      const existing = await prisma.revisionReport.findUnique({ where: { id } });
+      if (!existing)
+        return res.status(404).json({ error: "Laporan tidak ditemukan" });
+
+      await prisma.revisionReport.delete({ where: { id } });
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ error: "Method tidak diizinkan" });
   } catch (error) {
-    console.error("[GET /api/revisions/:id]", error);
-    return NextResponse.json({ error: "Gagal mengambil data" }, { status: 500 });
-  }
-}
-
-// PATCH /api/revisions/:id
-export async function PATCH(req, { params }) {
-  try {
-    const body = await req.json();
-    const { progress, approval, approvalNote, attachmentName, attachmentUrl, attachmentData } = body;
-
-    const existing = await prisma.revisionReport.findUnique({ where: { id: params.id } });
-    if (!existing)
-      return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
-
-    const updated = await prisma.revisionReport.update({
-      where: { id: params.id },
-      data: {
-        ...(progress     !== undefined && { progress }),
-        ...(approval     !== undefined && { approval }),
-        ...(approvalNote !== undefined && { approvalNote }),
-        ...(attachmentName !== undefined && { attachmentName }),
-        ...(attachmentUrl  !== undefined && { attachmentUrl }),
-        ...(attachmentData !== undefined &&
-            process.env.NODE_ENV !== "production" && { attachmentData }),
-      },
-      include: { sentBy: { select: { id: true, name: true, role: true } } },
-    });
-
-    return NextResponse.json({ data: updated });
-  } catch (error) {
-    console.error("[PATCH /api/revisions/:id]", error);
-    return NextResponse.json({ error: "Gagal memperbarui laporan" }, { status: 500 });
-  }
-}
-
-// DELETE /api/revisions/:id
-export async function DELETE(_req, { params }) {
-  try {
-    const existing = await prisma.revisionReport.findUnique({ where: { id: params.id } });
-    if (!existing)
-      return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
-
-    await prisma.revisionReport.delete({ where: { id: params.id } });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[DELETE /api/revisions/:id]", error);
-    return NextResponse.json({ error: "Gagal menghapus laporan" }, { status: 500 });
+    console.error(`[${req.method} /api/revisions/:id]`, error);
+    return res.status(500).json({ error: "Gagal memproses permintaan" });
   }
 }

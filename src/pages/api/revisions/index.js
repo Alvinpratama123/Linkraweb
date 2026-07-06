@@ -24,12 +24,15 @@ export default async function handler(req, res) {
       }
       
 
+      const pageNum = Math.max(1, parseInt(page) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+
       const [reports, total] = await Promise.all([
         prisma.revisionReport.findMany({
           where,
           orderBy: { createdAt: "desc" },
-          skip: (parseInt(page) - 1) * parseInt(limit),
-          take: parseInt(limit),
+          skip: (pageNum - 1) * limitNum,
+          take: limitNum,
           include: {
             sentBy: { select: { id: true, name: true, role: true } },
             _count: { select: { comments: true } },
@@ -42,9 +45,9 @@ export default async function handler(req, res) {
         data: reports,
         meta: {
           total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          totalPages: Math.ceil(total / parseInt(limit)),
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
         },
       });
     }

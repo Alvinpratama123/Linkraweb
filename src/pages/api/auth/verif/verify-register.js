@@ -139,7 +139,7 @@ export default async function handler(req, res) {
         role: result.role,
         name: result.name,
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "your-secret-key-change-in-production",
       {
         expiresIn: "7d",
       }

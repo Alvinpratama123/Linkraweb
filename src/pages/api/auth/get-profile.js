@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key-change-in-production");
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },

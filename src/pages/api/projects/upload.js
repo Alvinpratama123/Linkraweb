@@ -11,13 +11,6 @@ export const config = {
   },
 };
 
-const uploadDir = path.join(process.cwd(), "public/uploads");
-
-// Pastikan folder uploads ada
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
 const allowedTypes = {
   image: ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"],
   module: [
@@ -44,6 +37,12 @@ export default async function handler(req, res) {
     });
   }
 
+  // Pastikan folder uploads ada
+  const uploadDir = path.join(process.cwd(), "public/uploads");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
   console.log("📤 === START UPLOAD PROJECT ===");
 
   // ─── VERIFIKASI TOKEN ──────────────────────────────────
@@ -58,7 +57,7 @@ export default async function handler(req, res) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key-change-in-production");
     console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
     console.log("👤 User ID:", decoded.userId);
     console.log("👤 User Role:", decoded.role);
@@ -217,7 +216,7 @@ export default async function handler(req, res) {
         name: name.trim(),
         position: position || "Frontend",
         repoLink: repoLink || "",
-        date: date || new Date().toISOString().split('T')[0],
+        date: date ? new Date(date) : new Date(),
         progress: progress || 0,
         decision: "pending",
         finished: false,

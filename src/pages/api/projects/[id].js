@@ -33,7 +33,7 @@ export default async function handler(req, res) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key-change-in-production");
     console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
     console.log("👤 User ID:", decoded.userId);
     console.log("👤 User Role:", decoded.role);
