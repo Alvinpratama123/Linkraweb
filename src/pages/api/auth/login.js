@@ -1,5 +1,5 @@
 // pages/api/auth/login.js
-import { prisma } from "@/lib/prisma";
+import { ensureDatabaseAvailable, prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -30,6 +30,14 @@ export default async function handler(req, res) {
       return res.status(400).json({
         success: false,
         message: "Email dan password wajib diisi",
+      });
+    }
+
+    const dbReady = await ensureDatabaseAvailable();
+    if (!dbReady) {
+      return res.status(503).json({
+        success: false,
+        message: "Database belum siap, login ditolak",
       });
     }
 

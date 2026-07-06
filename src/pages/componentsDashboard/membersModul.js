@@ -1,5 +1,6 @@
 // src/pages/dashboardAdmin/components/membersModul.js
 import React, { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function MembersModul({ theme = "light" }) {
   const [listMembers, setListMembers] = useState([]);
@@ -11,7 +12,8 @@ export default function MembersModul({ theme = "light" }) {
     position: '',
     email: '',
     password: '',
-    profile: ''
+    profile: '',
+    role: 'member'
   });
 
   const isDark = theme === "dark";
@@ -24,7 +26,17 @@ export default function MembersModul({ theme = "light" }) {
     { value: 'PM', label: 'Project Manager' },
   ];
 
-  // 🔥 FETCH - /api/members
+  // 🔥 Role options dengan value lowercase
+  const roleOptions = [
+    { value: 'admin', label: 'Admin' },
+    { value: 'member', label: 'Member' },
+    { value: 'frontend', label: 'Frontend' },
+    { value: 'backend', label: 'Backend' },
+    { value: 'qa', label: 'QA' },
+    { value: 'pm', label: 'PM' },
+    { value: 'ui/ux', label: 'UI/UX' },
+  ];
+
   const fetchMembers = async () => {
     try {
       const response = await fetch('/api/members');
@@ -41,34 +53,37 @@ export default function MembersModul({ theme = "light" }) {
     fetchMembers();
   }, []);
 
-  const getDisplayPosition = (member) => {
-    if (member.position) return member.position;
-    if (member.role && member.role !== 'member') {
-      return member.role.charAt(0).toUpperCase() + member.role.slice(1).toLowerCase();
-    }
-    return 'Member';
-  };
-
   const getPositionColor = (position) => {
     const colors = {
-      'Frontend': 'bg-blue-100 text-blue-700',
-      'Backend': 'bg-green-100 text-green-700',
-      'Fullstack': 'bg-purple-100 text-purple-700',
-      'UI/UX': 'bg-pink-100 text-pink-700',
-      'DevOps': 'bg-orange-100 text-orange-700',
-      'QA': 'bg-yellow-100 text-yellow-700',
-      'PM': 'bg-indigo-100 text-indigo-700',
-      'Data Scientist': 'bg-cyan-100 text-cyan-700',
-      'Mobile Developer': 'bg-teal-100 text-teal-700',
+      'Frontend': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+      'Backend': 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+      'Fullstack': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+      'UI/UX': 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300',
+      'DevOps': 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+      'QA': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
+      'PM': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',
     };
-    return colors[position] || 'bg-gray-100 text-gray-700';
+    return colors[position] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+  };
+
+  const getRoleBadge = (role) => {
+    const roleUpper = role ? role.toUpperCase() : 'MEMBER';
+    const colors = {
+      ADMIN: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+      MEMBER: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+      FRONTEND: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+      BACKEND: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+      QA: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
+      PM: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',
+      'UI/UX': 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300',
+    };
+    return colors[roleUpper] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
   };
 
   const handleChange = (field, value) => {
     setNewMember((prev) => ({ ...prev, [field]: value }));
   };
 
-  // 🔥 POST - /api/members
   const handleAddMember = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -90,68 +105,35 @@ export default function MembersModul({ theme = "light" }) {
           password: newMember.password,
           position: newMember.position,
           profile: newMember.profile || '',
+          role: newMember.role || 'member',
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        const emailMsg = data.email?.sent
-          ? '✅ Email credential terkirim ke member.'
-          : '⚠️ Email credential gagal dikirim. Anda bisa kirim ulang nanti.';
+        toast.success(`✅ Member ${newMember.name} berhasil ditambahkan!`);
         setMessage({
-          type: data.email?.sent ? 'success' : 'warning',
-          text: `✅ Member berhasil ditambahkan dengan posisi: ${newMember.position}! ${emailMsg}`
+          type: 'success',
+          text: `✅ Member berhasil ditambahkan dengan posisi: ${newMember.position} dan role: ${newMember.role}!`
         });
-        setNewMember({ name: '', position: '', email: '', password: '', profile: '' });
+        setNewMember({ name: '', position: '', email: '', password: '', profile: '', role: 'member' });
         setShowForm(false);
         fetchMembers();
         setTimeout(() => setMessage({ type: '', text: '' }), 5000);
       } else {
+        toast.error(data.message || 'Gagal menambahkan member');
         setMessage({ type: 'error', text: data.message || 'Gagal menambahkan member' });
       }
     } catch (error) {
       console.error('Error adding member:', error);
+      toast.error('Terjadi kesalahan pada server');
       setMessage({ type: 'error', text: 'Terjadi kesalahan pada server' });
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔥 RESEND EMAIL - /api/members/resend-email/{id}
-  const handleResendEmail = async (memberId, memberName) => {
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-
-    try {
-      const response = await fetch(`/api/members/resend-email/${memberId}`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setMessage({
-          type: 'success',
-          text: `✅ Email credential berhasil dikirim ulang ke ${memberName}`,
-        });
-        fetchMembers();
-      } else {
-        setMessage({
-          type: 'error',
-          text: `❌ Gagal kirim email: ${data.message || 'Unknown error'}`,
-        });
-      }
-    } catch (error) {
-      console.error('Error resending email:', error);
-      setMessage({ type: 'error', text: 'Terjadi kesalahan pada server' });
-    } finally {
-      setLoading(false);
-      setTimeout(() => setMessage({ type: '', text: '' }), 5000);
-    }
-  };
-
-  // 🔥 DELETE - /api/members/{id} (Opsi A)
   const handleDeleteMember = async (memberId) => {
     if (!confirm('Apakah Anda yakin ingin menghapus member ini?')) return;
 
@@ -163,14 +145,17 @@ export default function MembersModul({ theme = "light" }) {
       const data = await response.json();
 
       if (data.success) {
+        toast.success('Member berhasil dihapus');
         setMessage({ type: 'success', text: 'Member berhasil dihapus' });
         fetchMembers();
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       } else {
+        toast.error(data.message || 'Gagal menghapus member');
         setMessage({ type: 'error', text: data.message || 'Gagal menghapus member' });
       }
     } catch (error) {
       console.error('Error deleting member:', error);
+      toast.error('Terjadi kesalahan pada server');
       setMessage({ type: 'error', text: 'Terjadi kesalahan pada server' });
     }
   };
@@ -182,6 +167,8 @@ export default function MembersModul({ theme = "light" }) {
 
   return (
     <div className={`p-6 min-h-screen ${isDark ? 'bg-slate-950 text-white' : 'bg-[#eef2f7]'}`}>
+      <Toaster position="top-right" />
+      
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-semibold">Manajemen Member</h2>
@@ -201,10 +188,8 @@ export default function MembersModul({ theme = "light" }) {
       {message.text && (
         <div className={`mb-4 p-4 rounded-lg ${
           message.type === 'success'
-            ? 'bg-green-100 text-green-700 border border-green-200'
-            : message.type === 'warning'
-              ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-              : 'bg-red-100 text-red-700 border border-red-200'
+            ? 'bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+            : 'bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700'
         }`}>
           {message.text}
         </div>
@@ -239,7 +224,7 @@ export default function MembersModul({ theme = "light" }) {
 
             <label className="space-y-2">
               <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-                Posisi / Role *
+                Posisi *
               </span>
               <select
                 value={newMember.position}
@@ -258,9 +243,6 @@ export default function MembersModul({ theme = "light" }) {
                   </option>
                 ))}
               </select>
-              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
-                Posisi akan digunakan untuk akses dan tampilan
-              </p>
             </label>
 
             <label className="space-y-2">
@@ -303,7 +285,32 @@ export default function MembersModul({ theme = "light" }) {
               </p>
             </label>
 
-            <label className="space-y-2 md:col-span-2">
+            <label className="space-y-2">
+              <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                Role Sistem *
+              </span>
+              <select
+                value={newMember.role}
+                onChange={(e) => handleChange('role', e.target.value)}
+                className={`w-full rounded-lg border px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition ${
+                  isDark
+                    ? 'bg-slate-700 border-slate-600 text-white'
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+                required
+              >
+                {roleOptions.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
+                Role untuk akses sistem dan pengiriman revisi
+              </p>
+            </label>
+
+            <label className="space-y-2">
               <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                 Profile Link (Opsional)
               </span>
@@ -373,6 +380,11 @@ export default function MembersModul({ theme = "light" }) {
               <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                 isDark ? 'text-slate-400' : 'text-gray-500'
               }`}>
+                Role Sistem
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
                 Profile
               </th>
               <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
@@ -417,6 +429,11 @@ export default function MembersModul({ theme = "light" }) {
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPositionColor(member.position)}`}>
                       {member.position || 'Belum diatur'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadge(member.role || 'member')}`}>
+                      {(member.role || 'MEMBER').toUpperCase()}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">

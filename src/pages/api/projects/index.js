@@ -1,5 +1,6 @@
 // pages/api/projects/index.js
 import { prisma } from "@/lib/prisma";
+import { sendProjectNotificationToAllUsers } from "@/lib/notification";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
@@ -89,6 +90,26 @@ export default async function handler(req, res) {
     try {
       const { name, position, repoLink, date, progress } = req.body;
 
+      const parseProjectDate = (value) => {
+        if (!value) return new Date();
+        if (value instanceof Date) return value;
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (!trimmed) return new Date();
+
+          const parsed = new Date(trimmed);
+          if (!Number.isNaN(parsed.getTime())) {
+            return parsed;
+          }
+
+          const fallback = new Date(trimmed.replace(/\s+/g, " "));
+          if (!Number.isNaN(fallback.getTime())) {
+            return fallback;
+          }
+        }
+        return new Date();
+      };
+
       if (!name) {
         return res.status(400).json({
           success: false,
@@ -96,28 +117,54 @@ export default async function handler(req, res) {
         });
       }
 
-      console.log(`📝 Creating project for user ${userId}:`, { name, position });
+      const normalizedName = name.trim();
+      console.log(`📝 Creating/updating project for user ${userId}:`, { name: normalizedName, position });
 
-      const project = await prisma.project.create({
-        data: {
-          name: name,
-          position: position || "Frontend",
-          repoLink: repoLink || null,
-          date: date ? new Date(date) : new Date(),
-          progress: progress || 0,
+      const existingProject = await prisma.project.findFirst({
+        where: {
           userId: userId,
+          name: normalizedName,
         },
         include: {
           attachments: true,
         },
       });
 
-      console.log(`✅ Project created with ID: ${project.id}`);
+      const projectData = {
+        name: normalizedName,
+        position: position || "Frontend",
+        repoLink: repoLink || null,
+        date: date ? parseProjectDate(date) : existingProject?.date || new Date(),
+        progress: progress === undefined || progress === null || progress === "" ? existingProject?.progress ?? 0 : Number(progress),
+        userId: userId,
+      };
 
-      return res.status(201).json({
+      const project = existingProject
+        ? await prisma.project.update({
+            where: { id: existingProject.id },
+            data: projectData,
+            include: {
+              attachments: true,
+            },
+          })
+        : await prisma.project.create({
+            data: projectData,
+            include: {
+              attachments: true,
+            },
+          });
+
+      console.log(`✅ Project ${existingProject ? "updated" : "created"} with ID: ${project.id}`);
+
+      if (!existingProject) {
+        await sendProjectNotificationToAllUsers(project, "upload", userRole);
+      }
+
+      return res.status(existingProject ? 200 : 201).json({
         success: true,
-        message: "Project berhasil dibuat",
+        message: existingProject ? "Project berhasil diperbarui" : "Project berhasil dibuat",
         project: project,
+        existed: Boolean(existingProject),
       });
     } catch (error) {
       console.error("❌ POST project error:", error);
@@ -192,6 +239,13 @@ export default async function handler(req, res) {
           },
         },
       });
+
+      if (updateData.decision || updateData.finished !== undefined) {
+        const action = updateData.finished ? "finished" : updateData.decision === "approved" ? "approved" : updateData.decision === "rejected" ? "rejected" : null;
+        if (action) {
+          await sendProjectNotificationToAllUsers(project, action, userRole);
+        }
+      }
 
       return res.status(200).json({
         success: true,

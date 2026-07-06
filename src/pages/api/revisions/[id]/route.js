@@ -61,6 +61,7 @@ export async function DELETE(_req, { params }) {
     if (!existing)
       return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
 
+    await prisma.revisionComment.deleteMany({ where: { reportId: params.id } });
     await prisma.revisionReport.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true });
   } catch (error) {

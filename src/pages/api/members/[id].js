@@ -1,110 +1,63 @@
 // pages/api/members/[id].js
 import { prisma } from "@/lib/prisma";
+import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   const { id } = req.query;
 
   if (!id) {
     return res.status(400).json({
       success: false,
-      message: "ID member diperlukan"
+      message: "ID member wajib diisi",
     });
   }
 
-  // ─── GET DETAIL ─────────────────────────────────────────────
-  if (req.method === "GET") {
-    try {
-      const member = await prisma.user.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          position: true,
-          profile: true,
-          role: true,
-          createdAt: true,
-        },
-      });
-
-      if (!member) {
-        return res.status(404).json({
-          success: false,
-          message: "Member tidak ditemukan"
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        member: member,
-      });
-    } catch (error) {
-      console.error("GET member detail error:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server Error" 
-      });
-    }
+  const token = req.cookies.auth_token;
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "❌ Token tidak ditemukan.",
+    });
   }
 
-  // ─── PATCH ───────────────────────────────────────────────────
-  if (req.method === "PATCH") {
-    try {
-      const { name, position, profile, role } = req.body;
-
-      const existingMember = await prisma.user.findUnique({
-        where: { id },
-      });
-
-      if (!existingMember) {
-        return res.status(404).json({
-          success: false,
-          message: "Member tidak ditemukan"
-        });
-      }
-
-      const updatedMember = await prisma.user.update({
-        where: { id },
-        data: {
-          name: name || existingMember.name,
-          position: position || existingMember.position,
-          profile: profile !== undefined ? profile : existingMember.profile,
-          role: role || existingMember.role,
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: "Member berhasil diupdate",
-        member: updatedMember,
-      });
-    } catch (error) {
-      console.error("PATCH member error:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server Error" 
-      });
-    }
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({
+      success: false,
+      message: "❌ Token tidak valid.",
+    });
   }
 
-  // ─── DELETE ──────────────────────────────────────────────────
+  const userRole = decoded.role || 'USER';
+  const isAdmin = userRole.toLowerCase() === 'admin';
+
+  if (!isAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: "❌ Hanya admin yang bisa menghapus member.",
+    });
+  }
+
   if (req.method === "DELETE") {
     try {
-      const existingMember = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id },
       });
 
-      if (!existingMember) {
+      if (!user) {
         return res.status(404).json({
           success: false,
-          message: "Member tidak ditemukan"
-        });
-      }
-
-      if (existingMember.role === "admin") {
-        return res.status(403).json({
-          success: false,
-          message: "Tidak dapat menghapus admin"
+          message: "Member tidak ditemukan",
         });
       }
 
@@ -118,12 +71,15 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error("DELETE member error:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server Error" 
+      return res.status(500).json({
+        success: false,
+        message: "Gagal menghapus member",
       });
     }
   }
 
-  return res.status(405).json({ message: "Method not allowed" });
+  return res.status(405).json({
+    success: false,
+    message: "Method not allowed",
+  });
 }

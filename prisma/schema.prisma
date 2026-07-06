@@ -16,7 +16,7 @@ model User {
   email            String            @unique
   password         String
   name             String
-  role             String            @default("member") // admin, member
+  role             String            @default("member") // admin, member, frontend, backend, qa, pm, ui/ux
   position         String?           // Frontend, UI/UX, Backend, dll
   profile          String?
   photo            String?
@@ -30,12 +30,17 @@ model User {
   passwordResets   PasswordResetToken[]
   revisionComments RevisionComment[]
   sentRevisions    RevisionReport[]  @relation("SentBy")
+  targetRevisions  RevisionReport[]  @relation("TargetUser") // 🔥 TAMBAHKAN INI
   projects         Project[]
+<<<<<<< HEAD
 <<<<<<< HEAD
   notifications    Notification[]    // ✅ TAMBAHKAN INI
 =======
   notifications    Notification[]
 >>>>>>> origin/kur
+=======
+  notifications    Notification[]
+>>>>>>> origin/dev-alvin
 
   @@index([email])
   @@index([role])
@@ -49,7 +54,7 @@ model Notification {
   userId      String
   title       String
   message     String   @db.Text
-  type        String   @default("system") // "project", "member", "revision", "system"
+  type        String   @default("system")
   link        String?
   isRead      Boolean  @default(false)
   icon        String?
@@ -116,7 +121,7 @@ model Project {
   repoLink    String?
   date        DateTime @default(now())
   progress    Int      @default(0)
-  decision    String   @default("pending") // pending, approved, rejected
+  decision    String   @default("pending")
   finished    Boolean  @default(false)
   
   imageDescription  String?
@@ -144,10 +149,10 @@ model Project {
 model Attachment {
   id                      Int      @id @default(autoincrement())
   projectId               String
-  type                    String   // "image", "module", "link"
+  type                    String
   name                    String
   url                     String
-  status                  String   @default("pending") // pending, approved, rejected
+  status                  String   @default("pending")
   description             String?
   isAdditionalDescription Boolean? @default(false)
   createdAt               DateTime @default(now())
@@ -164,13 +169,14 @@ model Attachment {
 model RevisionReport {
   id             String            @id @default(cuid())
   projectName    String
-  issueType      String            @default("MODUL") // MODUL, DESIGN, FUNCTIONAL, OTHER
+  issueType      String            @default("MODUL")
   description    String?           @db.Text
-  progress       String            @default("BELUM_DILAKUKAN") // BELUM_DILAKUKAN, PROGRESS, SELESAI
-  approval       String            @default("PENDING") // PENDING, APPROVED, REJECTED
+  progress       String            @default("BELUM_DILAKUKAN")
+  approval       String            @default("PENDING")
   approvalNote   String?           @db.Text
   senderRole     String
   targetRole     String
+  targetUserId   String?           // 🔥 TAMBAHKAN INI - ID user tujuan
   sentById       String?
   attachmentName String?
   attachmentUrl  String?
@@ -180,11 +186,13 @@ model RevisionReport {
 
   comments       RevisionComment[]
   sentBy         User?             @relation("SentBy", fields: [sentById], references: [id], onDelete: SetNull)
+  targetUser     User?             @relation("TargetUser", fields: [targetUserId], references: [id], onDelete: SetNull) // 🔥 TAMBAHKAN INI
 
   @@index([targetRole])
   @@index([senderRole])
   @@index([approval])
   @@index([createdAt])
+  @@index([targetUserId]) // 🔥 TAMBAHKAN INDEX
 }
 
 // ============================================
