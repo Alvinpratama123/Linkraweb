@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 16, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/frontend/middleware.js"],"sourcesContent":["import { NextResponse } from \"next/server\";\n\nexport function middleware(request) {\n  const response = NextResponse.next();\n\n  response.headers.set(\"X-Frame-Options\", \"DENY\");\n  response.headers.set(\"X-Content-Type-Options\", \"nosniff\");\n  response.headers.set(\"Referrer-Policy\", \"strict-origin-when-cross-origin\");\n  response.headers.set(\"Permissions-Policy\", \"camera=(), microphone=(), geolocation=()\");\n\n  return response;\n}\n\nexport const config = {\n  matcher: [\"/((?!_next/static|_next/image|favicon.ico).*)\"],\n};\n"],"names":["middleware","request","response","next","headers","set","config","matcher"],"mappings":";;;;;;AAAA;AAAA;;AAEO,SAASA,WAAWC,OAAO;IAChC,MAAMC,WAAW,yNAAY,CAACC,IAAI;IAElCD,SAASE,OAAO,CAACC,GAAG,CAAC,mBAAmB;IACxCH,SAASE,OAAO,CAACC,GAAG,CAAC,0BAA0B;IAC/CH,SAASE,OAAO,CAACC,GAAG,CAAC,mBAAmB;IACxCH,SAASE,OAAO,CAACC,GAAG,CAAC,sBAAsB;IAE3C,OAAOH;AACT;AAEO,MAAMI,SAAS;IACpBC,SAAS;QAAC;KAAgD;AAC5D"}}]
+}

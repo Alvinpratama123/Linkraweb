@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 40, "column": 0}, "map": {"version":3,"sources":["file:///root/project/tugasmg/Linkraweb/frontend/src/pages/_document.js"],"sourcesContent":["import { Html, Head, Main, NextScript } from \"next/document\";\n\nexport default function Document() {\n  return (\n    <Html lang=\"id\">\n      <Head />\n      <body className=\"antialiased\">\n        <Main />\n        <NextScript />\n      </body>\n    </Html>\n  );\n}\n"],"names":["Document","lang","className"],"mappings":";;;;;AAAA;;;AAEe,SAASA;IACtB,qBACE,qKAAC,6IAAI;QAACC,MAAK;;0BACT,qKAAC,6IAAI;;;;;0BACL,qKAAC;gBAAKC,WAAU;;kCACd,qKAAC,6IAAI;;;;;kCACL,qKAAC,mJAAU;;;;;;;;;;;;;;;;;AAInB"}}]
+}

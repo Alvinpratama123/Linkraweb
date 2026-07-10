@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "/_app": [
+      "static/chunks/19xk_next_dist_compiled_0zqxkli._.js",
+      "static/chunks/19xk_next_dist_shared_lib_1ffeua_._.js",
+      "static/chunks/19xk_next_dist_client_1cv7ixg._.js",
+      "static/chunks/19xk_next_dist_21a2pgl._.js",
+      "static/chunks/19xk_react-dom_0igyy8f._.js",
+      "static/chunks/19xk_20-bftv._.js",
+      "static/chunks/[root-of-the-server]__13xr5ch._.js",
+      "static/chunks/frontend_src_pages__app_0du2_q-._.js",
+      "static/chunks/turbopack-frontend_src_pages__app_0o05pzd._.js"
+    ]
+  },
+  "devFiles": [],
+  "polyfillFiles": [],
+  "lowPriorityFiles": [
+    "static/development/_buildManifest.js",
+    "static/development/_ssgManifest.js",
+    "static/development/_clientMiddlewareManifest.js"
+  ],
+  "rootMainFiles": []
+}

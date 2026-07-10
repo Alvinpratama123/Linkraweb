@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma-monitoring"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_MONITORING_URL")
+}
+
+model RevisionReport {
+  id             String   @id @default(cuid())
+  projectName    String
+  issueType      String   @default("MODUL")
+  description    String?  @db.Text
+  progress       String   @default("BELUM_DILAKUKAN")
+  approval       String   @default("PENDING")
+  approvalNote   String?  @db.Text
+  senderRole     String
+  targetRole     String
+  targetUserId   String?
+  sentById       String?
+  attachmentName String?
+  attachmentUrl  String?
+  attachmentData String?  @db.LongText
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  comments RevisionComment[]
+
+  @@index([targetRole])
+  @@index([senderRole])
+  @@index([approval])
+  @@index([createdAt])
+  @@index([targetUserId])
+  @@index([sentById])
+}
+
+model RevisionComment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  authorId  String
+  reportId  String
+  createdAt DateTime @default(now())
+
+  report RevisionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([authorId])
+}

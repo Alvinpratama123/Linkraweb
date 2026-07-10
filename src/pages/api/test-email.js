@@ -1,6 +1,6 @@
 // pages/api/test-email.js
 import { testSMTPConnection, sendNotificationToRole } from "@/lib/email";
-import { prisma } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prismaAuth";
 
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
         result = await sendRevisionNotification(dummyReport, users);
       } else {
         // Kirim ke semua user dengan role tertentu
-        result = await sendNotificationToRole(dummyReport, targetRole, prisma);
+        result = await sendNotificationToRole(dummyReport, targetRole, prismaAuth);
       }
 
       return res.status(200).json({

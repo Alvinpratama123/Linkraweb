@@ -1,5 +1,7 @@
 // pages/api/projects/upload.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prismaAuth";
+import { prismaProject } from "@/lib/prismaProject";
+import { sendProjectNotificationToAllUsers } from "@/lib/notification";
 import formidable from "formidable";
 import fs from "fs";
 import path from "path";
@@ -10,6 +12,13 @@ export const config = {
     bodyParser: false,
   },
 };
+
+const uploadDir = path.join(process.cwd(), "public/uploads");
+
+// Pastikan folder uploads ada
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const allowedTypes = {
   image: ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"],
@@ -37,12 +46,6 @@ export default async function handler(req, res) {
     });
   }
 
-  // Pastikan folder uploads ada
-  const uploadDir = path.join(process.cwd(), "public/uploads");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
   console.log("📤 === START UPLOAD PROJECT ===");
 
   // ─── VERIFIKASI TOKEN ──────────────────────────────────
@@ -57,7 +60,7 @@ export default async function handler(req, res) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key-change-in-production");
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("🔑 Token berhasil diverifikasi untuk user:", decoded.email);
     console.log("👤 User ID:", decoded.userId);
     console.log("👤 User Role:", decoded.role);
@@ -81,7 +84,7 @@ export default async function handler(req, res) {
   // ─── AMBIL DATA USER UNTUK SENDER ROLE ────────────────
   let senderUser = null;
   try {
-    senderUser = await prisma.user.findUnique({
+    senderUser = await prismaAuth.user.findUnique({
       where: { id: userId },
       select: { 
         id: true, 
@@ -212,11 +215,23 @@ export default async function handler(req, res) {
       // ─── SIMPAN PROJECT KE DATABASE ──────────────────────
       console.log("💾 Saving project to database...");
 
+      const normalizeProjectDate = (value) => {
+        if (!value) return new Date();
+        if (value instanceof Date) return value;
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (!trimmed) return new Date();
+          const parsed = new Date(trimmed);
+          if (!Number.isNaN(parsed.getTime())) return parsed;
+        }
+        return new Date();
+      };
+
       const projectData = {
         name: name.trim(),
         position: position || "Frontend",
         repoLink: repoLink || "",
-        date: date ? new Date(date) : new Date(),
+        date: normalizeProjectDate(date),
         progress: progress || 0,
         decision: "pending",
         finished: false,
@@ -229,16 +244,29 @@ export default async function handler(req, res) {
 
       console.log("📦 Project data:", projectData);
 
-      // 🔥 Simpan project tanpa cek existing (biarkan duplicate)
-      const project = await prisma.project.create({
-        data: projectData,
+      const existingProject = await prismaProject.project.findFirst({
+        where: {
+          userId: userId,
+          name: projectData.name,
+        },
       });
 
-      console.log("✅ Project created with ID:", project.id);
+      const project = existingProject
+        ? await prismaProject.project.update({
+            where: { id: existingProject.id },
+            data: projectData,
+          })
+        : await prismaProject.project.create({
+            data: projectData,
+          });
+
+      console.log(`✅ Project ${existingProject ? "updated" : "created"} with ID:`, project.id);
+
+      await sendProjectNotificationToAllUsers(project, "upload", decoded.role || "member");
 
       // ─── SIMPAN ATTACHMENT ─────────────────────────────
       if (imageUrl) {
-        await prisma.attachment.create({
+        await prismaProject.attachment.create({
           data: {
             projectId: project.id,
             type: "image",
@@ -252,7 +280,7 @@ export default async function handler(req, res) {
       }
 
       if (imageDescription2 && imageDescription2.trim()) {
-        await prisma.attachment.create({
+        await prismaProject.attachment.create({
           data: {
             projectId: project.id,
             type: "image",
@@ -266,7 +294,7 @@ export default async function handler(req, res) {
       }
 
       if (moduleUrl) {
-        await prisma.attachment.create({
+        await prismaProject.attachment.create({
           data: {
             projectId: project.id,
             type: "module",
@@ -279,7 +307,7 @@ export default async function handler(req, res) {
       }
 
       // ─── AMBIL SEMUA ATTACHMENT ────────────────────────
-      const allAttachments = await prisma.attachment.findMany({
+      const allAttachments = await prismaProject.attachment.findMany({
         where: { projectId: project.id },
       });
 

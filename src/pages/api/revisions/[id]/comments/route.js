@@ -1,44 +1,61 @@
-// pages/api/revisions/[id]/comments/route.js
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { prismaMonitoring as prisma } from "@/lib/prismaMonitoring";
+import { prismaAuth } from "@/lib/prismaAuth";
 
-export default async function handler(req, res) {
-  const { id } = req.query;
-
+export async function GET(_req, { params }) {
   try {
-    // GET /api/revisions/[id]/comments
-    if (req.method === "GET") {
-      const comments = await prisma.revisionComment.findMany({
-        where: { reportId: id },
-        orderBy: { createdAt: "asc" },
-        include: { author: { select: { id: true, name: true, role: true } } },
+    const comments = await prisma.revisionComment.findMany({
+      where: { reportId: params.id },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const authorIds = comments.map(c => c.authorId).filter(Boolean);
+    let usersMap = {};
+    if (authorIds.length > 0) {
+      const users = await prismaAuth.user.findMany({
+        where: { id: { in: [...new Set(authorIds)] } },
+        select: { id: true, name: true, role: true },
       });
-      return res.status(200).json({ data: comments });
+      usersMap = Object.fromEntries(users.map(u => [u.id, u]));
     }
 
-    // POST /api/revisions/[id]/comments
-    if (req.method === "POST") {
-      const { content, authorId } = req.body;
+    const enriched = comments.map(c => ({
+      ...c,
+      author: usersMap[c.authorId] || null,
+    }));
 
-      if (!content?.trim())
-        return res.status(400).json({ error: "Komentar tidak boleh kosong" });
-      if (!authorId)
-        return res.status(400).json({ error: "Author wajib diisi" });
-
-      const report = await prisma.revisionReport.findUnique({ where: { id } });
-      if (!report)
-        return res.status(404).json({ error: "Laporan tidak ditemukan" });
-
-      const comment = await prisma.revisionComment.create({
-        data: { content: content.trim(), authorId, reportId: id },
-        include: { author: { select: { id: true, name: true, role: true } } },
-      });
-
-      return res.status(201).json({ data: comment });
-    }
-
-    return res.status(405).json({ error: "Method tidak diizinkan" });
+    return NextResponse.json({ data: enriched });
   } catch (error) {
-    console.error(`[${req.method} comments]`, error);
-    return res.status(500).json({ error: "Gagal memproses komentar" });
+    console.error("[GET comments]", error);
+    return NextResponse.json({ error: "Gagal mengambil komentar" }, { status: 500 });
+  }
+}
+
+export async function POST(req, { params }) {
+  try {
+    const { content, authorId } = await req.json();
+
+    if (!content?.trim())
+      return NextResponse.json({ error: "Komentar tidak boleh kosong" }, { status: 400 });
+    if (!authorId)
+      return NextResponse.json({ error: "Author wajib diisi" }, { status: 400 });
+
+    const report = await prisma.revisionReport.findUnique({ where: { id: params.id } });
+    if (!report)
+      return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
+
+    const comment = await prisma.revisionComment.create({
+      data: { content: content.trim(), authorId, reportId: params.id },
+    });
+
+    const author = await prismaAuth.user.findUnique({
+      where: { id: authorId },
+      select: { id: true, name: true, role: true },
+    });
+
+    return NextResponse.json({ data: { ...comment, author } }, { status: 201 });
+  } catch (error) {
+    console.error("[POST comments]", error);
+    return NextResponse.json({ error: "Gagal menambahkan komentar" }, { status: 500 });
   }
 }

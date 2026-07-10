@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/router";
 import { FaBars, FaTimes } from "react-icons/fa";
 import {
   MdDashboard,
@@ -32,7 +32,6 @@ import SettingsTema from "../settings/settingsTema";
 
 export default function MembersDashboard() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");
@@ -42,6 +41,9 @@ export default function MembersDashboard() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedProject, setSelectedProject] = useState(null);
 
   const isDark = theme === "dark";
 
@@ -52,45 +54,169 @@ export default function MembersDashboard() {
     return user.role || "Member";
   };
 
-  // ✅ CEK PARAMETER URL UNTUK NOTIFIKASI
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    const projectId = searchParams.get('id');
-    
-    if (tab === 'progress' || projectId) {
-      console.log('🔍 Opening Progress from URL:', { tab, projectId });
-      setSelectedMenu("Progress");
-    }
-  }, [searchParams]);
+  // 🔥 FUNGSI UNTUK REFRESH DATA
+  const refreshData = useCallback(() => {
+    console.log('🔄 [MemberDashboard] Refreshing data...');
+    setRefreshKey(prev => prev + 1);
+    window.dispatchEvent(new CustomEvent('refresh-progress'));
+    window.dispatchEvent(new Event('refresh-data'));
+  }, []);
 
-  // 🔥 SYNC USER DATA DARI LOCAL STORAGE
+  // ✅ CEK PARAMETER URL UNTUK NOTIFIKASI DAN FORCE REFRESH
   useEffect(() => {
-    const syncUserData = () => {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUserData(parsedUser);
-        } catch (e) {
-          console.error("Error parsing user data:", e);
+    if (!router.isReady) return;
+
+    const tab = Array.isArray(router.query.tab)
+      ? router.query.tab[0]
+      : router.query.tab;
+    const project = Array.isArray(router.query.project)
+      ? router.query.project[0]
+      : router.query.project;
+    const refresh = Array.isArray(router.query.refresh)
+      ? router.query.refresh[0]
+      : router.query.refresh;
+
+    console.log('📥 [MemberDashboard] URL params:', { tab, project, refresh });
+
+    const tabMap = {
+      dashboard: 'Dashboard',
+      projects: 'Projects',
+      progress: 'Progress',
+      revision: 'Revision Issues',
+      analytics: 'Analytics',
+      profile: 'Settings Profile',
+      settings: 'Settings Profile',
+      theme: 'Settings Tema',
+    };
+
+    // 🔥 Set menu berdasarkan tab
+    if (tab && tabMap[tab]) {
+      console.log(`📋 [MemberDashboard] Setting selected menu to: ${tabMap[tab]}`);
+      setSelectedMenu(tabMap[tab]);
+    } else if (tab === 'progress') {
+      setSelectedMenu('Progress');
+    }
+
+    // 🔥 Set project jika ada
+    if (project) {
+      console.log(`📋 [MemberDashboard] Setting selected project to: ${decodeURIComponent(project)}`);
+      setSelectedProject(decodeURIComponent(project));
+    }
+
+    // 🔥 Jika ada refresh, lakukan refresh data
+    if (refresh) {
+      console.log('🔄 [MemberDashboard] Force refresh detected, refreshing data...');
+      setTimeout(() => {
+        refreshData();
+      }, 200);
+      
+      // 🔥 HAPUS PARAMETER REFRESH DARI URL TAPI PERTAHANKAN TAB DAN PROJECT
+      let cleanUrl = '/memberDashboard/MemberDashboard';
+      const params = new URLSearchParams();
+      if (tab) params.append('tab', tab);
+      if (project) params.append('project', project);
+      if (params.toString()) {
+        cleanUrl += `?${params.toString()}`;
+      }
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, [router.isReady, router.query.tab, router.query.project, router.query.refresh, refreshData]);
+
+  // 🔥 FETCH NOTIFICATION COUNT
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      try {
+        const response = await fetch('/api/notifications/count', {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log('ℹ️ Notification count endpoint not found');
+            setNotificationCount(0);
+            return;
+          }
+          console.error('Error fetching notification count:', response.status);
+          setNotificationCount(0);
+          return;
         }
+        
+        const data = await response.json();
+        if (data.success) {
+          setNotificationCount(data.count || 0);
+        } else {
+          setNotificationCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching notification count:', error);
+        setNotificationCount(0);
+      }
+    };
+
+    if (userData) {
+      fetchNotificationCount();
+      const interval = setInterval(fetchNotificationCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userData]);
+
+  // 🔥 LISTEN FOR REFRESH EVENTS
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('🔄 [MemberDashboard] Refresh event received');
+      refreshData();
+    };
+
+    window.addEventListener('refresh-data', handleRefresh);
+    return () => window.removeEventListener('refresh-data', handleRefresh);
+  }, [refreshData]);
+
+  // 🔥 LISTEN FOR NOTIFICATION CLICK
+  useEffect(() => {
+    const handleNotificationClick = (event) => {
+      console.log('🔔 [MemberDashboard] Notification clicked:', event.detail);
+      const { tab, project, refresh } = event.detail || {};
+      
+      if (tab) {
+        setSelectedMenu(tab);
+      }
+      
+      if (project) {
+        setSelectedProject(project);
+      }
+      
+      if (refresh) {
+        setTimeout(() => {
+          refreshData();
+        }, 300);
+      }
+    };
+
+    window.addEventListener('notification-click', handleNotificationClick);
+    return () => window.removeEventListener('notification-click', handleNotificationClick);
+  }, [refreshData]);
+
+  useEffect(() => {
+    const syncUserData = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        const data = await response.json();
+
+        if (response.ok && data.success && data.user) {
+          setUserData(data.user);
+        } else {
+          setUserData(null);
+          router.push("/components/login");
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setUserData(null);
+        router.push("/components/login");
       }
     };
 
     syncUserData();
-
-    const handleStorageChange = (e) => {
-      if (e.key === "user") {
-        console.log("🔄 User data updated from another tab");
-        syncUserData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  }, [router]);
 
   // 🔥 FETCH USER DATA DARI API
   useEffect(() => {
@@ -102,6 +228,7 @@ export default function MembersDashboard() {
 
         if (!response.ok) {
           console.log("❌ Auth failed, redirecting to login");
+          clearAllStorage();
           router.push("/components/login");
           return;
         }
@@ -109,9 +236,7 @@ export default function MembersDashboard() {
         if (data.success && data.user) {
           console.log("✅ User data fetched:", data.user);
           setUserData(data.user);
-          localStorage.setItem("user", JSON.stringify(data.user));
 
-          // Jika user adalah ADMIN, redirect ke DashboardAdmin
           if (data.user.role?.toUpperCase() === "ADMIN") {
             console.log("🔀 User is ADMIN, redirecting to Admin Dashboard");
             router.push("/dashboardAdmin/admin");
@@ -119,20 +244,8 @@ export default function MembersDashboard() {
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            setUserData(parsedUser);
-            if (parsedUser.role?.toUpperCase() === "ADMIN") {
-              router.push("/dashboardAdmin/admin");
-            }
-          } catch (e) {
-            router.push("/components/login");
-          }
-        } else {
-          router.push("/components/login");
-        }
+        clearAllStorage();
+        router.push("/components/login");
       } finally {
         setLoading(false);
       }
@@ -145,20 +258,9 @@ export default function MembersDashboard() {
   const handleUserUpdate = useCallback((updatedUser) => {
     console.log("🔄 Updating user data:", updatedUser);
     setUserData(updatedUser);
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'user',
-      newValue: JSON.stringify(updatedUser)
-    }));
   }, []);
 
   const clearAllStorage = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("refresh_token");
-
     document.cookie.split(";").forEach((cookie) => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
@@ -189,19 +291,52 @@ export default function MembersDashboard() {
     }
   };
 
-  const memberMenus = [
-    { icon: <MdDashboard size={22} />, label: "Dashboard" },
-    { icon: <MdFolder size={22} />, label: "Projects" },
-    { icon: <MdTask size={22} />, label: "Progress" },
-    { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
-    { icon: <MdAnalytics size={22} />, label: "Analytics" },
+  const menuGroups = [
+    {
+      title: "MENU DASHBOARD",
+      items: [
+        { icon: <MdDashboard size={22} />, label: "Dashboard" },
+      ],
+    },
+    {
+      title: "MENU PROJECT MANAGEMENT",
+      items: [
+        { icon: <MdFolder size={22} />, label: "Projects" },
+        { icon: <MdTask size={22} />, label: "Progress" },
+        { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
+      ],
+    },
+    {
+      title: "MENU REPORT & ANALYTICS",
+      items: [
+        { icon: <MdAnalytics size={22} />, label: "Analytics" },
+      ],
+    },
   ];
 
   const settingsSubMenus = [
     { icon: <HiUserCircle size={18} />, label: "Settings Profile" },
     { icon: <HiSun size={18} />, label: "Settings Tema" },
-    { icon: <HiKey size={18} />, label: "Change Password" },
   ];
+
+  // 🔥 Mapping label menu ke URL tab param
+  const menuToTab = {
+    Dashboard: "dashboard",
+    Projects: "projects",
+    Progress: "progress",
+    "Revision Issues": "revision",
+    "MEMBER & MODUL": "members",
+    Analytics: "analytics",
+    "Settings Profile": "profile",
+    "Settings Tema": "theme",
+  };
+
+  const navigateToMenu = (label) => {
+    setSelectedMenu(label);
+    setSelectedProject(null);
+    const tab = menuToTab[label] || "dashboard";
+    router.push(`/memberDashboard/MemberDashboard?tab=${tab}`, undefined, { shallow: true });
+  };
 
   if (loading) {
     return (
@@ -238,28 +373,57 @@ export default function MembersDashboard() {
       </div>
 
       <div className="flex-1 px-2 md:px-3 py-3 md:py-5 overflow-y-auto">
-        {memberMenus.map((menu) => (
-          <button
-            key={menu.label}
-            onClick={() => {
-              setSelectedMenu(menu.label);
-              if (isMobile) setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-2 text-sm md:text-base transition-all ${
-              selectedMenu === menu.label
-                ? "bg-white/15"
-                : "hover:bg-white/5"
-            }`}
-          >
-            {menu.icon}
-            {(!collapsed || isMobile) && <span>{menu.label}</span>}
-          </button>
+        {(!collapsed || isMobile) && (
+          <div className="px-3 md:px-4 mb-3 pb-3 border-b border-white/10">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-400/50 mb-1">Halaman</p>
+            <p className="text-sm font-bold text-white truncate">{selectedMenu}</p>
+          </div>
+        )}
+        {menuGroups.map((group) => (
+          <div key={group.title} className="mb-3">
+            {(!collapsed || isMobile) && (
+              <p className="px-3 md:px-4 mb-1 text-[10px] font-semibold uppercase tracking-widest text-blue-400/50">
+                {group.title}
+              </p>
+            )}
+            {group.items.map((menu) => (
+              <button
+                key={menu.label}
+                onClick={() => {
+                  navigateToMenu(menu.label);
+                  if (isMobile) setMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-1 text-sm md:text-base transition-all ${
+                  selectedMenu === menu.label
+                    ? "bg-white/15"
+                    : "hover:bg-white/5"
+                }`}
+              >
+                {menu.icon}
+                {(!collapsed || isMobile) && (
+                  <span className="flex-1 text-left">{menu.label}</span>
+                )}
+                {(!collapsed || isMobile) && menu.label === "Progress" && notificationCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         ))}
 
-        <div className="mt-4">
+        <div className="mb-3">
+          {(!collapsed || isMobile) && (
+            <p className="px-3 md:px-4 mb-1 text-[10px] font-semibold uppercase tracking-widest text-blue-400/50">
+              MENU SETTINGS
+            </p>
+          )}
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
-            className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-white/5 transition-all"
+            className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl transition-all ${
+              settingsSubMenus.some(s => selectedMenu === s.label) ? "bg-white/15" : "hover:bg-white/5"
+            }`}
           >
             <HiCog6Tooth size={22} />
             {(!collapsed || isMobile) && (
@@ -275,12 +439,12 @@ export default function MembersDashboard() {
           </button>
 
           {settingsOpen && (
-            <div className="pl-6 md:pl-8 flex flex-col gap-1 pt-2">
+            <div className="pl-6 md:pl-8 flex flex-col gap-1 pt-1">
               {settingsSubMenus.map((sub) => (
                 <button
                   key={sub.label}
                   onClick={() => {
-                    setSelectedMenu(sub.label);
+                    navigateToMenu(sub.label);
                     if (isMobile) setMobileSidebarOpen(false);
                   }}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
@@ -423,7 +587,13 @@ export default function MembersDashboard() {
             <Dashboard userData={userData} theme={theme} />
           )}
           {selectedMenu === "Progress" && (
-            <Progres theme={theme} setTheme={setTheme} userData={userData} />
+            <Progres 
+              theme={theme} 
+              setTheme={setTheme} 
+              userData={userData}
+              selectedProject={selectedProject}
+              key={`progress-${refreshKey}`}
+            />
           )}
           {selectedMenu === "Revision Issues" && (
             <Revision

@@ -1,4 +1,4 @@
-// components/NotificationBell.js
+// src/components/NotificationBell.js
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -20,14 +20,19 @@ export default function NotificationBell({ theme = "light" }) {
   
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/notifications?limit=20');
+      setLoading(true);
+      const res = await fetch('/api/notifications?limit=20', {
+        credentials: 'include'
+      });
       const data = await res.json();
       if (data.success) {
-        setNotifications(data.notifications);
+        setNotifications(data.data);
         setUnreadCount(data.unreadCount);
       }
     } catch (error) {
       console.error('Fetch notifications error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,6 +57,7 @@ export default function NotificationBell({ theme = "light" }) {
       await fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ id }),
       });
       fetchNotifications();
@@ -65,6 +71,7 @@ export default function NotificationBell({ theme = "light" }) {
       await fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ markAll: true }),
       });
       fetchNotifications();
@@ -73,19 +80,12 @@ export default function NotificationBell({ theme = "light" }) {
     }
   };
 
-  // 🔥 PERBAIKI: Handler klik notifikasi dengan router.push
   const handleNotificationClick = (notification) => {
-    // Tandai sebagai sudah dibaca
     if (!notification.isRead) {
       markAsRead(notification.id);
     }
-    
-    // Tutup dropdown
     setIsOpen(false);
-    
-    // Redirect ke link jika ada
     if (notification.link) {
-      console.log('🔗 Redirecting to:', notification.link);
       router.push(notification.link);
     }
   };
@@ -233,7 +233,7 @@ export default function NotificationBell({ theme = "light" }) {
             )}
           </div>
 
-          {/* Footer - Tampilkan semua notifikasi */}
+          {/* Footer */}
           {notifications.length > 0 && (
             <div className={`px-4 py-2 border-t text-center ${
               isDark ? 'border-slate-700' : 'border-gray-200'

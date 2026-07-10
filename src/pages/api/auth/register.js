@@ -1,5 +1,5 @@
 // pages/api/auth/register.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import { sendRegisterOtpEmail } from "@/lib/mailer";
 
 function generateOTP() {
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const validRoles = ["admin", "member", "user", "frontend", "backend", "uiux", "qa", "pm",];
+    const validRoles = ["admin", "member", "user", "frontend", "backend", "uiux", "qa", "pm"];
     if (!validRoles.includes(role.toLowerCase())) {
       return res.status(400).json({
         success: false,
@@ -51,10 +51,17 @@ export default async function handler(req, res) {
     }
     
 
-    if (password.length < 8) {
+    if (password.length < 8 || password.length > 72) {
       return res.status(400).json({
         success: false,
-        message: "Password minimal 8 karakter",
+        message: "Password minimal 8 karakter dan maksimal 72 karakter",
+      });
+    }
+
+    if (/(.)\1{2,}/.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: "Password tidak boleh mengandung karakter yang berulang terlalu banyak",
       });
     }
 

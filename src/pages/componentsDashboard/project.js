@@ -7,7 +7,6 @@ export default function UploadProjectPage({ theme, setTheme }) {
   const [position, setPosition] = useState("Frontend");
   const [repoLink, setRepoLink] = useState("");
   const [inputDate, setInputDate] = useState("");
-  const [progress, setProgress] = useState(75);
   const [imageFile, setImageFile] = useState(null);
   const [imageData, setImageData] = useState("");
   const [imageDescription, setImageDescription] = useState("");
@@ -82,7 +81,8 @@ export default function UploadProjectPage({ theme, setTheme }) {
       formData.append("position", position);
       formData.append("repoLink", repoLink);
       formData.append("date", inputDate);
-      formData.append("progress", progress);
+      // 🔥 Progress tidak dikirim, akan dihitung otomatis dari attachment
+      formData.append("progress", 0); // Default 0
       formData.append("imageDescription", imageDescription);
       formData.append("imageDescription2", imageDescription2);
       if (imageFile) formData.append("imageFile", imageFile);
@@ -100,11 +100,10 @@ export default function UploadProjectPage({ theme, setTheme }) {
         return;
       }
 
-      setSavedMessage("Project berhasil disimpan!");
+      setSavedMessage("Project berhasil disimpan! Progress akan dihitung otomatis berdasarkan status attachment.");
       setProjectName("");
       setPosition("Frontend");
       setRepoLink("");
-      setProgress(75);
       setImageFile(null);
       setImageData("");
       setImageDescription("");
@@ -132,9 +131,6 @@ export default function UploadProjectPage({ theme, setTheme }) {
               Upload Project Baru
             </h1>
           </div>
-          <div className={`flex items-center gap-2 rounded-xl border ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} p-1`}>
-            {/* Kosongkan atau bisa ditambahkan action lain */}
-          </div>
         </div>
 
         <div className={`${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-2xl shadow-sm border p-5 md:p-8 transition-colors duration-200`}>
@@ -152,7 +148,7 @@ export default function UploadProjectPage({ theme, setTheme }) {
           {/* NAMA PROJECT */}
           <div className="mb-6">
             <label className={`block text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-              NAMA PROJECT
+              NAMA PROJECT <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -166,7 +162,7 @@ export default function UploadProjectPage({ theme, setTheme }) {
           {/* POSISI PROJECT */}
           <div className="mb-6">
             <label className={`block text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-              POSISI PROJECT
+              POSISI PROJECT <span className="text-red-500">*</span>
             </label>
             <select
               value={position}
@@ -182,10 +178,10 @@ export default function UploadProjectPage({ theme, setTheme }) {
             </select>
           </div>
 
-          {/* UPLOAD GAMBAR - PROFESSIONAL VERSION */}
+          {/* UPLOAD GAMBAR */}
           <div className="mb-6">
             <label className={`block text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-              UPLOAD GAMBAR PROJECT
+              UPLOAD GAMBAR PROJECT <span className="text-red-500">*</span>
             </label>
             <div
               className={`border-2 ${dragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'} rounded-2xl p-8 transition-all duration-200 ${theme === 'dark' ? 'bg-gray-700/30' : 'bg-gray-50'}`}
@@ -305,7 +301,7 @@ export default function UploadProjectPage({ theme, setTheme }) {
           {/* TANGGAL */}
           <div className="mb-8">
             <label className={`block text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-              TANGGAL INPUT
+              TANGGAL INPUT <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -315,26 +311,34 @@ export default function UploadProjectPage({ theme, setTheme }) {
             />
           </div>
 
-          {/* PROGRESS */}
-          <div className="mb-10">
-            <label className={`block text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-5`}>
-              PERSENTASE PROGRES (%)
-            </label>
-            <div className="flex justify-between text-sm mb-2">
-              <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>0%</span>
-              <span className="bg-[#001d55] text-white px-3 py-1 rounded-lg">
-                {progress}%
-              </span>
-              <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>100%</span>
+          {/* 🔥 INFO PROGRESS OTOMATIS */}
+          <div className={`mb-10 p-4 rounded-xl border ${theme === 'dark' ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'}`}>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'}`}>
+                  Progress Otomatis
+                </p>
+                <p className={`text-sm ${theme === 'dark' ? 'text-blue-200/70' : 'text-blue-600'}`}>
+                  Progress project akan dihitung secara otomatis berdasarkan jumlah attachment yang sudah di-approve oleh admin. 
+                  Setiap attachment (gambar, modul, link) yang di-approve akan menambah progress.
+                </p>
+                <div className="mt-2 flex items-center gap-4 text-xs">
+                  <span className={`flex items-center gap-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                    Approved = +progress
+                  </span>
+                  <span className={`flex items-center gap-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
+                    Pending = belum dihitung
+                  </span>
+                </div>
+              </div>
             </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              className="w-full accent-blue-600"
-            />
           </div>
 
           {/* BUTTON */}

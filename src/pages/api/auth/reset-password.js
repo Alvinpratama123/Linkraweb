@@ -1,5 +1,5 @@
 // pages/api/auth/reset-password.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import bcrypt from "bcryptjs";
 
 export default async function handler(req, res) {

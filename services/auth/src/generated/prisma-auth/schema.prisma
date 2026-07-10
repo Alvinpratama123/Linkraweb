@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma-auth"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_AUTH_URL")
+}
+
+model User {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  password            String
+  name                String
+  role                String   @default("member")
+  position            String?
+  profile             String?
+  photo               String?
+  isVerified          Boolean  @default(true)
+  credentialEmailSent Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  registerOtps   RegisterOtp[]
+  passwordResets PasswordResetToken[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model RegisterOtp {
+  id        String    @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([code])
+  @@index([used])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+
+  @@index([email])
+  @@index([code])
+  @@index([used])
+  @@index([userId])
+}

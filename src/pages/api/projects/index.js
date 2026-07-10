@@ -1,6 +1,33 @@
 // pages/api/projects/index.js
-import { prisma } from "@/lib/prisma";
+import { prismaProject as prisma } from "@/lib/prismaProject";
+import { prismaAuth } from "@/lib/prismaAuth";
+import { sendProjectNotificationToAllUsers } from "@/lib/notification";
 import jwt from "jsonwebtoken";
+
+async function enrichProjectsWithUsers(projects) {
+  const userIds = [...new Set(projects.map(p => p.userId).filter(Boolean))];
+  let usersMap = {};
+  if (userIds.length > 0) {
+    const users = await prismaAuth.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true, position: true },
+    });
+    usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+  }
+  return projects.map(p => ({
+    ...p,
+    user: usersMap[p.userId] || null,
+  }));
+}
+
+async function enrichProjectWithUser(project) {
+  if (!project || !project.userId) return { ...project, user: null };
+  const user = await prismaAuth.user.findUnique({
+    where: { id: project.userId },
+    select: { id: true, name: true, email: true, position: true },
+  });
+  return { ...project, user };
+}
 
 export default async function handler(req, res) {
   // ─── CORS HEADERS ──────────────────────────────────────────
@@ -52,19 +79,13 @@ export default async function handler(req, res) {
       projects = await prisma.project.findMany({
         include: {
           attachments: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              position: true,
-            },
-          },
         },
         orderBy: {
           createdAt: 'desc',
         },
       });
+
+      projects = await enrichProjectsWithUsers(projects);
       
       console.log(`📊 Total projects fetched: ${projects.length}`);
       
@@ -89,6 +110,26 @@ export default async function handler(req, res) {
     try {
       const { name, position, repoLink, date, progress } = req.body;
 
+      const parseProjectDate = (value) => {
+        if (!value) return new Date();
+        if (value instanceof Date) return value;
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (!trimmed) return new Date();
+
+          const parsed = new Date(trimmed);
+          if (!Number.isNaN(parsed.getTime())) {
+            return parsed;
+          }
+
+          const fallback = new Date(trimmed.replace(/\s+/g, " "));
+          if (!Number.isNaN(fallback.getTime())) {
+            return fallback;
+          }
+        }
+        return new Date();
+      };
+
       if (!name) {
         return res.status(400).json({
           success: false,
@@ -96,28 +137,54 @@ export default async function handler(req, res) {
         });
       }
 
-      console.log(`📝 Creating project for user ${userId}:`, { name, position });
+      const normalizedName = name.trim();
+      console.log(`📝 Creating/updating project for user ${userId}:`, { name: normalizedName, position });
 
-      const project = await prisma.project.create({
-        data: {
-          name: name,
-          position: position || "Frontend",
-          repoLink: repoLink || null,
-          date: date ? new Date(date) : new Date(),
-          progress: progress || 0,
+      const existingProject = await prisma.project.findFirst({
+        where: {
           userId: userId,
+          name: normalizedName,
         },
         include: {
           attachments: true,
         },
       });
 
-      console.log(`✅ Project created with ID: ${project.id}`);
+      const projectData = {
+        name: normalizedName,
+        position: position || "Frontend",
+        repoLink: repoLink || null,
+        date: date ? parseProjectDate(date) : existingProject?.date || new Date(),
+        progress: progress === undefined || progress === null || progress === "" ? existingProject?.progress ?? 0 : Number(progress),
+        userId: userId,
+      };
 
-      return res.status(201).json({
+      const project = existingProject
+        ? await prisma.project.update({
+            where: { id: existingProject.id },
+            data: projectData,
+            include: {
+              attachments: true,
+            },
+          })
+        : await prisma.project.create({
+            data: projectData,
+            include: {
+              attachments: true,
+            },
+          });
+
+      console.log(`✅ Project ${existingProject ? "updated" : "created"} with ID: ${project.id}`);
+
+      if (!existingProject) {
+        await sendProjectNotificationToAllUsers(project, "upload", userRole);
+      }
+
+      return res.status(existingProject ? 200 : 201).json({
         success: true,
-        message: "Project berhasil dibuat",
+        message: existingProject ? "Project berhasil diperbarui" : "Project berhasil dibuat",
         project: project,
+        existed: Boolean(existingProject),
       });
     } catch (error) {
       console.error("❌ POST project error:", error);
@@ -182,21 +249,22 @@ export default async function handler(req, res) {
         data: updateData,
         include: {
           attachments: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              position: true,
-            },
-          },
         },
       });
+
+      const enrichedProject = await enrichProjectWithUser(project);
+
+      if (updateData.decision || updateData.finished !== undefined) {
+        const action = updateData.finished ? "finished" : updateData.decision === "approved" ? "approved" : updateData.decision === "rejected" ? "rejected" : null;
+        if (action) {
+          await sendProjectNotificationToAllUsers(enrichedProject, action, userRole);
+        }
+      }
 
       return res.status(200).json({
         success: true,
         message: "Project berhasil diupdate",
-        project: project,
+        project: enrichedProject,
       });
     } catch (error) {
       console.error("❌ PATCH project error:", error);

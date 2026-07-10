@@ -1,6 +1,16 @@
 // pages/api/projects/[id].js
-import { prisma } from "@/lib/prisma";
+import { prismaProject as prisma } from "@/lib/prismaProject";
+import { prismaAuth } from "@/lib/prismaAuth";
 import jwt from "jsonwebtoken";
+
+async function enrichProjectWithUser(project) {
+  if (!project || !project.userId) return { ...project, user: null };
+  const user = await prismaAuth.user.findUnique({
+    where: { id: project.userId },
+    select: { id: true, name: true, email: true, position: true },
+  });
+  return { ...project, user };
+}
 
 export default async function handler(req, res) {
   // ─── CORS HEADERS ──────────────────────────────────────────
@@ -54,16 +64,9 @@ export default async function handler(req, res) {
       where: { id: id },
       include: {
         attachments: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            position: true,
-          },
-        },
       },
     });
+    project = await enrichProjectWithUser(project);
   } catch (error) {
     console.error("❌ Find project error:", error);
     return res.status(500).json({
@@ -160,21 +163,14 @@ export default async function handler(req, res) {
       }
 
       // 🔥 Update project
-      const updatedProject = await prisma.project.update({
+      const updatedProjectRaw = await prisma.project.update({
         where: { id: id },
         data: updateData,
         include: {
           attachments: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              position: true,
-            },
-          },
         },
       });
+      const updatedProject = await enrichProjectWithUser(updatedProjectRaw);
       
       console.log(`✅ Project ${id} diupdate oleh user ${userId} (${userRole})`);
       console.log("📊 Update data:", updateData);
@@ -205,12 +201,10 @@ export default async function handler(req, res) {
     }
 
     try {
-      // Hapus attachments dulu
       await prisma.attachment.deleteMany({
         where: { projectId: id },
       });
-      
-      // Hapus project
+
       await prisma.project.delete({
         where: { id: id },
       });

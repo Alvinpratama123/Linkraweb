@@ -1,58 +1,74 @@
 // pages/api/revisions/index.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prismaAuth";
+import { prismaMonitoring } from "@/lib/prismaMonitoring";
 import { sendNotificationToRole } from "@/lib/email";
+import { createNotification } from "@/lib/notification";
 
 export default async function handler(req, res) {
   console.log(`📌 /api/revisions ${req.method} called`);
-  console.log("Query:", req.query);
-  console.log("Body:", req.body);
 
   try {
-    // ============ GET /api/revisions ============
+    // ============ GET ============
     if (req.method === 'GET') {
       const { targetRole, senderRole, search, approval, page = 1, limit = 10 } = req.query;
       
       const where = {};
-      if (targetRole) where.targetRole = targetRole;
-      if (senderRole) where.senderRole = senderRole;
-      if (approval) where.approval = approval;
+      if (targetRole) where.targetRole = targetRole.toUpperCase();
+      if (senderRole) where.senderRole = senderRole.toUpperCase();
+      if (approval) where.approval = approval.toUpperCase();
       if (search) {
         where.OR = [
-          { projectName: { contains: search } },
-          { description: { contains: search } },
+          { projectName: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
         ];
       }
       
-
-      const pageNum = Math.max(1, parseInt(page) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
-
       const [reports, total] = await Promise.all([
-        prisma.revisionReport.findMany({
+        prismaMonitoring.revisionReport.findMany({
           where,
           orderBy: { createdAt: "desc" },
-          skip: (pageNum - 1) * limitNum,
-          take: limitNum,
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          take: parseInt(limit),
           include: {
-            sentBy: { select: { id: true, name: true, role: true } },
             _count: { select: { comments: true } },
           },
         }),
-        prisma.revisionReport.count({ where }),
+        prismaMonitoring.revisionReport.count({ where }),
       ]);
 
+      // 🔥 Resolve sentBy & targetUser dari auth_db
+      const userIds = [...new Set([
+        ...reports.map(r => r.sentById).filter(Boolean),
+        ...reports.map(r => r.targetUserId).filter(Boolean),
+      ])];
+
+      let usersMap = {};
+      if (userIds.length > 0) {
+        const users = await prismaAuth.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, role: true, email: true, position: true },
+        });
+        usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+      }
+
+      const enrichedReports = reports.map(r => ({
+        ...r,
+        sentBy: r.sentById ? usersMap[r.sentById] || null : null,
+        targetUser: r.targetUserId ? usersMap[r.targetUserId] || null : null,
+      }));
+
       return res.status(200).json({
-        data: reports,
+        data: enrichedReports,
         meta: {
           total,
-          page: pageNum,
-          limit: limitNum,
-          totalPages: Math.ceil(total / limitNum),
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit)),
         },
       });
     }
 
-    // ============ POST /api/revisions ============
+    // ============ POST ============
     if (req.method === 'POST') {
       const {
         projectName,
@@ -61,6 +77,7 @@ export default async function handler(req, res) {
         progress,
         senderRole,
         targetRole,
+        targetUserId,
         sentById,
         attachmentName,
         attachmentUrl,
@@ -73,19 +90,38 @@ export default async function handler(req, res) {
       if (!senderRole || !targetRole) {
         return res.status(400).json({ error: "Role pengirim dan tujuan wajib diisi" });
       }
-      if (senderRole === targetRole) {
-        return res.status(400).json({ error: "Tidak bisa mengirim ke role yang sama" });
+
+      // Validasi target user
+      let targetUserData = null;
+      if (targetUserId) {
+        targetUserData = await prismaAuth.user.findUnique({
+          where: { id: targetUserId },
+          select: { id: true, name: true, email: true, role: true }
+        });
+        
+        if (!targetUserData) {
+          return res.status(400).json({ 
+            error: "Target user tidak ditemukan" 
+          });
+        }
+        
+        if (targetUserData.role.toLowerCase() !== targetRole.toLowerCase()) {
+          return res.status(400).json({ 
+            error: `User ${targetUserData.name} memiliki role ${targetUserData.role}, bukan ${targetRole}` 
+          });
+        }
       }
 
-      const report = await prisma.revisionReport.create({
+      const report = await prismaMonitoring.revisionReport.create({
         data: {
           projectName: projectName.trim(),
           issueType: issueType ?? "MODUL",
           description: description?.trim() || null,
           progress: progress ?? "BELUM_DILAKUKAN",
           approval: "PENDING",
-          senderRole,
-          targetRole,
+          senderRole: senderRole.toUpperCase(),
+          targetRole: targetRole.toUpperCase(),
+          targetUserId: targetUserId || null,
           sentById: sentById ?? null,
           attachmentName: attachmentName ?? null,
           attachmentUrl: attachmentUrl ?? null,
@@ -93,51 +129,66 @@ export default async function handler(req, res) {
             ? (attachmentData ?? null) 
             : null,
         },
-        include: {
-          sentBy: { 
-            select: { 
-              id: true, 
-              name: true, 
-              role: true, 
-              email: true 
-            } 
-          },
-        },
       });
 
-      console.log(`✅ Revisi berhasil dibuat: ${report.id}`);
+      // 🔥 Resolve sentBy & targetUser dari auth_db
+      let enrichedReport = report;
+      const resolveIds = [report.sentById, report.targetUserId].filter(Boolean);
+      if (resolveIds.length > 0) {
+        const users = await prismaAuth.user.findMany({
+          where: { id: { in: resolveIds } },
+          select: { id: true, name: true, role: true, email: true, position: true },
+        });
+        const usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+        enrichedReport = {
+          ...report,
+          sentBy: report.sentById ? usersMap[report.sentById] || null : null,
+          targetUser: report.targetUserId ? usersMap[report.targetUserId] || null : null,
+        };
+      }
 
-      // Kirim notifikasi email
+      // Kirim notifikasi ke target user
+      if (targetUserData) {
+        try {
+          await createNotification({
+            userId: targetUserData.id,
+            title: `📝 Revisi Baru: ${projectName}`,
+            message: `Anda menerima revisi dari ${senderRole} untuk project "${projectName}".`,
+            type: "revision",
+            link: "/dashboardAdmin/admin?tab=revision",
+            icon: "📝",
+            color: "blue",
+          });
+        } catch (notifError) {
+          console.error("Notifikasi error:", notifError);
+        }
+      }
+
+      // Kirim email
       let emailResult = null;
       try {
-        emailResult = await sendNotificationToRole(report, targetRole, prisma);
-        console.log('📧 Hasil kirim email:', emailResult);
+        emailResult = await sendNotificationToRole(report, targetRole, prismaAuth);
       } catch (emailError) {
-        console.error('❌ Gagal kirim notifikasi email:', emailError);
+        console.error('Email error:', emailError);
       }
 
       return res.status(201).json({ 
-        data: report,
+        data: enrichedReport,
         message: "Revisi berhasil dibuat",
-        email: emailResult || { success: false, message: 'Email tidak terkirim' }
+        email: emailResult || { success: false }
       });
     }
 
-    // ============ PATCH /api/revisions ============
-    // 🔥 PASTIKAN METHOD PATCH ADA DI SINI
+    // ============ PATCH ============
     if (req.method === 'PATCH') {
       const { id } = req.query;
       const body = req.body;
-
-      console.log("🔧 PATCH - ID:", id);
-      console.log("🔧 PATCH - Body:", body);
 
       if (!id) {
         return res.status(400).json({ error: "ID revisi wajib diisi" });
       }
 
-      // Cek apakah data ada
-      const existingReport = await prisma.revisionReport.findUnique({
+      const existingReport = await prismaMonitoring.revisionReport.findUnique({
         where: { id: id },
       });
 
@@ -145,9 +196,6 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Revisi tidak ditemukan" });
       }
 
-      console.log("📦 Data sebelum update:", existingReport);
-
-      // Hanya update field yang diizinkan
       const allowedFields = ['progress', 'approval', 'description', 'projectName', 'issueType'];
       const updateData = {};
       
@@ -169,42 +217,49 @@ export default async function handler(req, res) {
         }
       }
 
-      console.log("📝 Data yang akan diupdate:", updateData);
-
       if (Object.keys(updateData).length === 0) {
         return res.status(400).json({ 
           error: "Tidak ada field yang valid untuk diupdate" 
         });
       }
 
-      const updatedReport = await prisma.revisionReport.update({
+      const updatedReport = await prismaMonitoring.revisionReport.update({
         where: { id: id },
         data: updateData,
-        include: {
-          sentBy: { select: { id: true, name: true, role: true } },
-        },
       });
 
-      console.log("✅ Data setelah update:", updatedReport);
+      // 🔥 Resolve sentBy & targetUser dari auth_db
+      let enrichedUpdated = updatedReport;
+      const resolveIds = [updatedReport.sentById, updatedReport.targetUserId].filter(Boolean);
+      if (resolveIds.length > 0) {
+        const users = await prismaAuth.user.findMany({
+          where: { id: { in: resolveIds } },
+          select: { id: true, name: true, role: true, email: true, position: true },
+        });
+        const usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+        enrichedUpdated = {
+          ...updatedReport,
+          sentBy: updatedReport.sentById ? usersMap[updatedReport.sentById] || null : null,
+          targetUser: updatedReport.targetUserId ? usersMap[updatedReport.targetUserId] || null : null,
+        };
+      }
 
       return res.status(200).json({
         success: true,
-        data: updatedReport,
+        data: enrichedUpdated,
         message: "Revisi berhasil diupdate"
       });
     }
 
-    // ============ DELETE /api/revisions ============
+    // ============ DELETE ============
     if (req.method === 'DELETE') {
       const { id } = req.query;
-      
-      console.log("🗑️ DELETE - ID:", id);
 
       if (!id) {
         return res.status(400).json({ error: "ID revisi wajib diisi" });
       }
 
-      const existingReport = await prisma.revisionReport.findUnique({
+      const existingReport = await prismaMonitoring.revisionReport.findUnique({
         where: { id: id },
       });
 
@@ -212,7 +267,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Revisi tidak ditemukan" });
       }
 
-      await prisma.revisionReport.delete({
+      await prismaMonitoring.revisionReport.delete({
         where: { id: id },
       });
 
@@ -222,7 +277,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // ============ Method tidak diizinkan ============
     return res.status(405).json({ 
       error: `Method ${req.method} tidak diizinkan` 
     });
@@ -231,8 +285,7 @@ export default async function handler(req, res) {
     console.error(`[${req.method} /api/revisions] ERROR:`, error);
     return res.status(500).json({ 
       error: "Terjadi kesalahan pada server",
-      details: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined
+      details: error.message
     });
   }
 }

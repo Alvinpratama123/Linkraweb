@@ -1,5 +1,5 @@
 // pages/api/auth/verify-reset-otp.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
