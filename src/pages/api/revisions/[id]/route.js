@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
 import { prismaMonitoring as prisma } from "@/lib/prismaMonitoring";
+import { prismaAuth } from "@/lib/prismaAuth";
+
+async function resolveUsers(ids) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return {};
+  const users = await prismaAuth.user.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, name: true, role: true, email: true, position: true },
+  });
+  return Object.fromEntries(users.map(u => [u.id, u]));
+}
 
 // GET /api/revisions/:id
 export async function GET(_req, { params }) {
@@ -7,16 +18,30 @@ export async function GET(_req, { params }) {
     const report = await prisma.revisionReport.findUnique({
       where: { id: params.id },
       include: {
-        sentBy:   { select: { id: true, name: true, role: true } },
-        comments: {
-          orderBy: { createdAt: "asc" },
-          include: { author: { select: { id: true, name: true, role: true } } },
-        },
+        comments: { orderBy: { createdAt: "asc" } },
       },
     });
     if (!report)
       return NextResponse.json({ error: "Laporan tidak ditemukan" }, { status: 404 });
-    return NextResponse.json({ data: report });
+
+    const authorIds = [
+      report.sentById,
+      report.targetUserId,
+      ...report.comments.map(c => c.authorId),
+    ];
+    const usersMap = await resolveUsers(authorIds);
+
+    const enriched = {
+      ...report,
+      sentBy: usersMap[report.sentById] || null,
+      targetUser: usersMap[report.targetUserId] || null,
+      comments: report.comments.map(c => ({
+        ...c,
+        author: usersMap[c.authorId] || null,
+      })),
+    };
+
+    return NextResponse.json({ data: enriched });
   } catch (error) {
     console.error("[GET /api/revisions/:id]", error);
     return NextResponse.json({ error: "Gagal mengambil data" }, { status: 500 });
@@ -44,10 +69,15 @@ export async function PATCH(req, { params }) {
         ...(attachmentData !== undefined &&
             process.env.NODE_ENV !== "production" && { attachmentData }),
       },
-      include: { sentBy: { select: { id: true, name: true, role: true } } },
     });
 
-    return NextResponse.json({ data: updated });
+    const usersMap = await resolveUsers([updated.sentById]);
+    const enriched = {
+      ...updated,
+      sentBy: usersMap[updated.sentById] || null,
+    };
+
+    return NextResponse.json({ data: enriched });
   } catch (error) {
     console.error("[PATCH /api/revisions/:id]", error);
     return NextResponse.json({ error: "Gagal memperbarui laporan" }, { status: 500 });

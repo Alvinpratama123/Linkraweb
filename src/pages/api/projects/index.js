@@ -1,7 +1,33 @@
 // pages/api/projects/index.js
 import { prismaProject as prisma } from "@/lib/prismaProject";
+import { prismaAuth } from "@/lib/prismaAuth";
 import { sendProjectNotificationToAllUsers } from "@/lib/notification";
 import jwt from "jsonwebtoken";
+
+async function enrichProjectsWithUsers(projects) {
+  const userIds = [...new Set(projects.map(p => p.userId).filter(Boolean))];
+  let usersMap = {};
+  if (userIds.length > 0) {
+    const users = await prismaAuth.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true, position: true },
+    });
+    usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+  }
+  return projects.map(p => ({
+    ...p,
+    user: usersMap[p.userId] || null,
+  }));
+}
+
+async function enrichProjectWithUser(project) {
+  if (!project || !project.userId) return { ...project, user: null };
+  const user = await prismaAuth.user.findUnique({
+    where: { id: project.userId },
+    select: { id: true, name: true, email: true, position: true },
+  });
+  return { ...project, user };
+}
 
 export default async function handler(req, res) {
   // ─── CORS HEADERS ──────────────────────────────────────────
@@ -53,19 +79,13 @@ export default async function handler(req, res) {
       projects = await prisma.project.findMany({
         include: {
           attachments: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              position: true,
-            },
-          },
         },
         orderBy: {
           createdAt: 'desc',
         },
       });
+
+      projects = await enrichProjectsWithUsers(projects);
       
       console.log(`📊 Total projects fetched: ${projects.length}`);
       
@@ -229,28 +249,22 @@ export default async function handler(req, res) {
         data: updateData,
         include: {
           attachments: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              position: true,
-            },
-          },
         },
       });
+
+      const enrichedProject = await enrichProjectWithUser(project);
 
       if (updateData.decision || updateData.finished !== undefined) {
         const action = updateData.finished ? "finished" : updateData.decision === "approved" ? "approved" : updateData.decision === "rejected" ? "rejected" : null;
         if (action) {
-          await sendProjectNotificationToAllUsers(project, action, userRole);
+          await sendProjectNotificationToAllUsers(enrichedProject, action, userRole);
         }
       }
 
       return res.status(200).json({
         success: true,
         message: "Project berhasil diupdate",
-        project: project,
+        project: enrichedProject,
       });
     } catch (error) {
       console.error("❌ PATCH project error:", error);

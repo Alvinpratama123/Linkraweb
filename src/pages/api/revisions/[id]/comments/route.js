@@ -1,14 +1,30 @@
 import { NextResponse } from "next/server";
 import { prismaMonitoring as prisma } from "@/lib/prismaMonitoring";
+import { prismaAuth } from "@/lib/prismaAuth";
 
 export async function GET(_req, { params }) {
   try {
     const comments = await prisma.revisionComment.findMany({
       where: { reportId: params.id },
       orderBy: { createdAt: "asc" },
-      include: { author: { select: { id: true, name: true, role: true } } },
     });
-    return NextResponse.json({ data: comments });
+
+    const authorIds = comments.map(c => c.authorId).filter(Boolean);
+    let usersMap = {};
+    if (authorIds.length > 0) {
+      const users = await prismaAuth.user.findMany({
+        where: { id: { in: [...new Set(authorIds)] } },
+        select: { id: true, name: true, role: true },
+      });
+      usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+    }
+
+    const enriched = comments.map(c => ({
+      ...c,
+      author: usersMap[c.authorId] || null,
+    }));
+
+    return NextResponse.json({ data: enriched });
   } catch (error) {
     console.error("[GET comments]", error);
     return NextResponse.json({ error: "Gagal mengambil komentar" }, { status: 500 });
@@ -30,10 +46,14 @@ export async function POST(req, { params }) {
 
     const comment = await prisma.revisionComment.create({
       data: { content: content.trim(), authorId, reportId: params.id },
-      include: { author: { select: { id: true, name: true, role: true } } },
     });
 
-    return NextResponse.json({ data: comment }, { status: 201 });
+    const author = await prismaAuth.user.findUnique({
+      where: { id: authorId },
+      select: { id: true, name: true, role: true },
+    });
+
+    return NextResponse.json({ data: { ...comment, author } }, { status: 201 });
   } catch (error) {
     console.error("[POST comments]", error);
     return NextResponse.json({ error: "Gagal menambahkan komentar" }, { status: 500 });

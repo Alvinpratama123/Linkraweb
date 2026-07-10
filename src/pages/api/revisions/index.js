@@ -30,32 +30,35 @@ export default async function handler(req, res) {
           skip: (parseInt(page) - 1) * parseInt(limit),
           take: parseInt(limit),
           include: {
-            sentBy: { 
-              select: { 
-                id: true, 
-                name: true, 
-                role: true,
-                email: true,
-                position: true,
-              } 
-            },
-            targetUser: {
-              select: { 
-                id: true, 
-                name: true, 
-                role: true,
-                email: true,
-                position: true,
-              } 
-            },
             _count: { select: { comments: true } },
           },
         }),
         prismaMonitoring.revisionReport.count({ where }),
       ]);
 
+      // 🔥 Resolve sentBy & targetUser dari auth_db
+      const userIds = [...new Set([
+        ...reports.map(r => r.sentById).filter(Boolean),
+        ...reports.map(r => r.targetUserId).filter(Boolean),
+      ])];
+
+      let usersMap = {};
+      if (userIds.length > 0) {
+        const users = await prismaAuth.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, role: true, email: true, position: true },
+        });
+        usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+      }
+
+      const enrichedReports = reports.map(r => ({
+        ...r,
+        sentBy: r.sentById ? usersMap[r.sentById] || null : null,
+        targetUser: r.targetUserId ? usersMap[r.targetUserId] || null : null,
+      }));
+
       return res.status(200).json({
-        data: reports,
+        data: enrichedReports,
         meta: {
           total,
           page: parseInt(page),
@@ -126,25 +129,23 @@ export default async function handler(req, res) {
             ? (attachmentData ?? null) 
             : null,
         },
-        include: {
-          sentBy: { 
-            select: { 
-              id: true, 
-              name: true, 
-              role: true, 
-              email: true 
-            } 
-          },
-          targetUser: {
-            select: { 
-              id: true, 
-              name: true, 
-              role: true, 
-              email: true 
-            } 
-          },
-        },
       });
+
+      // 🔥 Resolve sentBy & targetUser dari auth_db
+      let enrichedReport = report;
+      const resolveIds = [report.sentById, report.targetUserId].filter(Boolean);
+      if (resolveIds.length > 0) {
+        const users = await prismaAuth.user.findMany({
+          where: { id: { in: resolveIds } },
+          select: { id: true, name: true, role: true, email: true, position: true },
+        });
+        const usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+        enrichedReport = {
+          ...report,
+          sentBy: report.sentById ? usersMap[report.sentById] || null : null,
+          targetUser: report.targetUserId ? usersMap[report.targetUserId] || null : null,
+        };
+      }
 
       // Kirim notifikasi ke target user
       if (targetUserData) {
@@ -172,7 +173,7 @@ export default async function handler(req, res) {
       }
 
       return res.status(201).json({ 
-        data: report,
+        data: enrichedReport,
         message: "Revisi berhasil dibuat",
         email: emailResult || { success: false }
       });
@@ -225,31 +226,27 @@ export default async function handler(req, res) {
       const updatedReport = await prismaMonitoring.revisionReport.update({
         where: { id: id },
         data: updateData,
-        include: {
-          sentBy: { 
-            select: { 
-              id: true, 
-              name: true, 
-              role: true,
-              email: true,
-              position: true,
-            } 
-          },
-          targetUser: {
-            select: { 
-              id: true, 
-              name: true, 
-              role: true,
-              email: true,
-              position: true,
-            } 
-          },
-        },
       });
+
+      // 🔥 Resolve sentBy & targetUser dari auth_db
+      let enrichedUpdated = updatedReport;
+      const resolveIds = [updatedReport.sentById, updatedReport.targetUserId].filter(Boolean);
+      if (resolveIds.length > 0) {
+        const users = await prismaAuth.user.findMany({
+          where: { id: { in: resolveIds } },
+          select: { id: true, name: true, role: true, email: true, position: true },
+        });
+        const usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+        enrichedUpdated = {
+          ...updatedReport,
+          sentBy: updatedReport.sentById ? usersMap[updatedReport.sentById] || null : null,
+          targetUser: updatedReport.targetUserId ? usersMap[updatedReport.targetUserId] || null : null,
+        };
+      }
 
       return res.status(200).json({
         success: true,
-        data: updatedReport,
+        data: enrichedUpdated,
         message: "Revisi berhasil diupdate"
       });
     }

@@ -33,14 +33,6 @@ export default async function handler(req, res) {
       });
     }
 
-    const dbReady = await ensureDatabaseAvailable();
-    if (!dbReady) {
-      return res.status(503).json({
-        success: false,
-        message: "Database belum siap, login ditolak",
-      });
-    }
-
     const emailLower = email.toLowerCase().trim();
 
     const user = await prisma.user.findUnique({

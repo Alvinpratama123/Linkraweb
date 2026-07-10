@@ -291,12 +291,27 @@ export default function MembersDashboard() {
     }
   };
 
-  const memberMenus = [
-    { icon: <MdDashboard size={22} />, label: "Dashboard" },
-    { icon: <MdFolder size={22} />, label: "Projects" },
-    { icon: <MdTask size={22} />, label: "Progress" },
-    { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
-    { icon: <MdAnalytics size={22} />, label: "Analytics" },
+  const menuGroups = [
+    {
+      title: "MENU DASHBOARD",
+      items: [
+        { icon: <MdDashboard size={22} />, label: "Dashboard" },
+      ],
+    },
+    {
+      title: "MENU PROJECT MANAGEMENT",
+      items: [
+        { icon: <MdFolder size={22} />, label: "Projects" },
+        { icon: <MdTask size={22} />, label: "Progress" },
+        { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
+      ],
+    },
+    {
+      title: "MENU REPORT & ANALYTICS",
+      items: [
+        { icon: <MdAnalytics size={22} />, label: "Analytics" },
+      ],
+    },
   ];
 
   const settingsSubMenus = [
@@ -358,35 +373,57 @@ export default function MembersDashboard() {
       </div>
 
       <div className="flex-1 px-2 md:px-3 py-3 md:py-5 overflow-y-auto">
-        {memberMenus.map((menu) => (
-          <button
-            key={menu.label}
-            onClick={() => {
-              navigateToMenu(menu.label);
-              if (isMobile) setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-2 text-sm md:text-base transition-all ${
-              selectedMenu === menu.label
-                ? "bg-white/15"
-                : "hover:bg-white/5"
-            }`}
-          >
-            {menu.icon}
+        {(!collapsed || isMobile) && (
+          <div className="px-3 md:px-4 mb-3 pb-3 border-b border-white/10">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-400/50 mb-1">Halaman</p>
+            <p className="text-sm font-bold text-white truncate">{selectedMenu}</p>
+          </div>
+        )}
+        {menuGroups.map((group) => (
+          <div key={group.title} className="mb-3">
             {(!collapsed || isMobile) && (
-              <span className="flex-1 text-left">{menu.label}</span>
+              <p className="px-3 md:px-4 mb-1 text-[10px] font-semibold uppercase tracking-widest text-blue-400/50">
+                {group.title}
+              </p>
             )}
-            {(!collapsed || isMobile) && menu.label === "Progress" && notificationCount > 0 && (
-              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
-                {notificationCount}
-              </span>
-            )}
-          </button>
+            {group.items.map((menu) => (
+              <button
+                key={menu.label}
+                onClick={() => {
+                  navigateToMenu(menu.label);
+                  if (isMobile) setMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-1 text-sm md:text-base transition-all ${
+                  selectedMenu === menu.label
+                    ? "bg-white/15"
+                    : "hover:bg-white/5"
+                }`}
+              >
+                {menu.icon}
+                {(!collapsed || isMobile) && (
+                  <span className="flex-1 text-left">{menu.label}</span>
+                )}
+                {(!collapsed || isMobile) && menu.label === "Progress" && notificationCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         ))}
 
-        <div className="mt-4">
+        <div className="mb-3">
+          {(!collapsed || isMobile) && (
+            <p className="px-3 md:px-4 mb-1 text-[10px] font-semibold uppercase tracking-widest text-blue-400/50">
+              MENU SETTINGS
+            </p>
+          )}
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
-            className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-white/5 transition-all"
+            className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl transition-all ${
+              settingsSubMenus.some(s => selectedMenu === s.label) ? "bg-white/15" : "hover:bg-white/5"
+            }`}
           >
             <HiCog6Tooth size={22} />
             {(!collapsed || isMobile) && (
@@ -402,7 +439,7 @@ export default function MembersDashboard() {
           </button>
 
           {settingsOpen && (
-            <div className="pl-6 md:pl-8 flex flex-col gap-1 pt-2">
+            <div className="pl-6 md:pl-8 flex flex-col gap-1 pt-1">
               {settingsSubMenus.map((sub) => (
                 <button
                   key={sub.label}

@@ -166,7 +166,6 @@ export default async function handler(req, res) {
         success: true,
         message: `Member berhasil ditambahkan dengan posisi: ${position}`,
         member: newMember,
-        email: emailStatus,
       });
     } catch (error) {
       console.error("POST member error:", error);

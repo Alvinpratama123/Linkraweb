@@ -37,6 +37,9 @@ export default async function handler(req, res) {
           createdAt: {
             gte: oneDayAgo,
           },
+          link: {
+            contains: "tab=progress",
+          },
         },
       });
 
