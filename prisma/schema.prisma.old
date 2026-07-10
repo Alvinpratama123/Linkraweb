@@ -20,9 +20,9 @@ model User {
   position         String?           // Frontend, UI/UX, Backend, dll
   profile          String?
   photo            String?
-  isVerified           Boolean           @default(true)
-  credentialEmailSent  Boolean           @default(false)
-  createdAt            DateTime          @default(now())
+  isVerified       Boolean           @default(true)
+  credentialEmailSent Boolean         @default(false)
+  createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
   // Relations
@@ -30,17 +30,9 @@ model User {
   passwordResets   PasswordResetToken[]
   revisionComments RevisionComment[]
   sentRevisions    RevisionReport[]  @relation("SentBy")
-  targetRevisions  RevisionReport[]  @relation("TargetUser") // 🔥 TAMBAHKAN INI
+  targetRevisions  RevisionReport[]  @relation("TargetUser")
   projects         Project[]
-<<<<<<< HEAD
-<<<<<<< HEAD
-  notifications    Notification[]    // ✅ TAMBAHKAN INI
-=======
   notifications    Notification[]
->>>>>>> origin/kur
-=======
-  notifications    Notification[]
->>>>>>> origin/dev-alvin
 
   @@index([email])
   @@index([role])
@@ -176,7 +168,7 @@ model RevisionReport {
   approvalNote   String?           @db.Text
   senderRole     String
   targetRole     String
-  targetUserId   String?           // 🔥 TAMBAHKAN INI - ID user tujuan
+  targetUserId   String?
   sentById       String?
   attachmentName String?
   attachmentUrl  String?
@@ -186,13 +178,13 @@ model RevisionReport {
 
   comments       RevisionComment[]
   sentBy         User?             @relation("SentBy", fields: [sentById], references: [id], onDelete: SetNull)
-  targetUser     User?             @relation("TargetUser", fields: [targetUserId], references: [id], onDelete: SetNull) // 🔥 TAMBAHKAN INI
+  targetUser     User?             @relation("TargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
 
   @@index([targetRole])
   @@index([senderRole])
   @@index([approval])
   @@index([createdAt])
-  @@index([targetUserId]) // 🔥 TAMBAHKAN INDEX
+  @@index([targetUserId])
 }
 
 // ============================================
@@ -213,23 +205,6 @@ model RevisionComment {
 }
 
 // ============================================
-// NOTIFICATION MODEL
+// NOTIFICATION MODEL (Duplicate - HAPUS INI)
 // ============================================
-model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  title     String
-  message   String?
-  type      String    @default("system")
-  link      String?
-  icon      String?
-  color     String?
-  isRead    Boolean   @default(false)
-  createdAt DateTime  @default(now())
-
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([isRead])
-  @@index([createdAt])
-}
+// Hapus model Notification yang kedua ini karena sudah ada di atas

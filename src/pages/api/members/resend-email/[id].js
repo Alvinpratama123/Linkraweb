@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import { sendMemberCredentialsEmail } from "@/lib/mailer";
 
 export default async function handler(req, res) {

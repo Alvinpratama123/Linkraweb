@@ -1,5 +1,6 @@
 // lib/notification.js
-import { prisma } from "./prisma";
+import { prismaAuth } from "./prismaAuth";
+import { prismaMonitoring } from "./prismaMonitoring";
 import { sendRevisionNotification, sendNotificationToRole } from "./email";
 
 // ─── LABEL UNTUK TIPE NOTIFIKASI ─────────────────────────────
@@ -109,9 +110,10 @@ function buildDashboardLink(userRole, tab) {
 
   const basePath = rolePathMap[normalizedRole] || '/memberDashboard/MemberDashboard';
 
-  // 🔥 Mapping tab ke parameter yang benar
+  // 🔥 Mapping tab ke parameter URL yang benar
   const tabMap = {
-    'progres': 'progres',
+    'progres': 'progress',
+    'progress': 'progress',
     'dashboard': 'dashboard',
     'revision': 'revision',
     'analytics': 'analytics',
@@ -138,9 +140,9 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
         pass: process.env.SMTP_PASS || 'tQfPGruGvsELbaJ4Xn9Y5Cr3',
       },
       tls: { rejectUnauthorized: false },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
     });
 
     const typeInfo = typeLabels[type] || typeLabels.system;
@@ -358,13 +360,14 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
     console.log(`📧 [Notif] Email ke ${user.email}: ${title}`);
   } catch (error) {
     console.error(`❌ [Notif] Gagal kirim email ke ${user?.email}:`, error.message);
+    console.error(`❌ [Notif] SMTP config: host=${process.env.SMTP_HOST}, port=${process.env.SMTP_PORT}, user=${process.env.SMTP_USER}`);
   }
 }
 
 // ─── KIRIM NOTIFIKASI KE SATU USER ──────────────────────────
 export async function createNotification({ userId, title, message, type, link, icon, color }) {
   try {
-    const notification = await prisma.notification.create({
+    const notification = await prismaMonitoring.notification.create({
       data: {
         userId,
         title,
@@ -378,7 +381,7 @@ export async function createNotification({ userId, title, message, type, link, i
     });
 
     try {
-      const user = await prisma.user.findUnique({
+      const user = await prismaAuth.user.findUnique({
         where: { id: userId },
         select: { name: true, email: true, role: true, position: true },
       });
@@ -400,7 +403,7 @@ export async function createNotification({ userId, title, message, type, link, i
 // ─── KIRIM NOTIFIKASI KE SEMUA USER ──────────────────────────
 export async function sendNotificationToAllUsers({ title, message, type, link, icon, color }) {
   try {
-    const users = await prisma.user.findMany({
+    const users = await prismaAuth.user.findMany({
       select: { id: true, name: true, email: true, role: true, position: true },
     });
 
@@ -413,7 +416,7 @@ export async function sendNotificationToAllUsers({ title, message, type, link, i
       // 🔥 Gunakan buildDashboardLink untuk setiap user
       const userLink = link ? buildDashboardLink(userRole, 'progress') : null;
 
-      const notification = await prisma.notification.create({
+      const notification = await prismaMonitoring.notification.create({
         data: {
           userId: user.id,
           title,
@@ -495,7 +498,7 @@ export async function sendProjectNotificationToAllUsers(project, action, senderR
 
 // ─── NOTIFIKASI PROJECT KE SATU USER ─────────────────────────
 export async function createProjectNotification(project, userId, action, senderRole) {
-  const user = await prisma.user.findUnique({
+  const user = await prismaAuth.user.findUnique({
     where: { id: userId },
     select: { role: true },
   });
@@ -553,7 +556,7 @@ export async function createProjectNotification(project, userId, action, senderR
 // ─── NOTIFIKASI MEMBER ────────────────────────────────────────
 export async function createMemberNotification(member, userId, action) {
   if (action === "add") {
-    const user = await prisma.user.findUnique({
+    const user = await prismaAuth.user.findUnique({
       where: { id: userId },
       select: { role: true },
     });
@@ -577,7 +580,7 @@ export async function createMemberNotification(member, userId, action) {
 // ─── NOTIFIKASI REVISION ─────────────────────────────────────
 export async function createRevisionNotification(revision, userId, action) {
   if (action === "add") {
-    const user = await prisma.user.findUnique({
+    const user = await prismaAuth.user.findUnique({
       where: { id: userId },
       select: { role: true },
     });

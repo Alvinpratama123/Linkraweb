@@ -59,7 +59,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
       const res = await fetch('/api/notifications?limit=50', { credentials: 'include' });
       const data = await res.json();
       if (data.success) {
-        setNotifications(data.notifications || []);
+        setNotifications(data.data || []);
         setUnreadCount(data.unreadCount || 0);
         setNotifError("");
       } else {

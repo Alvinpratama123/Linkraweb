@@ -1,5 +1,6 @@
 // pages/api/projects/upload.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prismaAuth";
+import { prismaProject } from "@/lib/prismaProject";
 import { sendProjectNotificationToAllUsers } from "@/lib/notification";
 import formidable from "formidable";
 import fs from "fs";
@@ -83,7 +84,7 @@ export default async function handler(req, res) {
   // ─── AMBIL DATA USER UNTUK SENDER ROLE ────────────────
   let senderUser = null;
   try {
-    senderUser = await prisma.user.findUnique({
+    senderUser = await prismaAuth.user.findUnique({
       where: { id: userId },
       select: { 
         id: true, 
@@ -243,7 +244,7 @@ export default async function handler(req, res) {
 
       console.log("📦 Project data:", projectData);
 
-      const existingProject = await prisma.project.findFirst({
+      const existingProject = await prismaProject.project.findFirst({
         where: {
           userId: userId,
           name: projectData.name,
@@ -251,11 +252,11 @@ export default async function handler(req, res) {
       });
 
       const project = existingProject
-        ? await prisma.project.update({
+        ? await prismaProject.project.update({
             where: { id: existingProject.id },
             data: projectData,
           })
-        : await prisma.project.create({
+        : await prismaProject.project.create({
             data: projectData,
           });
 
@@ -265,7 +266,7 @@ export default async function handler(req, res) {
 
       // ─── SIMPAN ATTACHMENT ─────────────────────────────
       if (imageUrl) {
-        await prisma.attachment.create({
+        await prismaProject.attachment.create({
           data: {
             projectId: project.id,
             type: "image",
@@ -279,7 +280,7 @@ export default async function handler(req, res) {
       }
 
       if (imageDescription2 && imageDescription2.trim()) {
-        await prisma.attachment.create({
+        await prismaProject.attachment.create({
           data: {
             projectId: project.id,
             type: "image",
@@ -293,7 +294,7 @@ export default async function handler(req, res) {
       }
 
       if (moduleUrl) {
-        await prisma.attachment.create({
+        await prismaProject.attachment.create({
           data: {
             projectId: project.id,
             type: "module",
@@ -306,7 +307,7 @@ export default async function handler(req, res) {
       }
 
       // ─── AMBIL SEMUA ATTACHMENT ────────────────────────
-      const allAttachments = await prisma.attachment.findMany({
+      const allAttachments = await prismaProject.attachment.findMany({
         where: { projectId: project.id },
       });
 

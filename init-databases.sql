@@ -1,0 +1,8 @@
+CREATE DATABASE IF NOT EXISTS auth_db;
+CREATE DATABASE IF NOT EXISTS project_db;
+CREATE DATABASE IF NOT EXISTS monitoring_db;
+
+GRANT ALL PRIVILEGES ON auth_db.* TO 'lw_user'@'%';
+GRANT ALL PRIVILEGES ON project_db.* TO 'lw_user'@'%';
+GRANT ALL PRIVILEGES ON monitoring_db.* TO 'lw_user'@'%';
+FLUSH PRIVILEGES;

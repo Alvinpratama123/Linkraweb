@@ -1,20 +1,6 @@
-import { PrismaClient } from "@prisma/client";
-
-const globalForPrisma = globalThis;
-
-export const prisma =
-  globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
-
-export async function ensureDatabaseAvailable() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return true;
-  } catch (error) {
-    console.error("❌ Database unavailable:", error);
-    return false;
-  }
-}
+// prisma.js — backward-compatible re-exports
+// New code should import from prismaAuth, prismaProject, or prismaMonitoring directly.
+export { prismaAuth as prisma } from "./prismaAuth";
+export { prismaAuth } from "./prismaAuth";
+export { prismaProject } from "./prismaProject";
+export { prismaMonitoring } from "./prismaMonitoring";

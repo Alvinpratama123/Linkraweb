@@ -1,5 +1,5 @@
 // pages/api/auth/forgot-password.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import { sendPasswordResetOtpEmail } from "@/lib/mailer"; // ✅ Gunakan fungsi yang sudah ada
 
 function generateOTP() {

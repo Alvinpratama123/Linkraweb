@@ -1,5 +1,5 @@
 // pages/api/auth/get-profile.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {

@@ -1,5 +1,5 @@
 // pages/api/notifications/cleanup.js
-import { prisma } from "@/lib/prisma";
+import { prismaMonitoring as prisma } from "@/lib/prismaMonitoring";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {

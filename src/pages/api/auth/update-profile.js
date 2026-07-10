@@ -1,5 +1,5 @@
 // pages/api/auth/update-profile.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import jwt from "jsonwebtoken";
 import path from "path";
 import fs from "fs";

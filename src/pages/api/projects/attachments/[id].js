@@ -1,5 +1,5 @@
 // pages/api/projects/attachments/[id].js
-import { prisma } from "@/lib/prisma";
+import { prismaProject as prisma } from "@/lib/prismaProject";
 import fs from "fs";
 import path from "path";
 import jwt from "jsonwebtoken";

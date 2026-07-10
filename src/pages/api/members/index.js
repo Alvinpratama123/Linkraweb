@@ -1,5 +1,5 @@
 // pages/api/members/index.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import { createNotification } from "@/lib/notification";
 import bcrypt from "bcryptjs";
 import { sendNewMemberCredentialsEmail } from "@/lib/mailer";

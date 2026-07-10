@@ -26,7 +26,7 @@ export default function NotificationBell({ theme = "light" }) {
       });
       const data = await res.json();
       if (data.success) {
-        setNotifications(data.notifications);
+        setNotifications(data.data);
         setUnreadCount(data.unreadCount);
       }
     } catch (error) {

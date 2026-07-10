@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prismaMonitoring as prisma } from "@/lib/prismaMonitoring";
 
 // GET /api/revisions/:id
 export async function GET(_req, { params }) {

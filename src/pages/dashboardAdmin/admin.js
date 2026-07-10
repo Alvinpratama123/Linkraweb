@@ -306,6 +306,25 @@ export default function DashboardAdmin() {
     { icon: <HiSun size={18} />, label: "Settings Tema" },
   ];
 
+  // 🔥 Mapping label menu ke URL tab param
+  const menuToTab = {
+    Dashboard: "dashboard",
+    Projects: "projects",
+    Progress: "progress",
+    "Revision Issues": "revision",
+    "MEMBER & MODUL": "members",
+    Analytics: "analytics",
+    "Settings Profile": "profile",
+    "Settings Tema": "theme",
+  };
+
+  const navigateToMenu = (label) => {
+    setSelectedMenu(label);
+    setSelectedProject(null);
+    const tab = menuToTab[label] || "dashboard";
+    router.push(`/dashboardAdmin/admin?tab=${tab}`, undefined, { shallow: true });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -346,8 +365,7 @@ export default function DashboardAdmin() {
           <button
             key={menu.label}
             onClick={() => {
-              setSelectedMenu(menu.label);
-              setSelectedProject(null); // Reset project ketika pindah menu
+              navigateToMenu(menu.label);
               if (isMobile) setMobileSidebarOpen(false);
             }}
             className={`w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-1 md:mb-2 text-sm md:text-base transition-all ${
@@ -390,8 +408,7 @@ export default function DashboardAdmin() {
                 <button
                   key={sub.label}
                   onClick={() => {
-                    setSelectedMenu(sub.label);
-                    setSelectedProject(null);
+                    navigateToMenu(sub.label);
                     if (isMobile) setMobileSidebarOpen(false);
                   }}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
@@ -535,6 +552,7 @@ export default function DashboardAdmin() {
               <Progres 
                 theme={theme} 
                 setTheme={setTheme} 
+                userData={userData}
                 selectedProject={selectedProject}
                 key={`progress-${refreshKey}`}
               />

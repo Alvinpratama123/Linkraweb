@@ -1,5 +1,5 @@
 // pages/api/auth/register.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import { sendRegisterOtpEmail } from "@/lib/mailer";
 
 function generateOTP() {

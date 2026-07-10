@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 

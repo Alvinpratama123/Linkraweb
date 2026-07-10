@@ -1,5 +1,7 @@
 // pages/api/notifications/index.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prismaAuth";
+import { prismaMonitoring } from "@/lib/prismaMonitoring";
+import { createNotification } from "@/lib/notification";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
@@ -12,12 +14,27 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  // ─── AUTH: extract userId from JWT ───────────────────────────
+  let userId = null;
+  const token = req.cookies.auth_token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userId = decoded.userId;
+    } catch (err) {
+      // token invalid, userId stays null
+    }
+  }
+
   // ─── GET ─────────────────────────────────────────────────────
   if (req.method === "GET") {
     try {
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
       const { limit = 20, unreadOnly } = req.query;
 
-      // 🔥 Hanya ambil notifikasi 24 jam terakhir
       const oneDayAgo = new Date();
       oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
@@ -32,13 +49,13 @@ export default async function handler(req, res) {
         where.isRead = false;
       }
 
-      const notifications = await prisma.notification.findMany({
+      const notifications = await prismaMonitoring.notification.findMany({
         where,
         orderBy: { createdAt: "desc" },
         take: parseInt(limit),
       });
 
-      const unreadCount = await prisma.notification.count({
+      const unreadCount = await prismaMonitoring.notification.count({
         where: { 
           userId, 
           isRead: false,
@@ -75,7 +92,7 @@ export default async function handler(req, res) {
       }
 
       // 🔥 Cek apakah user ada
-      const userExists = await prisma.user.findUnique({
+      const userExists = await prismaAuth.user.findUnique({
         where: { id: userId },
         select: { id: true, email: true, name: true },
       });
@@ -88,18 +105,23 @@ export default async function handler(req, res) {
         });
       }
 
-      const notification = await prisma.notification.create({
-        data: {
-          userId,
-          title,
-          message,
-          type: type || "system",
-          link: link || null,
-          icon: icon || "📢",
-          color: color || "blue",
-          isRead: false,
-        },
+      // 🔥 Gunakan createNotification dari lib (DB + email)
+      const notification = await createNotification({
+        userId,
+        title,
+        message,
+        type: type || "system",
+        link: link || null,
+        icon: icon || "📢",
+        color: color || "blue",
       });
+
+      if (!notification) {
+        return res.status(500).json({
+          success: false,
+          message: "Gagal membuat notifikasi",
+        });
+      }
 
       console.log(`✅ Notification created: ${notification.id} for user ${userExists.email}`);
 
@@ -120,13 +142,17 @@ export default async function handler(req, res) {
   // ─── PATCH ───────────────────────────────────────────────────
   if (req.method === "PATCH") {
     try {
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
       const { id, markAll } = req.body;
 
       if (markAll) {
         const oneDayAgo = new Date();
         oneDayAgo.setDate(oneDayAgo.getDate() - 1);
         
-        await prisma.notification.updateMany({
+        await prismaMonitoring.notification.updateMany({
           where: { 
             userId, 
             isRead: false,
@@ -140,7 +166,7 @@ export default async function handler(req, res) {
       }
 
       if (id) {
-        await prisma.notification.updateMany({
+        await prismaMonitoring.notification.updateMany({
           where: { id, userId },
           data: { isRead: true },
         });
@@ -157,16 +183,9 @@ export default async function handler(req, res) {
   // ─── DELETE ───────────────────────────────────────────────────
   if (req.method === "DELETE") {
     try {
-      const token = req.cookies.auth_token;
-      if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: "Unauthorized",
-        });
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
       }
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const userId = decoded.userId;
 
       const { id } = req.query;
 
@@ -177,7 +196,7 @@ export default async function handler(req, res) {
         });
       }
 
-      await prisma.notification.delete({
+      await prismaMonitoring.notification.delete({
         where: { id, userId },
       });
 

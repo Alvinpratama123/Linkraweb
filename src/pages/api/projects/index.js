@@ -1,5 +1,5 @@
 // pages/api/projects/index.js
-import { prisma } from "@/lib/prisma";
+import { prismaProject as prisma } from "@/lib/prismaProject";
 import { sendProjectNotificationToAllUsers } from "@/lib/notification";
 import jwt from "jsonwebtoken";
 

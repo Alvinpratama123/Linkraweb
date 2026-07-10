@@ -347,7 +347,7 @@ const RoleAvatar = ({ project, theme, size = "w-11 h-11" }) => {
 };
 
 // Komponen Dropdown untuk Action per Role
-const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail }) => {
+const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail, isAdmin = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const status = normalizeDecision(role.decision);
 
@@ -400,6 +400,8 @@ const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail }) => {
                 Lihat Detail
               </button>
 
+              {isAdmin && (
+                <>
               <button
                 onClick={() => {
                   setIsOpen(false);
@@ -468,6 +470,8 @@ const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail }) => {
               >
                 Hapus Role
               </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -477,7 +481,7 @@ const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail }) => {
 };
 
 // Modal "Lihat Detail" dengan tombol Approve/Reject per attachment
-const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus, onApproveAll, onResetAll }) => {
+const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus, onApproveAll, onResetAll, isAdmin = false }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [attachmentSearch, setAttachmentSearch] = useState("");
   const [localAttachments, setLocalAttachments] = useState([]);
@@ -710,6 +714,8 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
                       </button>
 
                       <div className={`flex gap-1 px-3 pb-3 ${isActive ? "border-t pt-2" : ""} ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}>
+                        {isAdmin && (
+                          <>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -742,6 +748,8 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
                         >
                           {loading ? "⏳" : "✗"} Reject
                         </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -852,6 +860,8 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {isAdmin && (
+              <>
             <button
               onClick={() => onApproveAll(role)}
               disabled={allAttachmentsApproved || loading}
@@ -866,6 +876,8 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
             >
               Reset All
             </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -875,6 +887,7 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
 
 // ─── KOMPONEN UTAMA ────────────────────────────────────────────
 function Progres({ theme, setTheme, userData, selectedProject }) {
+  const isAdmin = userData?.role?.toUpperCase() === "ADMIN";
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState("");
@@ -1648,6 +1661,8 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {isAdmin && (
+                    <>
                   <button
                     onClick={handleApproveAllRoles}
                     disabled={activeModuleAllApproved}
@@ -1661,6 +1676,8 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
                   >
                     Reset All
                   </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1746,6 +1763,7 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
                                 onDecision={handleRoleDecision}
                                 onDelete={handleDeleteRole}
                                 onViewDetail={(r) => setDetailRoleId(r.id)}
+                                isAdmin={isAdmin}
                               />
                             </td>
                           </tr>
@@ -1769,6 +1787,7 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
           onAttachmentStatus={handleAttachmentStatus}
           onApproveAll={handleApproveAllAttachmentsForRole}
           onResetAll={handleResetAllForRole}
+          isAdmin={isAdmin}
         />
       )}
     </div>

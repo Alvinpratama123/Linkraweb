@@ -1,5 +1,6 @@
 // pages/api/revisions/index.js
-import { prisma } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prismaAuth";
+import { prismaMonitoring } from "@/lib/prismaMonitoring";
 import { sendNotificationToRole } from "@/lib/email";
 import { createNotification } from "@/lib/notification";
 
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
       }
       
       const [reports, total] = await Promise.all([
-        prisma.revisionReport.findMany({
+        prismaMonitoring.revisionReport.findMany({
           where,
           orderBy: { createdAt: "desc" },
           skip: (parseInt(page) - 1) * parseInt(limit),
@@ -50,7 +51,7 @@ export default async function handler(req, res) {
             _count: { select: { comments: true } },
           },
         }),
-        prisma.revisionReport.count({ where }),
+        prismaMonitoring.revisionReport.count({ where }),
       ]);
 
       return res.status(200).json({
@@ -90,7 +91,7 @@ export default async function handler(req, res) {
       // Validasi target user
       let targetUserData = null;
       if (targetUserId) {
-        targetUserData = await prisma.user.findUnique({
+        targetUserData = await prismaAuth.user.findUnique({
           where: { id: targetUserId },
           select: { id: true, name: true, email: true, role: true }
         });
@@ -108,7 +109,7 @@ export default async function handler(req, res) {
         }
       }
 
-      const report = await prisma.revisionReport.create({
+      const report = await prismaMonitoring.revisionReport.create({
         data: {
           projectName: projectName.trim(),
           issueType: issueType ?? "MODUL",
@@ -165,7 +166,7 @@ export default async function handler(req, res) {
       // Kirim email
       let emailResult = null;
       try {
-        emailResult = await sendNotificationToRole(report, targetRole, prisma);
+        emailResult = await sendNotificationToRole(report, targetRole, prismaAuth);
       } catch (emailError) {
         console.error('Email error:', emailError);
       }
@@ -186,7 +187,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "ID revisi wajib diisi" });
       }
 
-      const existingReport = await prisma.revisionReport.findUnique({
+      const existingReport = await prismaMonitoring.revisionReport.findUnique({
         where: { id: id },
       });
 
@@ -221,7 +222,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const updatedReport = await prisma.revisionReport.update({
+      const updatedReport = await prismaMonitoring.revisionReport.update({
         where: { id: id },
         data: updateData,
         include: {
@@ -261,7 +262,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "ID revisi wajib diisi" });
       }
 
-      const existingReport = await prisma.revisionReport.findUnique({
+      const existingReport = await prismaMonitoring.revisionReport.findUnique({
         where: { id: id },
       });
 
@@ -269,7 +270,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Revisi tidak ditemukan" });
       }
 
-      await prisma.revisionReport.delete({
+      await prismaMonitoring.revisionReport.delete({
         where: { id: id },
       });
 
