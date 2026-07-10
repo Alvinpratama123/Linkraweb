@@ -3,7 +3,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -34,8 +34,6 @@ export default function LoginPage() {
       }
 
       if (data.success && data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-        
         if (data.user.role === "admin") {
           router.push("/dashboardAdmin/admin");
         } else {
@@ -133,7 +131,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-500">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/components/register" className="text-[#001d55] font-semibold hover:underline">
                 Register
               </Link>

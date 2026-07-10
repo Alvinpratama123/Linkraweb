@@ -1,60 +1,92 @@
-# Linkraweb — AGENTS.md
+# Linkraweb — AGENTS.md (ABL Architecture)
 
-## Project structure
+## Architecture
 
-- **All source is inside `Linkraweb/`** — this is the repo root for all commands.
-- Next.js **Pages Router** (not App Router). Routes at `src/pages/`.
-- Pure JavaScript (no TypeScript). Path alias `@/*` → `./src/*` (`jsconfig.json`).
-- **npm** is the package manager (`package-lock.json` present).
+**Arsitektur Berbasis Layanan (ABL)** — 1 API Gateway + 7 Services + 1 Frontend + 1 MySQL + 1 Redis.
+
+```
+Linkraweb/
+├── gateway/          ← API Gateway (Express, port 8080)
+├── services/
+│   ├── auth/         ← Auth Service (port 3001) — auth_db
+│   ├── project/      ← Project Service (port 3002) — project_db
+│   ├── revision/     ← Revision Service (port 3003) — monitoring_db
+│   ├── notification/ ← Notification Service (port 3004) — monitoring_db
+│   ├── file/         ← File Service (port 3005)
+│   ├── email/        ← Email Service (port 3006) — nodemailer
+│   └── dashboard/    ← Dashboard Service (port 3007) — aggregation
+├── frontend/         ← Next.js murni (tanpa API routes)
+├── src/pages/        ← Halaman frontend (legacy, porting ke frontend/)
+├── prisma/           ← Schema: auth/, project/, monitoring/
+└── scripts/          ← dev-up.sh, build-all.sh
+```
 
 ## Quick start
 
 ```bash
 cd Linkraweb
-docker compose up -d          # start MySQL 8.0
-cp .env .env.local            # .env is already committed; for local overrides use .env.local
-npx prisma generate           # outputs to src/generated/prisma/ (gitignored)
-npx prisma db push            # sync schema to MySQL
-npm run dev                   # → http://localhost:3000
+docker compose up -d mysql redis      # MySQL 8.0 + Redis 7
+bash scripts/dev-up.sh                # Start semua service (dev mode)
 ```
+
+Atau satu per satu:
+```bash
+npm run dev:auth          # Auth Service :3001
+npm run dev:project       # Project Service :3002
+npm run dev:gateway       # Gateway :8080
+```
+
+## Service URLs
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Gateway | http://localhost:8080 |
+| Auth | http://localhost:3001 |
+| Project | http://localhost:3002 |
+| Revision | http://localhost:3003 |
+| Notification | http://localhost:3004 |
+| File | http://localhost:3005 |
+| Email | http://localhost:3006 |
+| Dashboard | http://localhost:3007 |
 
 ## Key commands
 
 | Command | What |
 |---|---|
-| `npm run dev` | dev server on :3000 |
-| `npm run build` | production build |
-| `npm run start` | start production server |
-| `npm run lint` | ESLint (Next.js core-web-vitals preset) |
-| `npx prisma generate` | regenerate Prisma client after schema changes |
-| `npx prisma db push` | push schema to MySQL without migrations |
-| `npx prisma studio` | Prisma GUI (runs on :5555) |
+| `npm run dev` | Start all services (dev mode) |
+| `npm run dev:gateway` | Gateway only |
+| `npm run dev:auth` | Auth Service only |
+| `npm run dev:project` | Project Service only |
+| `npm run dev:revision` | Revision Service only |
+| `npm run dev:notification` | Notification Service only |
+| `npm run dev:file` | File Service only |
+| `npm run dev:email` | Email Service only |
+| `npm run dev:dashboard` | Dashboard Service only |
+| `npm run dev:frontend` | Frontend Next.js only |
+| `npm run db:generate` | Generate Prisma clients for all services |
+| `npm run db:push` | Push schema to MySQL (all services) |
 
-No test framework is configured.
+## Communication
 
-## Auth architecture
+- **Synchronous (REST):** Client → Gateway → Service (via `http-proxy-middleware`)
+- **Asynchronous (Event):** Service → Redis Pub/Sub → Service (e.g. Auth → Email, Project → Notification)
 
-Login is a **two-step flow**:
+Gateway handles JWT verification and passes `X-User-Id` / `X-User-Role` headers to all services.
 
-1. `POST /api/auth/login` — validate password via bcrypt, create 15-min `LoginToken`, send magic-link email via nodemailer.
-2. User clicks link → `GET /api/auth/verif/verify-login?token=...` — marks token used, sets `auth_token` (JWT, HttpOnly, 7d), redirects to `/dashboardAdmin/admin`.
+## Database
 
-- Forgot-password is **not implemented** (toast "Fitur dalam pengembangan").
-- User data stored in `localStorage` after initial POST; JWT in `auth_token` cookie.
-- `GET /api/auth/me` reads JWT from cookie to return user profile.
-- Register accepts roles: `frontend`, `backend`, `uiux`, `qa`, `pm`, `admin`.
+- `auth_db` — User, RegisterOtp, PasswordResetToken
+- `project_db` — Project, Attachment
+- `monitoring_db` — RevisionReport, RevisionComment, Notification
 
 ## Environment
 
-- `.env` (tracked) contains dev defaults for DB, mail, and JWT. **Mail credentials are real/test credentials** — do not commit production secrets.
-- `NEXT_PUBLIC_ENCRYPTION_KEY` is used client-side (crypto-js) — defaults to a hardcoded fallback if not set.
+- `.env` contains dev defaults. Copy to `.env.local` for overrides.
+- Each service reads its own env vars (DB URL, port, SMTP, Redis).
+- `NEXT_PUBLIC_GATEWAY_URL` is used by frontend to call Gateway.
+- `NEXT_PUBLIC_ENCRYPTION_KEY` for client-side crypto-js.
 
-## Notable details
+## Frontend
 
-- **Prisma client** is generated to `src/generated/prisma/` and gitignored. Always run `npx prisma generate` after schema changes.
-- **MySQL via Docker** — `docker-compose.yml` at `Linkraweb/`. Database: `lintas_wahana`, user: `lw_user`.
-- **Tailwind CSS v4** — uses `@tailwindcss/postcss` PostCSS plugin (not the legacy `tailwind.config.js` approach).
-- **File uploads** use `formidable` (server) and `multer` (listed in deps but not yet used based on current routes).
-- **Login token** cleanup: old unused tokens for a user are deleted before creating a new one.
-- Admin dashboard at `/dashboardAdmin/admin`; member dashboard at `/memberDashboard/MemberDashboard`.
-- Settings pages: `/settings/profile`, `/settings/changepassword`, `/settings/settingsTema`.
+Pages are in `src/pages/` (legacy) but will be moved to `frontend/`. All API calls go through `frontend/src/lib/apiClient.js` which routes to `http://localhost:8080/api/*` (Gateway). No API routes exist in the frontend.

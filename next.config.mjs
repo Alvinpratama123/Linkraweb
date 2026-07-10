@@ -1,26 +1,19 @@
-/** @type {import('next').NextConfig} */
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:8080";
+
 const nextConfig = {
-  /* config options here */
   reactStrictMode: true,
-  
-  // Tambahkan konfigurasi images untuk mengizinkan gambar dari Unsplash
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
-      },
-      // Tambahkan domain lain jika diperlukan
-      // Contoh:
-      // {
-      //   protocol: 'https',
-      //   hostname: 'cdn.example.com',
-      //   port: '',
-      //   pathname: '/**',
-      // },
+      { protocol: "https", hostname: "images.unsplash.com" },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${GATEWAY_URL}/api/:path*`,
+      },
+    ];
   },
 };
 

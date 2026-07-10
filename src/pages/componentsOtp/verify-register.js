@@ -2,13 +2,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 
 export default function VerifyRegister() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const email = searchParams.get('email') || '';
+  const email = router.query?.email || '';
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -145,7 +144,7 @@ export default function VerifyRegister() {
     try {
       const payload = {
         name: registerData.name,
-        email: decodeURIComponent(email),
+        email,
         role: registerData.role,
         password: registerData.password,
         otp: otpCode
@@ -207,7 +206,7 @@ export default function VerifyRegister() {
     setErrorMessage('');
 
     try {
-      console.log('📤 Resending OTP for:', decodeURIComponent(email));
+      console.log('📤 Resending OTP for:', email);
 
       const response = await fetch('/api/auth/resend-otp', {
         method: 'POST',
@@ -215,7 +214,7 @@ export default function VerifyRegister() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: decodeURIComponent(email)
+          email
         }),
       });
 

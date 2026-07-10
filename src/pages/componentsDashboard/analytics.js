@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -25,7 +26,7 @@ export default function Analytics({ theme = "light" }) {
         const projectsRes = await fetch('/api/projects');
         const projectsData = await projectsRes.json();
         if (projectsData.success) {
-          setProjects(projectsData.projects || []);
+          setProjects(projectsData.data || []);
         }
 
         // Fetch members
@@ -202,11 +203,17 @@ export default function Analytics({ theme = "light" }) {
       XLSX.utils.book_append_sheet(wb, ws5, 'Member Details');
 
       XLSX.writeFile(wb, `Analytics_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
-      alert(` Laporan Excel berhasil diekspor!\n\n Total Program: ${projects.length}\n👥 Total Member: ${members.length}`);
+      toast.success(`Laporan Excel berhasil diekspor. Total Program: ${projects.length}, Total Member: ${members.length}`, {
+        duration: 3000,
+        position: 'top-center',
+      });
 
     } catch (error) {
       console.error('Error generating Excel:', error);
-      alert('❌ Error exporting to Excel: ' + error.message);
+      toast.error(`Gagal mengekspor Excel: ${error.message}`, {
+        duration: 4000,
+        position: 'top-center',
+      });
     }
   };
 
@@ -315,27 +322,38 @@ export default function Analytics({ theme = "light" }) {
       }
 
       doc.save(`Analytics_Report_${new Date().toISOString().slice(0,10)}.pdf`);
-      alert(' Laporan PDF berhasil diekspor!');
+      toast.success('Laporan PDF berhasil diekspor.', {
+        duration: 3000,
+        position: 'top-center',
+      });
 
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('❌ Error exporting to PDF: ' + error.message);
+      toast.error(`Gagal mengekspor PDF: ${error.message}`, {
+        duration: 4000,
+        position: 'top-center',
+      });
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#001d55] mx-auto"></div>
-          <p className="mt-4 text-gray-500">Memuat data analytics...</p>
+      <>
+        <Toaster position="top-center" reverseOrder={false} />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#001d55] mx-auto"></div>
+            <p className="mt-4 text-gray-500">Memuat data analytics...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className={`min-h-screen p-4 md:p-8 ${isDark ? 'bg-slate-950 text-white' : 'bg-[#eef2f7]'}`}>
+    <>
+      <Toaster position="top-center" reverseOrder={false} />
+      <div className={`min-h-screen p-4 md:p-8 ${isDark ? 'bg-slate-950 text-white' : 'bg-[#eef2f7]'}`}>
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -548,5 +566,6 @@ export default function Analytics({ theme = "light" }) {
         </div>
       </div>
     </div>
+  </>
   );
 }

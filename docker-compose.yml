@@ -1,10 +1,8 @@
-version: "3.8"
-
 services:
-  db:
+  mysql:
     image: mysql:8.0
-    container_name: lintas-mysql
-    restart: always
+    container_name: linkra-mysql
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root123
       MYSQL_DATABASE: lintas_wahana
@@ -14,6 +12,168 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: linkra-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    build: ./gateway
+    container_name: linkra-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:-lintas-wahana-jwt-secret-2026}
+      - AUTH_SERVICE_URL=http://auth:3001
+      - PROJECT_SERVICE_URL=http://project:3002
+      - REVISION_SERVICE_URL=http://revision:3003
+      - NOTIFICATION_SERVICE_URL=http://notification:3004
+      - FILE_SERVICE_URL=http://file:3005
+      - EMAIL_SERVICE_URL=http://email:3006
+      - DASHBOARD_SERVICE_URL=http://dashboard:3007
+      - GATEWAY_PORT=8080
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  auth:
+    build: ./services/auth
+    container_name: linkra-auth
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_AUTH_URL=mysql://lw_user:lw_password@mysql:3306/auth_db
+      - JWT_SECRET=${JWT_SECRET:-lintas-wahana-jwt-secret-2026}
+      - JWT_EXPIRES_IN=7d
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  project:
+    build: ./services/project
+    container_name: linkra-project
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_PROJECT_URL=mysql://lw_user:lw_password@mysql:3306/project_db
+      - REDIS_URL=redis://redis:6379
+      - FILE_SERVICE_URL=http://file:3005
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  revision:
+    build: ./services/revision
+    container_name: linkra-revision
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - DATABASE_MONITORING_URL=mysql://lw_user:lw_password@mysql:3306/monitoring_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  notification:
+    build: ./services/notification
+    container_name: linkra-notification
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - DATABASE_MONITORING_URL=mysql://lw_user:lw_password@mysql:3306/monitoring_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  file:
+    build: ./services/file
+    container_name: linkra-file
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+    volumes:
+      - file_storage:/app/storage
+
+  email:
+    build: ./services/email
+    container_name: linkra-email
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=${SMTP_USER:-pt.linkra.wahana.teknologi@gmail.com}
+      - SMTP_PASS=${SMTP_PASS:-jzhlrjserfeycpvu}
+      - EMAIL_FROM=${EMAIL_FROM:-"Lintas Wahana" <pt.linkra.wahana.teknologi@gmail.com>}
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth:3001
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  dashboard:
+    build: ./services/dashboard
+    container_name: linkra-dashboard
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - AUTH_SERVICE_URL=http://auth:3001
+      - PROJECT_SERVICE_URL=http://project:3002
+      - REVISION_SERVICE_URL=http://revision:3003
+      - NOTIFICATION_SERVICE_URL=http://notification:3004
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: linkra-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_GATEWAY_URL=http://gateway:8080
+      - NEXT_PUBLIC_ENCRYPTION_KEY=${NEXT_PUBLIC_ENCRYPTION_KEY:-lintas-wahana-secret-key-2026}
+    depends_on:
+      - gateway
 
 volumes:
   mysql_data:
+  file_storage:
