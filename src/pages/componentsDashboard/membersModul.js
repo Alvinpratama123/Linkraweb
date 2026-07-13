@@ -4,6 +4,7 @@ import toast, { Toaster } from 'react-hot-toast';
 
 export default function MembersModul({ theme = "light" }) {
   const [listMembers, setListMembers] = useState([]);
+  const [listAdmins, setListAdmins] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -13,12 +14,14 @@ export default function MembersModul({ theme = "light" }) {
     email: '',
     password: '',
     profile: '',
-    role: 'member'
+    role: 'member',
+    canApprove: false,
   });
 
   const isDark = theme === "dark";
 
   const positionOptions = [
+    { value: 'Administrator', label: 'Administrator' },
     { value: 'Frontend', label: 'Frontend Developer' },
     { value: 'Backend', label: 'Backend Developer' },
     { value: 'UI/UX', label: 'UI/UX Designer' },
@@ -43,6 +46,7 @@ export default function MembersModul({ theme = "light" }) {
       const data = await response.json();
       if (data.success) {
         setListMembers(data.members);
+        setListAdmins(data.admins || []);
       }
     } catch (error) {
       console.error('Error fetching members:', error);
@@ -106,6 +110,7 @@ export default function MembersModul({ theme = "light" }) {
           position: newMember.position,
           profile: newMember.profile || '',
           role: newMember.role || 'member',
+          canApprove: newMember.canApprove,
         }),
       });
 
@@ -117,7 +122,7 @@ export default function MembersModul({ theme = "light" }) {
           type: 'success',
           text: `✅ Member berhasil ditambahkan dengan posisi: ${newMember.position} dan role: ${newMember.role}!`
         });
-        setNewMember({ name: '', position: '', email: '', password: '', profile: '', role: 'member' });
+        setNewMember({ name: '', position: '', email: '', password: '', profile: '', role: 'member', canApprove: false });
         setShowForm(false);
         fetchMembers();
         setTimeout(() => setMessage({ type: '', text: '' }), 5000);
@@ -326,6 +331,35 @@ export default function MembersModul({ theme = "light" }) {
                 }`}
               />
             </label>
+
+            <div className="space-y-2">
+              <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                Akses Approve/Reject
+              </span>
+              <div className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
+                isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'
+              }`}>
+                <div>
+                  <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                    Izinkan Approve/Reject
+                  </p>
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
+                    Member dapat menyetujui atau menolak project
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleChange('canApprove', !newMember.canApprove)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    newMember.canApprove ? 'bg-blue-600' : isDark ? 'bg-slate-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    newMember.canApprove ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 flex justify-end gap-3 border-t pt-4">
@@ -395,6 +429,11 @@ export default function MembersModul({ theme = "light" }) {
               <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                 isDark ? 'text-slate-400' : 'text-gray-500'
               }`}>
+                Akses Approve
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
                 Aksi
               </th>
             </tr>
@@ -402,7 +441,7 @@ export default function MembersModul({ theme = "light" }) {
           <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
             {listMembers.length === 0 ? (
               <tr>
-                <td colSpan="5" className={`px-4 py-8 text-center ${
+                <td colSpan="6" className={`px-4 py-8 text-center ${
                   isDark ? 'text-slate-400' : 'text-gray-400'
                 }`}>
                   Belum ada member. Tambahkan member baru!
@@ -413,8 +452,12 @@ export default function MembersModul({ theme = "light" }) {
                 <tr key={member.id} className={isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-50'}>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#001d55] to-[#003d9e] flex items-center justify-center text-white text-sm font-bold">
-                        {member.name?.charAt(0)?.toUpperCase() || '?'}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#001d55] to-[#003d9e] flex items-center justify-center text-white text-sm font-bold overflow-hidden flex-shrink-0">
+                        {member.photo ? (
+                          <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                        ) : (
+                          member.name?.charAt(0)?.toUpperCase() || '?'
+                        )}
                       </div>
                       <div>
                         <div className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>
@@ -457,6 +500,17 @@ export default function MembersModul({ theme = "light" }) {
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
+                    {member.canApprove ? (
+                      <span className="inline-flex items-center gap-1 text-green-600 text-sm font-medium">
+                        ✅ Aktif
+                      </span>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 text-sm font-medium ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+                        — Nonaktif
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       {!member.credentialEmailSent && (
                         <button
@@ -494,6 +548,110 @@ export default function MembersModul({ theme = "light" }) {
               </span>
             </span>
           ))}
+        </div>
+      )}
+
+      <div className={`mt-10 mb-6 flex items-center gap-3`}>
+        <div className="h-px flex-1 bg-gradient-to-r from-red-300 to-transparent dark:from-red-700" />
+        <h2 className="text-xl font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
+          <span className="inline-block w-3 h-3 rounded-full bg-red-600" />
+          Administrator
+        </h2>
+        <div className="h-px flex-1 bg-gradient-to-l from-red-300 to-transparent dark:from-red-700" />
+      </div>
+
+      <div className={`rounded-lg shadow-lg border overflow-auto ${
+        isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'
+      }`}>
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className={isDark ? 'bg-slate-700' : 'bg-red-50'}>
+            <tr>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
+                Nama Admin
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
+                Email
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
+                Posisi
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
+                Status
+              </th>
+              <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                isDark ? 'text-slate-400' : 'text-gray-500'
+              }`}>
+                Aksi
+              </th>
+            </tr>
+          </thead>
+          <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
+            {listAdmins.length === 0 ? (
+              <tr>
+                <td colSpan="5" className={`px-4 py-8 text-center ${
+                  isDark ? 'text-slate-400' : 'text-gray-400'
+                }`}>
+                  Belum ada admin.
+                </td>
+              </tr>
+            ) : (
+              listAdmins.map((admin) => (
+                <tr key={admin.id} className={isDark ? 'hover:bg-slate-700' : 'hover:bg-red-50/50'}>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white text-sm font-bold overflow-hidden flex-shrink-0">
+                        {admin.photo ? (
+                          <img src={admin.photo} alt={admin.name} className="w-full h-full object-cover" />
+                        ) : (
+                          admin.name?.charAt(0)?.toUpperCase() || '?'
+                        )}
+                      </div>
+                      <div className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                        {admin.name}
+                      </div>
+                    </div>
+                  </td>
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                    {admin.email}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPositionColor(admin.position)}`}>
+                      {admin.position || 'Administrator'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300">
+                      👑 Admin
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <button
+                      onClick={() => handleDeleteMember(admin.id)}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium transition"
+                    >
+                      🗑️ Hapus
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {listAdmins.length > 0 && (
+        <div className={`mt-4 text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Total Admin: <span className={`font-bold text-red-700 dark:text-red-400`}>
+            {listAdmins.length}
+          </span>
         </div>
       )}
     </div>

@@ -20,6 +20,7 @@ export default async function handler(req, res) {
       const { role } = req.query;
       
       let members = [];
+      let admins = [];
       
       if (role) {
         const roleLower = role.toLowerCase();
@@ -37,6 +38,8 @@ export default async function handler(req, res) {
             profile: true,
             role: true,
             photo: true,
+            canApprove: true,
+            credentialEmailSent: true,
             createdAt: true,
           },
           orderBy: { createdAt: 'desc' },
@@ -57,17 +60,39 @@ export default async function handler(req, res) {
             profile: true,
             role: true,
             photo: true,
+            canApprove: true,
+            credentialEmailSent: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        admins = await prisma.user.findMany({
+          where: {
+            role: 'admin'
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            position: true,
+            profile: true,
+            role: true,
+            photo: true,
+            canApprove: true,
+            credentialEmailSent: true,
             createdAt: true,
           },
           orderBy: { createdAt: 'desc' },
         });
       }
 
-      console.log(`📋 GET members - role filter: ${role || 'all'}, found: ${members.length}`);
+      console.log(`📋 GET members - role filter: ${role || 'all'}, found: ${members.length}, admins: ${admins.length}`);
 
       return res.status(200).json({
         success: true,
         members: members,
+        admins: admins,
       });
     } catch (error) {
       console.error("GET members error:", error);
@@ -82,7 +107,7 @@ export default async function handler(req, res) {
   // ─── POST ────────────────────────────────────────────────────
   if (req.method === "POST") {
     try {
-      const { name, email, password, position, profile, role } = req.body;
+      const { name, email, password, position, profile, role, canApprove } = req.body;
 
       if (!name || !email || !password || !position) {
         return res.status(400).json({ 
@@ -114,6 +139,7 @@ export default async function handler(req, res) {
           profile: profile || null,
           role: userRole,
           isVerified: true,
+          canApprove: canApprove === true,
         },
       });
 

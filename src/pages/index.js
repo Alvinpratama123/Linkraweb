@@ -108,13 +108,8 @@ export default function PTLintasWahanaLanding() {
           {/* ─── BUTTONS ───────────────────────────────────────── */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <Link href="/components/login">
-              <button className="bg-transparent border-2 border-blue-700 text-blue-700 px-5 py-2 rounded-full hover:bg-blue-700 hover:text-white transition-all duration-300 font-medium text-sm">
-                Login
-              </button>
-            </Link>
-            <Link href="/components/register">
               <button className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-5 py-2 rounded-full hover:from-blue-800 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium text-sm">
-                Register
+                Login
               </button>
             </Link>
           </div>
