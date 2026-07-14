@@ -22,7 +22,10 @@ export default async function handler(req, res) {
         id: true,
         name: true,
         email: true,
+<<<<<<< HEAD
         password: true,
+=======
+>>>>>>> 5983e0321aa9d7c1a60ecc5ae2c7d63bc188f5f9
         position: true,
       },
     });
@@ -34,6 +37,7 @@ export default async function handler(req, res) {
       });
     }
 
+<<<<<<< HEAD
     const emailResult = await sendNewMemberCredentialsEmail({
       to: member.email,
       name: member.name,
@@ -41,6 +45,24 @@ export default async function handler(req, res) {
       password: "[PROTECTED - lihat password saat create]",
       position: member.position,
     });
+=======
+    let emailResult;
+    try {
+      emailResult = await sendNewMemberCredentialsEmail({
+        to: member.email,
+        name: member.name,
+        email: member.email,
+        password: "Hubungi admin untuk reset password",
+        position: member.position || "-",
+      });
+    } catch (mailError) {
+      console.error("Mail error:", mailError);
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mengirim email",
+      });
+    }
+>>>>>>> 5983e0321aa9d7c1a60ecc5ae2c7d63bc188f5f9
 
     if (emailResult.success) {
       await prisma.user.update({
@@ -54,7 +76,6 @@ export default async function handler(req, res) {
       message: emailResult.success
         ? "Email credential berhasil dikirim ulang"
         : "Gagal mengirim email",
-      email: emailResult,
     });
   } catch (error) {
     console.error("Resend email error:", error);

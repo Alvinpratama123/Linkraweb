@@ -165,6 +165,32 @@ export default function MembersModul({ theme = "light" }) {
     }
   };
 
+  const handleResendEmail = async (memberId, memberName) => {
+    if (!confirm(`Kirim ulang email credential ke ${memberName}?`)) return;
+
+    try {
+      const response = await fetch(`/api/members/resend-email/${memberId}`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`Email credential berhasil dikirim ulang ke ${memberName}`);
+        setMessage({ type: 'success', text: `Email credential berhasil dikirim ulang ke ${memberName}` });
+        fetchMembers();
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      } else {
+        toast.error(data.message || 'Gagal mengirim email');
+        setMessage({ type: 'error', text: data.message || 'Gagal mengirim email' });
+      }
+    } catch (error) {
+      console.error('Error resending email:', error);
+      toast.error('Terjadi kesalahan pada server');
+      setMessage({ type: 'error', text: 'Terjadi kesalahan pada server' });
+    }
+  };
+
   const counts = listMembers.reduce((acc, m) => {
     acc[m.position] = (acc[m.position] || 0) + 1;
     return acc;
