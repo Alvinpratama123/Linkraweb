@@ -1,3 +1,22 @@
+// =====================================================================
+// File       : pages/api/revisions/[id]/route.js
+// Fungsi     : Detail satu laporan revisi (GET, PATCH, DELETE)
+//              Menggunakan gaya App Router Next.js (export fungsi terpisah)
+// Alur Umum  :
+//   - GET    → ambil laporan + semua komentar (urut asc)
+//              → resolve data sentBy, targetUser, & author komentar
+//                dari auth_db
+//   - PATCH  → update field laporan (progress, approval, approvalNote,
+//              attachment) → resolve sentBy dari auth_db
+//   - DELETE → hapus semua komentar (cascade) → hapus laporan
+//
+// Catatan    :
+//   - Fungsi resolveUsers(): mengambil data user dari auth_db
+//     berdasarkan array ID, mengembalikan map { id → userData }
+//   - attachmentData hanya disimpan di non-production (development)
+//   - Komentar diurutkan berdasarkan createdAt secara ascending
+// =====================================================================
+
 import { NextResponse } from "next/server";
 import { prismaMonitoring as prisma } from "@/lib/prismaMonitoring";
 import { prismaAuth } from "@/lib/prismaAuth";

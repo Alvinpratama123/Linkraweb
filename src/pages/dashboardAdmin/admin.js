@@ -1,6 +1,14 @@
 // src/pages/dashboardAdmin/DashboardAdmin.js
 "use client";
 
+// Halaman utama dashboard admin.
+// Alur: fetch data user dari /api/auth/me → jika bukan admin, redirect ke member dashboard
+// → sidebar dengan menu berkelompok (Dashboard, Project Management, User Management,
+//   Report & Analytics, Settings) → render komponen berdasarkan selectedMenu
+// → polling jumlah notifikasi setiap 30 detik
+// → mendukung URL params (tab, project, refresh) untuk deep linking dari notifikasi
+// → fungsi refreshData mengirim custom event ke komponen anak
+
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import { FaBars, FaTimes } from "react-icons/fa";

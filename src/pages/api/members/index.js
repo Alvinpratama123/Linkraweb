@@ -1,4 +1,31 @@
 // pages/api/members/index.js
+//
+// =============================================
+// ALUR EKSEKUSI API MEMBERS (index.js)
+// =============================================
+//
+// API ini menangani dua operasi utama untuk manajemen member:
+//
+// --- GET /api/members ---
+// 1. Membaca query param `role` dari URL (opsional).
+// 2. Jika ada filter role → ambil semua user dengan role tersebut dari auth_db.
+// 3. Jika tanpa filter → ambil semua user NON-admin dari auth_db,
+//    lalu ambil semua user admin secara terpisah.
+// 4. Kembalikan data members dan admins dalam satu response JSON.
+//
+// --- POST /api/members ---
+// 1. Terima data dari body request (name, email, password, position, dll).
+// 2. Validasi input: pastikan semua field wajib terisi.
+// 3. Cek keunikan email di database (auth_db).
+// 4. Hash password menggunakan bcrypt (10 salt rounds).
+// 5. Simpan user baru ke auth_db.
+// 6. Kirim email berisi credential ke email member baru (via mailer).
+// 7. Tandai flag credentialEmailSent berdasarkan hasil pengiriman email.
+// 8. Kirim notifikasi ke SEMUA admin bahwa ada member baru.
+// 9. Kirim notifikasi ke member baru bahwa akunnya telah dibuat.
+// 10. Kembalikan response sukses 201.
+//
+// =============================================
 import { prismaAuth as prisma } from "@/lib/prismaAuth";
 import { createNotification } from "@/lib/notification";
 import bcrypt from "bcryptjs";
@@ -6,23 +33,29 @@ import { sendNewMemberCredentialsEmail } from "@/lib/mailer";
 
 export default async function handler(req, res) {
   // ─── CORS ────────────────────────────────────────────────────
+  // Atur header CORS agar frontend bisa mengakses API ini dari domain berbeda
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
+  // Tangani preflight request (browser otomatis kirim OPTIONS sebelum request utama)
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   // ─── GET ALL ────────────────────────────────────────────────
+  // Mengambil semua data member dari database
   if (req.method === "GET") {
     try {
+      // Baca filter role dari query string (opsional)
       const { role } = req.query;
       
+      // Inisialisasi array untuk menampung hasil query
       let members = [];
       let admins = [];
       
       if (role) {
+        // Jika ada filter role → cari user sesuai role yang diminta
         const roleLower = role.toLowerCase();
         console.log(`🔍 Filtering members by role: ${role} (lowercase: ${roleLower})`);
         
@@ -45,6 +78,7 @@ export default async function handler(req, res) {
           orderBy: { createdAt: 'desc' },
         });
       } else {
+        // Tanpa filter → ambil semua user yang BUKAN admin
         console.log(`📋 Fetching all members`);
         members = await prisma.user.findMany({
           where: {
@@ -67,6 +101,7 @@ export default async function handler(req, res) {
           orderBy: { createdAt: 'desc' },
         });
 
+        // Ambil data admin secara terpisah
         admins = await prisma.user.findMany({
           where: {
             role: 'admin'
@@ -105,10 +140,13 @@ export default async function handler(req, res) {
   }
   
   // ─── POST ────────────────────────────────────────────────────
+  // Membuat member baru
   if (req.method === "POST") {
     try {
+      // Langkah 1: Ambil data dari body request
       const { name, email, password, position, profile, role, canApprove } = req.body;
 
+      // Langkah 2: Validasi input — pastikan field wajib terisi
       if (!name || !email || !password || !position) {
         return res.status(400).json({ 
           success: false, 
@@ -116,6 +154,7 @@ export default async function handler(req, res) {
         });
       }
 
+      // Langkah 3: Cek apakah email sudah terdaftar di database
       const existingUser = await prisma.user.findUnique({
         where: { email: email.toLowerCase().trim() },
       });
@@ -127,9 +166,11 @@ export default async function handler(req, res) {
         });
       }
 
+      // Langkah 4: Hash password menggunakan bcrypt (10 salt rounds)
       const hashedPassword = await bcrypt.hash(password, 10);
       const userRole = role ? role.toLowerCase() : 'member';
 
+      // Langkah 5: Simpan user baru ke database auth_db
       const newMember = await prisma.user.create({
         data: {
           name: name.trim(),
@@ -145,6 +186,7 @@ export default async function handler(req, res) {
 
       console.log(`✅ Member baru dibuat: ${name} (${email}) dengan role: ${userRole}, position: ${position}`);
 
+      // Langkah 6: Kirim email credential ke member baru (via nodemailer)
       let emailSent = false;
       try {
         await sendNewMemberCredentialsEmail({
@@ -159,17 +201,21 @@ export default async function handler(req, res) {
         console.error("Failed to send credentials email:", emailError);
       }
 
+      // Langkah 7: Update flag credentialEmailSent di database
       await prisma.user.update({
         where: { id: newMember.id },
         data: { credentialEmailSent: emailSent },
       });
 
+      // Langkah 8 & 9: Kirim notifikasi ke admin dan member baru
       try {
+        // Ambil semua admin untuk dikirim notifikasi
         const admins = await prisma.user.findMany({
           where: { role: { in: ["admin"] } },
           select: { id: true, email: true, role: true, name: true },
         });
 
+        // Kirim notifikasi ke setiap admin tentang member baru
         for (const admin of admins) {
           await createNotification({
             userId: admin.id,
@@ -182,6 +228,7 @@ export default async function handler(req, res) {
           });
         }
 
+        // Kirim notifikasi ke member baru bahwa akunnya telah dibuat
         await createNotification({
           userId: newMember.id,
           title: `👤 Akun Anda Telah Dibuat`,

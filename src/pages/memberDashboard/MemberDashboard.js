@@ -1,6 +1,13 @@
 // src/pages/memberDashboard/MemberDashboard.js
 "use client";
 
+// Halaman dashboard member (non-admin).
+// Alur: fetch data user dari /api/auth/me → jika admin, redirect ke admin dashboard
+// → sidebar dengan 3 grup menu (Dashboard, Project Management, Report & Analytics)
+//   — TIDAK ada menu User Management
+// → penanganan notifikasi dan URL params sama seperti admin
+// → render komponen berdasarkan selectedMenu
+
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import { FaBars, FaTimes } from "react-icons/fa";

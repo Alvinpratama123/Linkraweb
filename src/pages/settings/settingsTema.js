@@ -1,8 +1,13 @@
+// Halaman pengaturan tema.
+// Mengizinkan user beralih antara mode terang/gelap
+// Menggunakan state tempTheme agar perubahan baru diterapkan saat klik tombol "Anda yakin"
+// Tema dikelola oleh komponen parent (dashboard)
+
 "use client";
 import { useState } from "react";
 
 export default function SettingsTema({ theme, setTheme }) {
-  const [tempTheme, setTempTheme] = useState(theme);
+  const [tempTheme, setTempTheme] = useState(theme); // tema sementara, belum diapply
 
   const handleConfirm = () => {
     setTheme(tempTheme); // baru apply saat klik "Anda yakin"

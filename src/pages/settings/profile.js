@@ -1,4 +1,11 @@
 // src/pages/settings/profile.js
+// Halaman pengaturan profil user.
+// Menampilkan profil → edit nama, email, foto
+// Upload foto: validasi tipe (jpeg/png/gif/webp) dan ukuran (maks 2MB)
+// Kirim ke /api/auth/update-profile via FormData
+// Fungsi mergeAndUpdate mempertahankan field position/role jika API tidak lengkap
+// Field posisi bersifat read-only (ditetapkan oleh admin)
+
 import React, { useState, useRef, useEffect } from "react";
 import { HiCamera, HiCheckCircle } from "react-icons/hi2";
 import { MdEmail, MdPerson, MdEdit } from "react-icons/md";

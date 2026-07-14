@@ -1,3 +1,19 @@
+// ============================================================
+// HALAMAN LUPA PASSWORD — 3 Langkah
+// ============================================================
+// ALUR EKSEKUSI:
+// Step 1: User masukkan email → POST /api/auth/forgot-password
+//         → Backend kirim OTP ke email → countdown 60 detik
+// Step 2: User masukkan 6 digit OTP → POST /api/auth/verify-reset-otp
+//         → Backend validasi OTP → lanjut ke step 3
+// Step 3: User buat password baru → POST /api/auth/reset-password
+//         → Backend update password → redirect ke halaman login
+//
+// Fitur OTP input:
+// - Auto-focus ke kolom berikutnya setelah ketik 1 karakter
+// - Backspace kembali ke kolom sebelumnya
+// - Paste otomatis mengisi 6 kolom sekaligus
+// ============================================================
 // pages/components/forgot-password.js
 "use client";
 

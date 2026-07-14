@@ -1,4 +1,23 @@
-// pages/api/revisions/index.js
+// =====================================================================
+// File       : pages/api/revisions/index.js
+// Fungsi     : CRUD untuk laporan revisi (GET, POST, PATCH, DELETE)
+// Alur Umum  :
+//   - GET    → ambil daftar revisi dengan paginasi + filter
+//              (targetRole, senderRole, search, approval)
+//              → resolve data sentBy & targetUser dari auth_db
+//   - POST   → validasi target user ada & role sesuai → buat revisi
+//              di monitoring_db → kirim notifikasi + email ke target
+//   - PATCH  → update field yang diizinkan (progress, approval, dll)
+//              → resolve user dari auth_db untuk response
+//   - DELETE → hapus laporan revisi berdasarkan ID
+//
+// Catatan    :
+//   - Revisi disimpan di monitoring_db (berbeda DB dari auth & project)
+//   - SentBy dan targetUser di-resolve dari auth_db karena ID user
+//      disimpan di monitoring_db tapi data user di auth_db
+//   - Email notifikasi dikirim via sendNotificationToRole
+// =====================================================================
+
 import { prismaAuth } from "@/lib/prismaAuth";
 import { prismaMonitoring } from "@/lib/prismaMonitoring";
 import { sendNotificationToRole } from "@/lib/email";

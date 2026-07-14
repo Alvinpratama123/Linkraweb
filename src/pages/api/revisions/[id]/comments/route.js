@@ -1,3 +1,20 @@
+// =====================================================================
+// File       : pages/api/revisions/[id]/comments/route.js
+// Fungsi     : Komentar pada laporan revisi (GET, POST)
+//              Menggunakan gaya App Router Next.js (export fungsi terpisah)
+// Alur Umum  :
+//   - GET    → ambil semua komentar untuk laporan tertentu (urut asc)
+//              → resolve data author dari auth_db
+//   - POST   → validasi konten komentar tidak kosong
+//              → pastikan laporan revisi ada di database
+//              → buat komentar baru → kembalikan beserta data author
+//
+// Catatan    :
+//   - Komentar disimpan di monitoring_db (tabel revisionComment)
+//   - Author info diambil dari auth_db (bukan dari monitoring_db)
+//   - ID laporan (reportId) diambil dari URL parameter
+// =====================================================================
+
 import { NextResponse } from "next/server";
 import { prismaMonitoring as prisma } from "@/lib/prismaMonitoring";
 import { prismaAuth } from "@/lib/prismaAuth";
