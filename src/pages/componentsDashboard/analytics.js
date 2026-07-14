@@ -217,22 +217,34 @@ export default function Analytics({ theme = "light" }) {
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
       setShowExportMenu(false);
 
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      let currentY = 20;
 
+      // Add logo
+      const logoImg = new Image();
+      logoImg.src = '/images/oip.png';
+      await new Promise((resolve) => {
+        logoImg.onload = resolve;
+        logoImg.onerror = resolve;
+      });
+      const logoWidth = 40;
+      const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
+      doc.addImage(logoImg, 'PNG', 15, 12, logoWidth, logoHeight);
+
+      // Title next to logo
       doc.setFontSize(22);
       doc.setTextColor(0, 29, 85);
-      doc.text('LAPORAN ANALYTICS', 15, currentY);
-      currentY += 12;
+      doc.text('LAPORAN ANALYTICS', 65, 22);
 
+      // Date below title
       doc.setFontSize(11);
       doc.setTextColor(100);
-      doc.text(`Generated: ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`, 15, currentY);
-      currentY += 15;
+      doc.text(`Generated: ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`, 65, 32);
+
+      let currentY = 44;
 
       // Summary
       doc.setFontSize(14);
