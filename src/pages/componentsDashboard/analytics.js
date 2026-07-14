@@ -242,7 +242,11 @@ export default function Analytics({ theme = "light" }) {
       // Date below title
       doc.setFontSize(11);
       doc.setTextColor(100);
-      doc.text(`Generated: ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`, 65, 32);
+      const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      const now = new Date();
+      const dateStr = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+      const timeStr = now.toLocaleTimeString('id-ID');
+      doc.text(`${dateStr} ${timeStr}`, 65, 32);
 
       let currentY = 44;
 
