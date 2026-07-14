@@ -1,5 +1,5 @@
 import { prismaAuth as prisma } from "@/lib/prismaAuth";
-import { sendMemberCredentialsEmail } from "@/lib/mailer";
+import { sendNewMemberCredentialsEmail } from "@/lib/mailer";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -23,6 +23,7 @@ export default async function handler(req, res) {
         name: true,
         email: true,
         password: true,
+        position: true,
       },
     });
 
@@ -33,11 +34,12 @@ export default async function handler(req, res) {
       });
     }
 
-    const emailResult = await sendMemberCredentialsEmail({
+    const emailResult = await sendNewMemberCredentialsEmail({
       to: member.email,
       name: member.name,
       email: member.email,
       password: "[PROTECTED - lihat password saat create]",
+      position: member.position,
     });
 
     if (emailResult.success) {
