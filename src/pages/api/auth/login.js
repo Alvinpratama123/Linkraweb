@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     });
 
     if (!user) {
+      console.log(`❌ Email tidak ditemukan: ${emailLower}`);
       return res.status(401).json({
         success: false,
         message: "Email tidak ditemukan",
@@ -49,6 +50,7 @@ export default async function handler(req, res) {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      console.log(`❌ Password salah untuk: ${emailLower}`);
       return res.status(401).json({
         success: false,
         message: "Password salah",

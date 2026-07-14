@@ -21,35 +21,15 @@ model User {
   profile          String?
   photo            String?
   isVerified       Boolean           @default(true)
+  canApprove       Boolean           @default(false)
   credentialEmailSent Boolean         @default(false)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  registerOtps     RegisterOtp[]
   passwordResets   PasswordResetToken[]
 
   @@index([email])
   @@index([role])
-}
-
-// ============================================
-// REGISTER OTP MODEL
-// ============================================
-model RegisterOtp {
-  id        String    @id @default(cuid())
-  email     String
-  code      String
-  expiresAt DateTime
-  used      Boolean   @default(false)
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  userId    String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([email])
-  @@index([code])
-  @@index([used])
 }
 
 // ============================================

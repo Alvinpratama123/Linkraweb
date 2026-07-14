@@ -306,52 +306,6 @@ function getEmailTemplate({
   `;
 }
 
-// ─── SEND OTP EMAIL ───────────────────────────────────────────
-export async function sendRegisterOtpEmail({ to, name, code }) {
-  try {
-    const html = getEmailTemplate({
-      title: 'Verifikasi Akun',
-      subtitle: 'PT Lintas Wahana Teknologi',
-      content: `
-        <p class="greeting">Halo <strong>${name}</strong>,</p>
-        <p class="message-text">
-          Kami menerima permintaan registrasi akun baru. Masukkan kode verifikasi di bawah ini untuk memvalidasi identitas Anda.
-        </p>
-        <div class="code-box">
-          <div class="label">Kode Verifikasi</div>
-          <div class="value">${code}</div>
-          <div style="margin-top:8px; font-size:11px; color:#ef4444; font-weight:600; letter-spacing:1px;">
-            VALID UNTUK 15 MENIT
-          </div>
-        </div>
-        <div class="security-note">
-          <div class="title">Catatan Keamanan Penting</div>
-          <div class="item">Jangan pernah membagikan kode OTP ini kepada siapa pun.</div>
-          <div class="item">Tim kami tidak akan pernah meminta kode verifikasi Anda.</div>
-          <div class="item">Kode ini akan kedaluwarsa secara otomatis dalam waktu 15 menit.</div>
-        </div>
-      `,
-      buttonText: 'Login ke Sistem',
-      buttonLink: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/login',
-      footerNote: 'Email ini dikirim secara otomatis. Mohon tidak membalas email ini.',
-    });
-
-    const info = await transporter.sendMail({
-      from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
-      to: to,
-      subject: "Kode Verifikasi Akun - PT Lintas Wahana Teknologi",
-      text: `Halo ${name}, kode OTP Anda adalah ${code}. Berlaku 15 menit.`,
-      html,
-    });
-
-    console.log(`✅ OTP email sent to ${to}`);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error("❌ Error sending OTP email:", error);
-    throw error;
-  }
-}
-
 // ─── SEND NEW MEMBER CREDENTIALS ─────────────────────────────
 export async function sendNewMemberCredentialsEmail({ to, name, email, password, position }) {
   try {
