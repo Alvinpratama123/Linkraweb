@@ -1,5 +1,5 @@
 import { prismaAuth as prisma } from "@/lib/prismaAuth";
-import { sendMemberCredentialsEmail } from "@/lib/mailer";
+import { sendNewMemberCredentialsEmail } from "@/lib/mailer";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         id: true,
         name: true,
         email: true,
-        password: true,
+        position: true,
       },
     });
 
@@ -33,12 +33,22 @@ export default async function handler(req, res) {
       });
     }
 
-    const emailResult = await sendMemberCredentialsEmail({
-      to: member.email,
-      name: member.name,
-      email: member.email,
-      password: "[PROTECTED - lihat password saat create]",
-    });
+    let emailResult;
+    try {
+      emailResult = await sendNewMemberCredentialsEmail({
+        to: member.email,
+        name: member.name,
+        email: member.email,
+        password: "Hubungi admin untuk reset password",
+        position: member.position || "-",
+      });
+    } catch (mailError) {
+      console.error("Mail error:", mailError);
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mengirim email",
+      });
+    }
 
     if (emailResult.success) {
       await prisma.user.update({
@@ -52,7 +62,6 @@ export default async function handler(req, res) {
       message: emailResult.success
         ? "Email credential berhasil dikirim ulang"
         : "Gagal mengirim email",
-      email: emailResult,
     });
   } catch (error) {
     console.error("Resend email error:", error);

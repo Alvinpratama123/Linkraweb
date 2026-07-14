@@ -145,6 +145,7 @@ export default async function handler(req, res) {
 
       console.log(`✅ Member baru dibuat: ${name} (${email}) dengan role: ${userRole}, position: ${position}`);
 
+      let emailSent = false;
       try {
         await sendNewMemberCredentialsEmail({
           to: newMember.email,
@@ -153,9 +154,15 @@ export default async function handler(req, res) {
           password,
           position,
         });
+        emailSent = true;
       } catch (emailError) {
         console.error("Failed to send credentials email:", emailError);
       }
+
+      await prisma.user.update({
+        where: { id: newMember.id },
+        data: { credentialEmailSent: emailSent },
+      });
 
       try {
         const admins = await prisma.user.findMany({
