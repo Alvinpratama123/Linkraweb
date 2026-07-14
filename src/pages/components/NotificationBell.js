@@ -1,3 +1,14 @@
+// ============================================================
+// NOTIFICATION BELL — Dropdown Notifikasi
+// ============================================================
+// ALUR EKSEKUSI:
+// 1. Komponen mount → langsung fetch notifikasi dari /api/notifications
+// 2. Polling otomatis setiap 30 detik untuk ambil notifikasi baru
+// 3. Klik lonceng → buka/tutup dropdown (dengan indikator jumlah belum dibaca)
+// 4. Klik notifikasi → tandai sudah dibaca + navigasi ke link terkait
+// 5. "Tandai semua sudah dibaca" → PATCH /api/notifications { markAll: true }
+// 6. Klik di luar dropdown → tutup otomatis (event listener mousedown)
+// ============================================================
 // src/components/NotificationBell.js
 "use client";
 

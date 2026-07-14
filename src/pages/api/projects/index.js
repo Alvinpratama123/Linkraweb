@@ -1,4 +1,21 @@
-// pages/api/projects/index.js
+// =====================================================================
+// File       : pages/api/projects/index.js
+// Fungsi     : CRUD untuk data project (GET, POST, PATCH, DELETE)
+// Alur Umum  :
+//   1. Verifikasi JWT dari cookie auth_token
+//   2. GET    → Semua user bisa melihat seluruh project (tanpa filter userId)
+//   3. POST   → Cek apakah project sudah ada (upsert) → buat baru atau update
+//   4. PATCH  → Admin bisa update semua, member hanya project sendiri;
+//              kirim notifikasi jika ada perubahan decision/finished
+//   5. DELETE → Admin bisa hapus semua, member hanya project sendiri;
+//              hapus attachment terlebih dahulu baru hapus project
+//
+// Catatan    :
+//   - enrichProjectsWithUsers: mengambil data user dari auth_db
+//     untuk melengkapi data project (karena project di DB terpisah)
+//   - Semua project terlihat oleh semua user (tidak ada filter userId di GET)
+// =====================================================================
+
 import { prismaProject as prisma } from "@/lib/prismaProject";
 import { prismaAuth } from "@/lib/prismaAuth";
 import { sendProjectNotificationToAllUsers } from "@/lib/notification";

@@ -1,3 +1,15 @@
+// ============================================================
+// HALAMAN LANDING PAGE — PT Linkra Wahana Teknologi
+// ============================================================
+// ALUR EKSEKUSI:
+// 1. Halaman publik — TIDAK memerlukan login/autentikasi
+// 2. Menampilkan informasi perusahaan, layanan, teknologi, dan kontak
+// 3. Terdapat tombol LOGIN (→ /components/login)
+// 4. TIDAK ada tombol Register — pendaftaran akun hanya dilakukan oleh admin
+// 5. Navbar berubah transparan → putih saat user scroll ke bawah
+// 6. Bagian utama: Navbar → Hero → About → Services → Technology → Footer
+// ============================================================
+
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
@@ -65,6 +77,7 @@ export default function PTLintasWahanaLanding() {
   return (
     <div className="bg-[#f5f7fb] text-gray-900 font-sans overflow-x-hidden">
       {/* ─── NAVBAR ────────────────────────────────────────────── */}
+      {/* Navbar tetap di atas (fixed). Logo kiri, navigasi tengah, tombol Login kanan */}
       <header
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
@@ -117,6 +130,7 @@ export default function PTLintasWahanaLanding() {
       </header>
 
       {/* ─── HERO SECTION ──────────────────────────────────────── */}
+      {/* Bagian utama: judul besar, deskripsi singkat, tombol "Learn More" & "Our Services" */}
       <section className="relative h-screen overflow-hidden">
         <div className="absolute inset-0">
           <img
@@ -164,6 +178,7 @@ export default function PTLintasWahanaLanding() {
       </section>
 
       {/* ─── ABOUT SECTION ─────────────────────────────────────── */}
+      {/* Tentang perusahaan: deskripsi misi, statistik proyek/kepuasan/klien, gambar dashboard */}
       <section className="py-28 bg-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-30"></div>
@@ -218,6 +233,7 @@ export default function PTLintasWahanaLanding() {
       </section>
 
       {/* ─── SERVICES SECTION ─────────────────────────────────── */}
+      {/* Daftar layanan: Software Dev, IoT, Data Analytics, UI/UX — masing-masing dengan ikon & deskripsi */}
       <section className="py-28 bg-gradient-to-br from-gray-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -267,6 +283,7 @@ export default function PTLintasWahanaLanding() {
       </section>
 
       {/* ─── TECHNOLOGY SECTION ───────────────────────────────── */}
+      {/* Sorotan teknologi: Cloud Architecture ( kartu besar), Cybersecurity, Legacy Modernization */}
       <section className="py-28 bg-white relative overflow-hidden">
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-full">
           <div className="absolute top-20 left-10 w-72 h-72 bg-blue-100 rounded-full blur-3xl opacity-40"></div>
@@ -353,6 +370,7 @@ export default function PTLintasWahanaLanding() {
       </section>
 
       {/* ─── FOOTER ────────────────────────────────────────────── */}
+      {/* Info perusahaan, tautan layanan, newsletter subscription, hak cipta */}
       <footer className="bg-gradient-to-br from-[#04142c] to-[#061a3a] text-gray-300 pt-20 pb-10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600 rounded-full blur-3xl opacity-10"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600 rounded-full blur-3xl opacity-10"></div>

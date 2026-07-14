@@ -1,4 +1,20 @@
-// pages/api/projects/[id].js
+// =====================================================================
+// File       : pages/api/projects/[id].js
+// Fungsi     : Detail satu project berdasarkan ID (GET, PATCH, DELETE)
+// Alur Umum  :
+//   1. Ambil ID dari URL parameter
+//   2. Verifikasi JWT dari cookie auth_token
+//   3. Cari project di project_db → enrich dengan data user dari auth_db
+//   4. Cek akses: Admin ATAU pemilik project ATAU user dengan canApprove
+//   5. GET    → kembalikan detail project
+//   6. PATCH  → update field-field yang diizinkan (decision, finished, dll)
+//   7. DELETE → hapus attachment dulu, baru hapus project (admin/pemilik saja)
+//
+// Catatan    :
+//   - Otorisasi ketat: hanya admin, pemilik, atau user canApprove
+//   - enrichProjectWithUser: mengambil data user dari auth_db
+// =====================================================================
+
 import { prismaProject as prisma } from "@/lib/prismaProject";
 import { prismaAuth } from "@/lib/prismaAuth";
 import jwt from "jsonwebtoken";
@@ -84,11 +100,27 @@ export default async function handler(req, res) {
   }
 
   // ─── 4. CEK AKSES ──────────────────────────────────────────
-  // 🔥 ADMIN bisa akses semua project, MEMBER hanya project sendiri
-  const isAdmin = userRole === "ADMIN" || userRole === "admin";
+  // 🔥 ADMIN atau user dengan canApprove bisa akses semua project
+  const isTokenAdmin = userRole === "ADMIN" || userRole === "admin";
   const isOwner = project.userId === userId;
+  let canApprove = false;
 
-  if (!isAdmin && !isOwner) {
+  if (!isTokenAdmin && !isOwner) {
+    try {
+      const dbUser = await prismaAuth.user.findUnique({
+        where: { id: userId },
+        select: { role: true, canApprove: true },
+      });
+      if (dbUser) {
+        canApprove = dbUser.canApprove === true;
+      }
+    } catch (e) {
+      console.error("❌ Gagal cek user dari DB:", e.message);
+    }
+  }
+
+  const isAdmin = isTokenAdmin;
+  if (!isAdmin && !isOwner && !canApprove) {
     console.log(`❌ User ${userId} (${userRole}) tidak punya akses ke project ${id}`);
     return res.status(403).json({
       success: false,

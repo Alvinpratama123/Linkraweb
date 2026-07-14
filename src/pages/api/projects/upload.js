@@ -1,4 +1,25 @@
-// pages/api/projects/upload.js
+// =====================================================================
+// File       : pages/api/projects/upload.js
+// Fungsi     : Upload project beserta file gambar dan modul (POST)
+// Alur Umum  :
+//   1. Verifikasi JWT dari cookie auth_token
+//   2. Ambil data user dari auth_db untuk keperluan senderRole
+//   3. Parse multipart form menggunakan formidable
+//   4. Validasi tipe file:
+//      - Gambar : jpg, png, gif, webp
+//      - Modul  : pdf, doc, docx
+//   5. Simpan file ke folder public/uploads dengan nama unik
+//   6. Simpan/update project di project_db (upsert pattern)
+//   7. Buat record attachment di database
+//   8. Kirim notifikasi ke semua user bahwa ada project baru
+//
+// Catatan    :
+//   - bodyParser dinonaktifkan (config export) agar formidable bisa
+//     membaca stream multipart form secara langsung
+//   - Ukuran file maksimal 10 MB
+//   - Deskripsi gambar bisa disertakan untuk attachment
+// =====================================================================
+
 import { prismaAuth } from "@/lib/prismaAuth";
 import { prismaProject } from "@/lib/prismaProject";
 import { sendProjectNotificationToAllUsers } from "@/lib/notification";

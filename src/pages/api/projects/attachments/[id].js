@@ -1,4 +1,22 @@
-// pages/api/projects/attachments/[id].js
+// =====================================================================
+// File       : pages/api/projects/attachments/[id].js
+// Fungsi     : Manajemen detail attachment (GET, PATCH, DELETE)
+// Alur Umum  :
+//   1. Ambil ID attachment dari URL, validasi sebagai integer
+//   2. Verifikasi JWT dari cookie auth_token
+//   3. Cek status admin atau canApprove dari auth_db
+//   4. Cari attachment di project_db beserta data project-nya
+//   5. Cek akses: Admin ATAU canApprove ATAU pemilik project
+//   6. DELETE → hapus file fisik dari disk, baru hapus record dari DB
+//   7. PATCH  → ubah status attachment (pending / approved / rejected)
+//   8. GET    → kembalikan detail attachment
+//
+// Catatan    :
+//   - Status attachment berpengaruh pada approval workflow project
+//   - Hanya user dengan canApprove yang bisa approve/reject attachment
+//   - File dihapus dari disk (public/uploads) saat attachment dihapus
+// =====================================================================
+
 import { prismaProject as prisma } from "@/lib/prismaProject";
 import fs from "fs";
 import path from "path";
@@ -38,7 +56,27 @@ export default async function handler(req, res) {
 
   const userId = decoded.userId;
   const userRole = decoded.role || "USER";
-  const isAdmin = userRole.toLowerCase() === "admin";
+  const isTokenAdmin = userRole.toLowerCase() === "admin";
+
+  // ─── 3b. CEK canApprove dari DB ─────────────────────────────
+  let isDbAdmin = isTokenAdmin;
+  let canApprove = false;
+  if (!isTokenAdmin) {
+    try {
+      const { prismaAuth } = await import("@/lib/prismaAuth");
+      const dbUser = await prismaAuth.user.findUnique({
+        where: { id: userId },
+        select: { role: true, canApprove: true },
+      });
+      if (dbUser) {
+        isDbAdmin = dbUser.role?.toLowerCase() === "admin";
+        canApprove = dbUser.canApprove === true;
+      }
+    } catch (e) {
+      console.error("❌ Gagal cek user dari DB:", e.message);
+    }
+  }
+  const isAdmin = isTokenAdmin || isDbAdmin;
 
   // ─── 4. CEK ATTACHMENT ─────────────────────────────────────
   let attachment;
@@ -68,8 +106,8 @@ export default async function handler(req, res) {
     });
   }
 
-  // ─── 5. CEK AKSES (Pemilik project atau admin yang bisa mengelola) ──
-  if (!isAdmin && attachment.project.userId !== userId) {
+  // ─── 5. CEK AKSES (Pemilik project, admin, atau user dengan canApprove) ──
+  if (!isAdmin && !canApprove && attachment.project.userId !== userId) {
     return res.status(403).json({
       success: false,
       message: "❌ Anda tidak memiliki akses ke attachment ini.",

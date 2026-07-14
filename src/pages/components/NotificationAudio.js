@@ -1,3 +1,13 @@
+// ============================================================
+// NOTIFICATION AUDIO — Pemutar Suara Notifikasi
+// ============================================================
+// Komponen tanpa tampilan visual (return null).
+// Fungsi:
+// 1. Saat mount → preload file audio /sounds/notification.mp3
+// 2. Ekspos fungsi playSound ke global window.playNotificationSound
+//    agar komponen lain bisa memanggil: window.playNotificationSound()
+// 3. Cleanup saat unmount → pause & hapus referensi audio
+// ============================================================
 // components/NotificationAudio.js
 "use client";
 

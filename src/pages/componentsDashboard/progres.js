@@ -1,7 +1,8 @@
 // pages/componentsDashboard/progres.js
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import Swal from 'sweetalert2';
 
 const formatDate = (iso) => {
@@ -108,7 +109,7 @@ const fetchWithAuth = async (url, options = {}) => {
       },
     });
 
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       console.error('❌ Unauthorized request, redirecting to login');
       if (typeof window !== 'undefined') {
         localStorage.clear();
@@ -121,6 +122,14 @@ const fetchWithAuth = async (url, options = {}) => {
         window.location.href = '/components/login';
       }
       throw new Error('Unauthorized');
+    }
+
+    if (response.status === 403) {
+      const errText = await response.text();
+      let errMsg = 'Anda tidak memiliki akses';
+      try { errMsg = JSON.parse(errText).message || errMsg; } catch {}
+      console.error('❌ Forbidden:', errMsg);
+      throw new Error(errMsg);
     }
 
     if (!response.ok) {
@@ -346,18 +355,20 @@ const RoleAvatar = ({ project, theme, size = "w-11 h-11" }) => {
   );
 };
 
-// Komponen Dropdown untuk Action per Role
-const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail, isAdmin = false }) => {
+// Komponen Dropdown untuk Action per Module
+const ModuleDropdown = ({ module, theme, onViewDetail, onDelete, isAdmin }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const status = normalizeDecision(role.decision);
 
   return (
     <div className="relative inline-block">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
-          theme === "dark" 
-            ? "bg-gray-700 hover:bg-gray-600 text-gray-200" 
+          theme === "dark"
+            ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
             : "bg-gray-100 hover:bg-gray-200 text-gray-700"
         }`}
       >
@@ -370,12 +381,114 @@ const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail, isAdmin
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          
           <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-lg border z-50 ${
+            theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+          }`}>
+            <div className="py-1">
+              <div className={`px-4 py-2 border-b ${theme === "dark" ? "border-gray-700" : "border-gray-100"}`}>
+                <div className={`text-xs font-semibold ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                  {module.name}
+                </div>
+                <div className={`text-xs mt-0.5 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                  {module.totalRole} role &bull; {module.avgProgress}% rata-rata
+                </div>
+              </div>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                  onViewDetail(module.name);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center gap-3 ${
+                  theme === "dark"
+                    ? "hover:bg-gray-700 text-gray-200"
+                    : "hover:bg-gray-50 text-gray-700"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Lihat Detail
+              </button>
+
+              {isAdmin && (
+                <>
+                  <div className={`border-t ${theme === "dark" ? "border-gray-700" : "border-gray-100"}`} />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsOpen(false);
+                      onDelete(module);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center gap-3 ${
+                      theme === "dark"
+                        ? "hover:bg-gray-700 text-red-400"
+                        : "hover:bg-gray-50 text-red-600"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Hapus Module
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Komponen Dropdown untuk Action per Role
+const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail, isAdmin = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const status = normalizeDecision(role.decision);
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    if (!isOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      let top = rect.bottom + 4;
+      let left = rect.right - 224;
+      if (top + 300 > window.innerHeight) top = rect.top - 4 - 300;
+      if (left < 8) left = 8;
+      setMenuPos({ top, left });
+    }
+    setIsOpen(!isOpen);
+  };
+
+  return (
+    <div className="relative inline-block">
+      <button
+        ref={btnRef}
+        onClick={handleToggle}
+        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+          theme === "dark" 
+            ? "bg-gray-700 hover:bg-gray-600 text-gray-200" 
+            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+        }`}
+      >
+        Actions
+        <svg className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && ReactDOM.createPortal(
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          
+          <div className={`fixed z-50 w-56 rounded-xl shadow-2xl border max-h-[70vh] overflow-y-auto ${
             theme === "dark" 
               ? "bg-gray-800 border-gray-700" 
               : "bg-white border-gray-200"
-          }`}>
+          }`} style={{ top: menuPos.top, left: menuPos.left }}>
             <div className="py-1">
               <div className={`px-4 py-2 border-b ${theme === "dark" ? "border-gray-700" : "border-gray-100"}`}>
                 <div className={`text-xs ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
@@ -474,7 +587,8 @@ const RoleDropdown = ({ role, theme, onDecision, onDelete, onViewDetail, isAdmin
               )}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
@@ -887,7 +1001,7 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
 
 // ─── KOMPONEN UTAMA ────────────────────────────────────────────
 function Progres({ theme, setTheme, userData, selectedProject }) {
-  const isAdmin = userData?.role?.toUpperCase() === "ADMIN";
+  const isAdmin = userData?.role?.toUpperCase() === "ADMIN" || userData?.canApprove === true;
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState("");
@@ -1473,6 +1587,37 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
     }
   };
 
+  // ─── HANDLE DELETE MODULE (semua project dengan nama sama) ─────
+  const handleDeleteModule = async (mod) => {
+    const result = await Swal.fire({
+      title: 'Hapus Module?',
+      text: `Semua ${mod.totalRole} role pada module "${mod.name}" akan dihapus permanen!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      showToast('loading', 'Menghapus...', `Menghapus module "${mod.name}"`);
+      const roleIds = mod.roles.map((r) => r.id);
+
+      await Promise.all(
+        roleIds.map((id) => fetchWithAuth(`/api/projects/${id}`, { method: "DELETE" }))
+      );
+
+      await fetchProjects();
+      showToast('success', '✓ Terhapus', `Module "${mod.name}" berhasil dihapus`);
+    } catch (error) {
+      console.error("❌ Delete module error:", error);
+      showToast('error', '✗ Gagal', error.message || 'Gagal menghapus module');
+    }
+  };
+
   const handleBackToModule = () => {
     setSelectedModuleName(null);
     setRoleSearch("");
@@ -1545,9 +1690,9 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
               ) : modules.length === 0 ? (
                 <div className={`text-center py-16 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Tidak ada module yang cocok dengan filter saat ini.</div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
                   <table className="w-full text-left border-collapse min-w-[700px]">
-                    <thead>
+                    <thead className={`sticky top-0 z-10 ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
                       <tr className={`border-b ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}>
                         <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Nama Module</th>
                         <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Total Role</th>
@@ -1560,8 +1705,7 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
                       {modules.map((module) => (
                         <tr
                           key={module.name}
-                          className={`border-b ${theme === "dark" ? "border-gray-700 hover:bg-gray-700/50" : "border-gray-100 hover:bg-gray-50"} transition cursor-pointer`}
-                          onClick={() => setSelectedModuleName(module.name)}
+                          className={`border-b ${theme === "dark" ? "border-gray-700 hover:bg-gray-700/50" : "border-gray-100 hover:bg-gray-50"} transition`}
                         >
                           <td className={`py-4 px-3 font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-700"}`}>{module.name}</td>
                           <td className={`py-4 px-3 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>{module.totalRole} role</td>
@@ -1579,15 +1723,28 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
                             </span>
                           </td>
                           <td className="py-4 px-3">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedModuleName(module.name);
-                              }}
-                              className={`text-sm ${theme === "dark" ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:underline"}`}
-                            >
-                              Lihat Detail
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedModuleName(module.name);
+                                }}
+                                className={`text-sm ${theme === "dark" ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:underline"}`}
+                              >
+                                Lihat Detail
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteModule(module);
+                                  }}
+                                  className={`text-sm ${theme === "dark" ? "text-red-400 hover:text-red-300" : "text-red-500 hover:text-red-700"}`}
+                                >
+                                  Hapus
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1690,9 +1847,9 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
               {filteredRoles.length === 0 ? (
                 <div className={`text-center py-16 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Tidak ada role yang cocok dengan pencarian.</div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
                   <table className="w-full text-left border-collapse min-w-[700px]">
-                    <thead>
+                    <thead className={`sticky top-0 z-10 ${theme === "dark" ? "bg-gray-800" : "bg-white"}`}>
                       <tr className={`border-b ${theme === "dark" ? "border-gray-700" : "border-gray-200"}`}>
                         <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Foto</th>
                         <th className={`py-4 px-3 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>Email</th>
