@@ -150,7 +150,7 @@ export default async function handler(req, res) {
   // ─── 6. PATCH ───────────────────────────────────────────────
   if (req.method === "PATCH") {
     try {
-      const { decision, finished, repoLink, position, progress, date, name } = req.body;
+      const { decision, finished, repoLink, position, progress, date, name, skipNotification } = req.body;
       
       const updateData = {};
       

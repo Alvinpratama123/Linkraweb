@@ -1152,7 +1152,7 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
     try {
       const data = await fetchWithAuth(`/api/projects/${role.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ decision: normalizedDecision }),
+        body: JSON.stringify({ decision: normalizedDecision, skipNotification: true }),
       });
       
       if (data.success) {
@@ -1219,7 +1219,7 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
         activeModuleRoles.map((role) =>
           fetchWithAuth(`/api/projects/${role.id}`, {
             method: "PATCH",
-            body: JSON.stringify({ decision: "approved" }),
+            body: JSON.stringify({ decision: "approved", skipNotification: true }),
           })
         )
       );
@@ -1282,7 +1282,7 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
         activeModuleRoles.map((role) =>
           fetchWithAuth(`/api/projects/${role.id}`, {
             method: "PATCH",
-            body: JSON.stringify({ decision: "pending" }),
+            body: JSON.stringify({ decision: "pending", skipNotification: true }),
           })
         )
       );
@@ -1385,7 +1385,8 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
         method: "PATCH",
         body: JSON.stringify({ 
           progress: newProgress,
-          attachmentStatusOverrides: nextOverrides 
+          attachmentStatusOverrides: nextOverrides,
+          skipNotification: true 
         }),
       });
       
@@ -1474,7 +1475,8 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
         body: JSON.stringify({ 
           decision: "approved", 
           progress: newProgress,
-          attachmentStatusOverrides: overrides 
+          attachmentStatusOverrides: overrides,
+          skipNotification: true 
         }),
       });
 
@@ -1555,7 +1557,8 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
         body: JSON.stringify({ 
           decision: "pending", 
           progress: newProgress,
-          attachmentStatusOverrides: overrides 
+          attachmentStatusOverrides: overrides,
+          skipNotification: true 
         }),
       });
 

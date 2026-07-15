@@ -216,7 +216,7 @@ export default async function handler(req, res) {
   // ─── 4. PATCH ────────────────────────────────────────────────
   if (req.method === "PATCH") {
     try {
-      const { id, decision, finished, progress, position, name } = req.body;
+      const { id, decision, finished, progress, position, name, skipNotification } = req.body;
 
       if (!id) {
         return res.status(400).json({
@@ -271,7 +271,7 @@ export default async function handler(req, res) {
 
       const enrichedProject = await enrichProjectWithUser(project);
 
-      if (updateData.decision || updateData.finished !== undefined) {
+      if (!skipNotification && (updateData.decision || updateData.finished !== undefined)) {
         const action = updateData.finished ? "finished" : updateData.decision === "approved" ? "approved" : updateData.decision === "rejected" ? "rejected" : null;
         if (action) {
           await sendProjectNotificationToAllUsers(enrichedProject, action, userRole);
