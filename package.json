@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "prisma:generate": "prisma generate --schema=prisma/auth/schema.prisma && prisma generate --schema=prisma/project/schema.prisma && prisma generate --schema=prisma/monitoring/schema.prisma",
+    "build": "npm run prisma:generate && next build",
     "start": "next start",
     "lint": "eslint"
   },
