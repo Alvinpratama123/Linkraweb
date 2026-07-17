@@ -927,29 +927,12 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
                       <div className={`text-sm font-semibold ${theme === "dark" ? "text-gray-200" : "text-gray-800"} mb-4`}>
                         {activeAttachment.name || activeAttachment.label}
                       </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            const url = activeAttachment.url;
-                            const fileName = url.split('/').pop() || activeAttachment.name || "file";
-                            const res = await fetch(url);
-                            const blob = await res.blob();
-                            const blobUrl = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = blobUrl;
-                            a.download = fileName;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            window.URL.revokeObjectURL(blobUrl);
-                          } catch (err) {
-                            window.open(activeAttachment.url, '_blank');
-                          }
-                        }}
+                      <a
+                        href={`/api/projects/download?file=${encodeURIComponent(activeAttachment.url)}`}
                         className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition"
                       >
                         Unduh {activeAttachment.name || "File"}
-                      </button>
+                      </a>
                     </div>
                   )}
                 </div>
