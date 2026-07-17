@@ -927,7 +927,7 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
                       <div className={`text-sm font-semibold ${theme === "dark" ? "text-gray-200" : "text-gray-800"} mb-4`}>
                         {activeAttachment.name || activeAttachment.label}
                       </div>
-                      <a href={activeAttachment.url} download={activeAttachment.name || "file"} className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition">
+                      <a href={activeAttachment.url} download={(activeAttachment.url || '').split('/').pop() || activeAttachment.name || "file"} className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition">
                         Unduh {activeAttachment.name || "File"}
                       </a>
                     </div>
