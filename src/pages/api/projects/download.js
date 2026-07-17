@@ -10,29 +10,31 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, message: "Method not allowed" });
   }
 
-  const { file } = req.query;
+  const file = req.query.file;
   if (!file) {
-    return res.status(400).json({ success: false, message: "File tidak ditemukan" });
+    return res.status(400).json({ success: false, message: "Param file kosong" });
   }
 
   const uploadsDir = path.resolve(process.cwd(), "public/uploads");
-  let normalized;
+  const cleanFile = file.replace(/^\/+/, "");
+  const normalized = path.resolve(path.join(uploadsDir, cleanFile));
 
-  if (file.startsWith("/uploads/")) {
-    const fileName = file.replace(/^\/uploads\//, "");
-    normalized = path.join(uploadsDir, fileName);
-  } else {
-    normalized = path.join(uploadsDir, file);
-  }
+  console.log("📥 Download request:", { file, cleanFile, normalized, uploadsDir });
 
-  normalized = path.resolve(normalized);
   if (!normalized.startsWith(uploadsDir)) {
     return res.status(403).json({ success: false, message: "Akses ditolak" });
   }
 
   if (!fs.existsSync(normalized)) {
-    console.error("❌ Download: file not found:", normalized);
-    return res.status(404).json({ success: false, message: "File tidak ditemukan di server" });
+    console.error("❌ File tidak ada:", normalized);
+    const files = fs.readdirSync(uploadsDir).filter(f => f.startsWith("mod_"));
+    console.log("📂 Available module files:", files);
+    return res.status(404).json({ 
+      success: false, 
+      message: "File tidak ditemukan di server",
+      requested: normalized,
+      available: files.slice(0, 10)
+    });
   }
 
   const ext = path.extname(normalized).toLowerCase();
@@ -46,14 +48,16 @@ export default async function handler(req, res) {
     ".gif": "image/gif",
     ".webp": "image/webp",
   };
+
   const contentType = mimeMap[ext] || "application/octet-stream";
   const fileName = path.basename(normalized);
+  const fileBuffer = fs.readFileSync(normalized);
+
+  console.log("✅ Downloading:", { fileName, ext, contentType, size: fileBuffer.length });
 
   res.setHeader("Content-Type", contentType);
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-  res.setHeader("Cache-Control", "no-cache");
-
-  const fileBuffer = fs.readFileSync(normalized);
   res.setHeader("Content-Length", fileBuffer.length);
+  res.setHeader("Cache-Control", "no-cache");
   res.end(fileBuffer);
 }

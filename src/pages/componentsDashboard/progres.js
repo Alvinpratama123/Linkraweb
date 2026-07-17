@@ -929,6 +929,7 @@ const RoleDetailModal = ({ role, theme, onClose, onDecision, onAttachmentStatus,
                       </div>
                       <a
                         href={`/api/projects/download?file=${encodeURIComponent(activeAttachment.url || '')}`}
+                        onClick={() => console.log('📥 Download URL:', activeAttachment.url)}
                         className="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition"
                       >
                         Unduh {activeAttachment.name || "File"}
