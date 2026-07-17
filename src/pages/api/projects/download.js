@@ -15,16 +15,23 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, message: "File tidak ditemukan" });
   }
 
-  const decoded = decodeURIComponent(file);
-  const filePath = path.join(process.cwd(), "public", decoded);
-
-  const normalized = path.resolve(filePath);
   const uploadsDir = path.resolve(process.cwd(), "public/uploads");
+  let normalized;
+
+  if (file.startsWith("/uploads/")) {
+    const fileName = file.replace(/^\/uploads\//, "");
+    normalized = path.join(uploadsDir, fileName);
+  } else {
+    normalized = path.join(uploadsDir, file);
+  }
+
+  normalized = path.resolve(normalized);
   if (!normalized.startsWith(uploadsDir)) {
     return res.status(403).json({ success: false, message: "Akses ditolak" });
   }
 
   if (!fs.existsSync(normalized)) {
+    console.error("❌ Download: file not found:", normalized);
     return res.status(404).json({ success: false, message: "File tidak ditemukan di server" });
   }
 
@@ -44,8 +51,9 @@ export default async function handler(req, res) {
 
   res.setHeader("Content-Type", contentType);
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-  res.setHeader("Content-Length", fs.statSync(normalized).size);
+  res.setHeader("Cache-Control", "no-cache");
 
-  const stream = fs.createReadStream(normalized);
-  stream.pipe(res);
+  const fileBuffer = fs.readFileSync(normalized);
+  res.setHeader("Content-Length", fileBuffer.length);
+  res.end(fileBuffer);
 }
