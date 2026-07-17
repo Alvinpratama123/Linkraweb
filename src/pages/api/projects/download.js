@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   const uploadsDir = path.resolve(process.cwd(), "public/uploads");
-  const cleanFile = file.replace(/^\/+/, "");
+  const cleanFile = file.replace(/^\/?uploads\//, "");
   const normalized = path.resolve(path.join(uploadsDir, cleanFile));
 
   console.log("📥 Download request:", { file, cleanFile, normalized, uploadsDir });
