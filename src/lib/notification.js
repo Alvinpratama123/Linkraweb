@@ -414,7 +414,7 @@ export async function sendNotificationToAllUsers({ title, message, type, link, i
       const userRole = user.role?.toLowerCase();
       
       // 🔥 Gunakan buildDashboardLink untuk setiap user
-      const userLink = link ? buildDashboardLink(userRole, 'progress') : null;
+      const userLink = buildDashboardLink(userRole, 'progress');
 
       const notification = await prismaMonitoring.notification.create({
         data: {
