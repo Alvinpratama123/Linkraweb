@@ -147,6 +147,7 @@ export default async function handler(req, res) {
       const progress = parseInt(Array.isArray(fields.progress) ? fields.progress[0] : fields.progress) || 0;
       const imageDescription = Array.isArray(fields.imageDescription) ? fields.imageDescription[0] : fields.imageDescription || "";
       const imageDescription2 = Array.isArray(fields.imageDescription2) ? fields.imageDescription2[0] : fields.imageDescription2 || "";
+      const teamMembers = Array.isArray(fields.teamMembers) ? fields.teamMembers[0] : fields.teamMembers || null;
 
       console.log("📝 Data project:", { 
         name, 
@@ -154,6 +155,7 @@ export default async function handler(req, res) {
         userId, 
         imageDescription, 
         imageDescription2,
+        teamMembers,
         hasImageFile: !!files.imageFile,
         hasModuleFile: !!files.moduleFile
       });
@@ -260,6 +262,7 @@ export default async function handler(req, res) {
         moduleUrl: moduleUrl,
         imageDescription: imageDescription || null,
         imageDescription2: imageDescription2 || null,
+        teamMembers: teamMembers || null,
         userId: userId,
       };
 

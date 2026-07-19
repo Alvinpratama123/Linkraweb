@@ -134,6 +134,7 @@ exports.Prisma.ProjectScalarFieldEnum = {
   imageDescription2: 'imageDescription2',
   imageUrl: 'imageUrl',
   moduleUrl: 'moduleUrl',
+  teamMembers: 'teamMembers',
   userId: 'userId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -171,6 +172,7 @@ exports.Prisma.ProjectOrderByRelevanceFieldEnum = {
   imageDescription2: 'imageDescription2',
   imageUrl: 'imageUrl',
   moduleUrl: 'moduleUrl',
+  teamMembers: 'teamMembers',
   userId: 'userId'
 };
 

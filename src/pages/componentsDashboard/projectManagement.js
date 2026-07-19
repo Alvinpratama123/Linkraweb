@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-export default function UploadProjectPage({ theme, setTheme }) {
+export default function UploadProjectPage({ theme, setTheme, userData }) {
   const [projectName, setProjectName] = useState("");
   const [position, setPosition] = useState("Frontend");
   const [repoLink, setRepoLink] = useState("");
@@ -18,12 +18,35 @@ export default function UploadProjectPage({ theme, setTheme }) {
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
+  const [members, setMembers] = useState([]);
+  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
+
+  const isPM = userData?.role?.toLowerCase() === "pm" || userData?.role?.toLowerCase() === "admin";
+
   useEffect(() => {
     if (!inputDate) {
       const today = new Date().toISOString().slice(0, 10);
       setInputDate(today);
     }
   }, [inputDate]);
+
+  useEffect(() => {
+    if (!isPM) return;
+    const fetchMembers = async () => {
+      try {
+        const res = await fetch("/api/members");
+        const data = await res.json();
+        if (data.success) {
+          setMembers(data.members || []);
+        }
+      } catch (err) {
+        console.error("Gagal fetch members:", err);
+      }
+    };
+    fetchMembers();
+  }, [isPM]);
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -64,6 +87,28 @@ export default function UploadProjectPage({ theme, setTheme }) {
     reader.readAsDataURL(file);
   };
 
+  const toggleMember = (member) => {
+    setSelectedMembers((prev) => {
+      const exists = prev.find((m) => m.id === member.id);
+      if (exists) return prev.filter((m) => m.id !== member.id);
+      return [...prev, member];
+    });
+  };
+
+  const removeMember = (id) => {
+    setSelectedMembers((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const filteredMembers = members.filter((m) => {
+    const search = memberSearch.toLowerCase();
+    return (
+      m.name?.toLowerCase().includes(search) ||
+      m.email?.toLowerCase().includes(search) ||
+      m.position?.toLowerCase().includes(search) ||
+      m.role?.toLowerCase().includes(search)
+    );
+  });
+
   const handleSubmit = async () => {
     setSavedMessage("");
     setErrorMessage("");
@@ -87,6 +132,9 @@ export default function UploadProjectPage({ theme, setTheme }) {
       formData.append("imageDescription2", imageDescription2);
       if (imageFile) formData.append("imageFile", imageFile);
       if (moduleFile) formData.append("moduleFile", moduleFile);
+      if (isPM && selectedMembers.length > 0) {
+        formData.append("teamMembers", JSON.stringify(selectedMembers.map((m) => m.id)));
+      }
 
       const res = await fetch("/api/projects/upload", {
         method: "POST",
@@ -110,6 +158,7 @@ export default function UploadProjectPage({ theme, setTheme }) {
       setImageDescription2("");
       setModuleFile(null);
       setModuleFileName("Belum ada file terpilih");
+      if (isPM) setSelectedMembers([]);
 
     } catch (error) {
       console.error(error);
@@ -310,6 +359,159 @@ export default function UploadProjectPage({ theme, setTheme }) {
               className={`w-full md:w-72 h-12 border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
             />
           </div>
+
+          {/* TIM / TEAM MEMBER (PM ONLY) */}
+          {isPM && (
+            <div className="mb-6">
+              <label className={`block text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
+                PILIH TIM PROJECT
+              </label>
+              <p className={`text-xs mb-3 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                Pilih anggota tim yang akan terlibat dalam project ini (khusus PM)
+              </p>
+
+              {/* Selected Members Chips */}
+              {selectedMembers.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {selectedMembers.map((m) => (
+                    <span
+                      key={m.id}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                        theme === 'dark'
+                          ? 'bg-blue-900/40 text-blue-300 border border-blue-700'
+                          : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      }`}
+                    >
+                      {m.photo ? (
+                        <img src={m.photo} alt="" className="w-4 h-4 rounded-full object-cover" />
+                      ) : (
+                        <span className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] font-bold">
+                          {m.name?.charAt(0)?.toUpperCase()}
+                        </span>
+                      )}
+                      {m.name}
+                      <button
+                        type="button"
+                        onClick={() => removeMember(m.id)}
+                        className="ml-0.5 hover:text-red-400 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Dropdown Search */}
+              <div className="relative">
+                <div
+                  onClick={() => setMemberDropdownOpen(!memberDropdownOpen)}
+                  className={`w-full h-12 border cursor-pointer flex items-center px-4 ${
+                    theme === 'dark'
+                      ? 'border-gray-600 bg-gray-700 text-white'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
+                >
+                  <span className={`flex-1 text-left text-sm ${selectedMembers.length > 0 ? '' : 'text-gray-400'}`}>
+                    {selectedMembers.length > 0
+                      ? `${selectedMembers.length} anggota dipilih`
+                      : "Klik untuk memilih anggota tim..."}
+                  </span>
+                  <svg className={`w-5 h-5 transition-transform ${memberDropdownOpen ? 'rotate-180' : ''} ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+
+                {memberDropdownOpen && (
+                  <div className={`absolute z-20 w-full mt-1 border rounded-xl shadow-lg max-h-64 overflow-hidden ${
+                    theme === 'dark' ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
+                  }`}>
+                    <div className={`p-2 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <input
+                        type="text"
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        placeholder="Cari nama, email, atau posisi..."
+                        className={`w-full h-9 px-3 rounded-lg text-sm border-0 outline-none ${
+                          theme === 'dark'
+                            ? 'bg-gray-700 text-white placeholder-gray-400'
+                            : 'bg-gray-100 text-gray-900 placeholder-gray-500'
+                        }`}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="overflow-y-auto max-h-48">
+                      {filteredMembers.length === 0 ? (
+                        <div className={`px-4 py-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Tidak ada anggota ditemukan
+                        </div>
+                      ) : (
+                        filteredMembers.map((member) => {
+                          const isSelected = selectedMembers.some((m) => m.id === member.id);
+                          return (
+                            <button
+                              key={member.id}
+                              type="button"
+                              onClick={() => toggleMember(member)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                                isSelected
+                                  ? theme === 'dark'
+                                    ? 'bg-blue-900/30'
+                                    : 'bg-blue-50'
+                                  : theme === 'dark'
+                                    ? 'hover:bg-gray-700'
+                                    : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex-shrink-0">
+                                {member.photo ? (
+                                  <img src={member.photo} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                                    {member.name?.charAt(0)?.toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium truncate ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                                  {member.name}
+                                </p>
+                                <p className={`text-xs truncate ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  {member.position || member.role || member.email}
+                                </p>
+                              </div>
+                              <div className="flex-shrink-0">
+                                {isSelected ? (
+                                  <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  <div className={`w-5 h-5 rounded-full border-2 ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'}`} />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                    <div className={`p-2 border-t flex justify-end ${theme === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <button
+                        type="button"
+                        onClick={() => { setMemberDropdownOpen(false); setMemberSearch(""); }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          theme === 'dark'
+                            ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                        }`}
+                      >
+                        Selesai
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 🔥 INFO PROGRESS OTOMATIS */}
           <div className={`mb-10 p-4 rounded-xl border ${theme === 'dark' ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'}`}>

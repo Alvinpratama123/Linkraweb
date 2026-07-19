@@ -175,6 +175,10 @@ const config = {
         "fromEnvVar": null,
         "value": "windows",
         "native": true
+      },
+      {
+        "fromEnvVar": null,
+        "value": "debian-openssl-3.0.x"
       }
     ],
     "previewFeatures": [],
@@ -192,6 +196,7 @@ const config = {
     "db"
   ],
   "activeProvider": "mysql",
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
@@ -200,8 +205,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../../src/generated/prisma-auth\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_AUTH_URL\")\n}\n\n// ============================================\n// USER MODEL\n// ============================================\nmodel User {\n  id                  String   @id @default(cuid())\n  email               String   @unique\n  password            String\n  name                String\n  role                String   @default(\"member\")\n  position            String?\n  profile             String?\n  photo               String?\n  isVerified          Boolean  @default(true)\n  canApprove          Boolean  @default(false)\n  credentialEmailSent Boolean  @default(false)\n  createdAt           DateTime @default(now())\n  updatedAt           DateTime @updatedAt\n\n  passwordResets PasswordResetToken[]\n\n  @@index([email])\n  @@index([role])\n}\n\n// ============================================\n// PASSWORD RESET TOKEN MODEL\n// ============================================\nmodel PasswordResetToken {\n  id        String    @id @default(cuid())\n  email     String\n  code      String\n  expiresAt DateTime\n  used      Boolean   @default(false)\n  usedAt    DateTime?\n  createdAt DateTime  @default(now())\n\n  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)\n  userId String?\n\n  @@index([email])\n  @@index([code])\n  @@index([used])\n  @@index([userId])\n}\n",
-  "inlineSchemaHash": "03839a1946bb5d2a38b4600b26261d02fefac7050d0019cf4822c7b46c09ef86",
+  "inlineSchema": "generator client {\n  provider      = \"prisma-client-js\"\n  output        = \"../../src/generated/prisma-auth\"\n  binaryTargets = [\"native\", \"debian-openssl-3.0.x\"]\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_AUTH_URL\")\n}\n\n// ============================================\n// USER MODEL\n// ============================================\nmodel User {\n  id                  String   @id @default(cuid())\n  email               String   @unique\n  password            String\n  name                String\n  role                String   @default(\"member\")\n  position            String?\n  profile             String?\n  photo               String?\n  isVerified          Boolean  @default(true)\n  canApprove          Boolean  @default(false)\n  credentialEmailSent Boolean  @default(false)\n  createdAt           DateTime @default(now())\n  updatedAt           DateTime @updatedAt\n\n  passwordResets PasswordResetToken[]\n\n  @@index([email])\n  @@index([role])\n}\n\n// ============================================\n// PASSWORD RESET TOKEN MODEL\n// ============================================\nmodel PasswordResetToken {\n  id        String    @id @default(cuid())\n  email     String\n  code      String\n  expiresAt DateTime\n  used      Boolean   @default(false)\n  usedAt    DateTime?\n  createdAt DateTime  @default(now())\n\n  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)\n  userId String?\n\n  @@index([email])\n  @@index([code])\n  @@index([used])\n  @@index([userId])\n}\n",
+  "inlineSchemaHash": "0075269104b2f9e6e70cb980171bed962a0c0db3195bee6a686bc38b2db068f4",
   "copyEngine": true
 }
 config.dirname = '/'

@@ -191,15 +191,12 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
         method: 'DELETE',
         credentials: 'include',
       });
+      if (res.status === 401) return;
       const data = await res.json();
       if (data.success && data.deletedCount > 0) {
-        console.log(`🗑️ ${data.deletedCount} notifikasi lama dihapus`);
-        // Refresh notifikasi
         await fetchNotifications();
       }
-    } catch (error) {
-      console.error('Cleanup notifications error:', error);
-    }
+    } catch (_) {}
   };
 
   // ─── CLOSE NOTIFICATION ON CLICK OUTSIDE ──────────────────

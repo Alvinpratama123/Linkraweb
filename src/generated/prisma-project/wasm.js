@@ -106,6 +106,7 @@ exports.Prisma.ProjectScalarFieldEnum = {
   imageDescription2: 'imageDescription2',
   imageUrl: 'imageUrl',
   moduleUrl: 'moduleUrl',
+  teamMembers: 'teamMembers',
   userId: 'userId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -143,6 +144,7 @@ exports.Prisma.ProjectOrderByRelevanceFieldEnum = {
   imageDescription2: 'imageDescription2',
   imageUrl: 'imageUrl',
   moduleUrl: 'moduleUrl',
+  teamMembers: 'teamMembers',
   userId: 'userId'
 };
 
@@ -182,6 +184,10 @@ const config = {
         "fromEnvVar": null,
         "value": "windows",
         "native": true
+      },
+      {
+        "fromEnvVar": null,
+        "value": "debian-openssl-3.0.x"
       }
     ],
     "previewFeatures": [],
@@ -207,13 +213,13 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../../src/generated/prisma-project\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_PROJECT_URL\")\n}\n\n// ============================================\n// PROJECT MODEL\n// Relasi ke User di auth_db dijaga manual\n// (userId = String biasa, tanpa @relation)\n// ============================================\nmodel Project {\n  id       String   @id @default(cuid())\n  name     String\n  position String\n  repoLink String?\n  date     DateTime @default(now())\n  progress Int      @default(0)\n  decision String   @default(\"pending\")\n  finished Boolean  @default(false)\n\n  imageDescription  String?\n  imageDescription2 String?\n  imageUrl          String?\n  moduleUrl         String?\n\n  userId    String\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  attachments Attachment[]\n\n  @@unique([name, userId])\n  @@index([userId])\n  @@index([decision])\n  @@index([createdAt])\n}\n\n// ============================================\n// ATTACHMENT MODEL\n// ============================================\nmodel Attachment {\n  id                      Int      @id @default(autoincrement())\n  projectId               String\n  type                    String\n  name                    String\n  url                     String\n  status                  String   @default(\"pending\")\n  description             String?\n  isAdditionalDescription Boolean? @default(false)\n  createdAt               DateTime @default(now())\n\n  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)\n\n  @@index([projectId])\n  @@index([status])\n}\n",
-  "inlineSchemaHash": "6fb129879f60083e1bcc5491d50744ba346bd87e981900b56e69205b5d7b35bd",
+  "inlineSchema": "generator client {\n  provider      = \"prisma-client-js\"\n  output        = \"../../src/generated/prisma-project\"\n  binaryTargets = [\"native\", \"debian-openssl-3.0.x\"]\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_PROJECT_URL\")\n}\n\n// ============================================\n// PROJECT MODEL\n// Relasi ke User di auth_db dijaga manual\n// (userId = String biasa, tanpa @relation)\n// ============================================\nmodel Project {\n  id       String   @id @default(cuid())\n  name     String\n  position String\n  repoLink String?\n  date     DateTime @default(now())\n  progress Int      @default(0)\n  decision String   @default(\"pending\")\n  finished Boolean  @default(false)\n\n  imageDescription  String?\n  imageDescription2 String?\n  imageUrl          String?\n  moduleUrl         String?\n  teamMembers       String?\n\n  userId    String\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  attachments Attachment[]\n\n  @@unique([name, userId])\n  @@index([userId])\n  @@index([decision])\n  @@index([createdAt])\n}\n\n// ============================================\n// ATTACHMENT MODEL\n// ============================================\nmodel Attachment {\n  id                      Int      @id @default(autoincrement())\n  projectId               String\n  type                    String\n  name                    String\n  url                     String\n  status                  String   @default(\"pending\")\n  description             String?\n  isAdditionalDescription Boolean? @default(false)\n  createdAt               DateTime @default(now())\n\n  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)\n\n  @@index([projectId])\n  @@index([status])\n}\n",
+  "inlineSchemaHash": "15de1fd95766e04bd0eadc19649172b0e1c722b99dc81b2608dd5762571ca99e",
   "copyEngine": true
 }
 config.dirname = '/'
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"Project\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"position\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"repoLink\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"date\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"progress\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"decision\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"finished\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"imageDescription\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"imageDescription2\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"imageUrl\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"moduleUrl\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"attachments\",\"kind\":\"object\",\"type\":\"Attachment\",\"relationName\":\"AttachmentToProject\"}],\"dbName\":null},\"Attachment\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"projectId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"type\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isAdditionalDescription\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"project\",\"kind\":\"object\",\"type\":\"Project\",\"relationName\":\"AttachmentToProject\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"Project\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"position\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"repoLink\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"date\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"progress\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"decision\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"finished\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"imageDescription\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"imageDescription2\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"imageUrl\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"moduleUrl\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"teamMembers\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"attachments\",\"kind\":\"object\",\"type\":\"Attachment\",\"relationName\":\"AttachmentToProject\"}],\"dbName\":null},\"Attachment\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"projectId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"type\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isAdditionalDescription\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"project\",\"kind\":\"object\",\"type\":\"Project\",\"relationName\":\"AttachmentToProject\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
 defineDmmfProperty(exports.Prisma, config.runtimeDataModel)
 config.engineWasm = {
   getRuntime: async () => require('./query_engine_bg.js'),

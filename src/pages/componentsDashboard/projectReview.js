@@ -1075,9 +1075,21 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
       const matchesDate = !filterDate || project.date === filterDate;
-      return matchesDate;
+
+      if (isAdmin) return matchesDate;
+
+      if (project.userId === userData?.id) return matchesDate;
+
+      if (project.teamMembers) {
+        try {
+          const ids = JSON.parse(project.teamMembers);
+          if (Array.isArray(ids) && ids.includes(userData?.id)) return matchesDate;
+        } catch {}
+      }
+
+      return false;
     });
-  }, [projects, filterDate]);
+  }, [projects, filterDate, isAdmin, userData?.id]);
 
   const modules = useMemo(() => {
     const map = new Map();
@@ -1184,21 +1196,6 @@ function Progres({ theme, setTheme, userData, selectedProject }) {
             notifType,
             role.name
           );
-        }
-        
-        // 🔥 3. Kirim notifikasi ke ALL MEMBERS yang terlibat dalam project ini
-        const allRolesInProject = projects.filter(p => p.name === role.name);
-        for (const r of allRolesInProject) {
-          if (r.user?.id && r.user.id !== role.user?.id && r.user.id !== userData?.id) {
-            console.log(`📢 [Progres] Sending notification to other member ${r.user.id} in same project`);
-            await addNotificationToMember(
-              r.user.id,
-              `${statusIcon} Update Project ${decisionLabel}`,
-              `Project "${role.name}" telah di-${statusLabel} oleh admin`,
-              notifType,
-              role.name
-            );
-          }
         }
       }
     } catch (error) {

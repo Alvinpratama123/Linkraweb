@@ -3,7 +3,7 @@
 
 // Halaman dashboard member (non-admin).
 // Alur: fetch data user dari /api/auth/me → jika admin, redirect ke admin dashboard
-// → sidebar dengan 3 grup menu (Dashboard, Project Management, Report & Analytics)
+// → sidebar dengan 3 grup menu (Dashboard, Project Management, Reports)
 //   — TIDAK ada menu User Management
 // → penanganan notifikasi dan URL params sama seperti admin
 // → render komponen berdasarkan selectedMenu
@@ -30,10 +30,10 @@ import toast, { Toaster } from "react-hot-toast";
 
 // Components
 import Dashboard from "../componentsDashboard/dashboard";
-import UploadProjectPage from "../componentsDashboard/project";
-import Progres from "../componentsDashboard/progres";
-import Revision from "../componentsDashboard/revision";
-import Analytics from "../componentsDashboard/analytics";
+import UploadProjectPage from "../componentsDashboard/projectManagement";
+import Progres from "../componentsDashboard/projectReview";
+import Revision from "../componentsDashboard/issues";
+import Analytics from "../componentsDashboard/reports";
 import Profile from "../settings/profile";
 import SettingsTema from "../settings/settingsTema";
 
@@ -87,10 +87,10 @@ export default function MembersDashboard() {
 
     const tabMap = {
       dashboard: 'Dashboard',
-      projects: 'Projects',
-      progress: 'Progress',
-      revision: 'Revision Issues',
-      analytics: 'Analytics',
+      projects: 'Project Management',
+      progress: 'Project Review',
+      revision: 'Issues',
+      analytics: 'Reports',
       profile: 'Settings Profile',
       settings: 'Settings Profile',
       theme: 'Settings Tema',
@@ -101,7 +101,7 @@ export default function MembersDashboard() {
       console.log(`📋 [MemberDashboard] Setting selected menu to: ${tabMap[tab]}`);
       setSelectedMenu(tabMap[tab]);
     } else if (tab === 'progress') {
-      setSelectedMenu('Progress');
+      setSelectedMenu('Project Review');
     }
 
     // 🔥 Set project jika ada
@@ -287,12 +287,12 @@ export default function MembersDashboard() {
       clearAllStorage();
       setUserData(null);
       toast.success("Logout berhasil!", { id: "logout" });
-      router.push("/components/login");
+      router.push("/");
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Terjadi kesalahan saat logout", { id: "logout" });
       clearAllStorage();
-      router.push("/components/login");
+      router.push("/");
     } finally {
       setLoggingOut(false);
     }
@@ -308,15 +308,15 @@ export default function MembersDashboard() {
     {
       title: "MENU PROJECT MANAGEMENT",
       items: [
-        { icon: <MdFolder size={22} />, label: "Projects" },
-        { icon: <MdTask size={22} />, label: "Progress" },
-        { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
+        { icon: <MdFolder size={22} />, label: "Project Management" },
+        { icon: <MdTask size={22} />, label: "Project Review" },
+        { icon: <RiGitPullRequestLine size={22} />, label: "Issues" },
       ],
     },
     {
-      title: "MENU REPORT & ANALYTICS",
+      title: "MENU REPORTS",
       items: [
-        { icon: <MdAnalytics size={22} />, label: "Analytics" },
+        { icon: <MdAnalytics size={22} />, label: "Reports" },
       ],
     },
   ];
@@ -329,11 +329,11 @@ export default function MembersDashboard() {
   // 🔥 Mapping label menu ke URL tab param
   const menuToTab = {
     Dashboard: "dashboard",
-    Projects: "projects",
-    Progress: "progress",
-    "Revision Issues": "revision",
-    "MEMBER & MODUL": "members",
-    Analytics: "analytics",
+    "Project Management": "projects",
+    "Project Review": "progress",
+    Issues: "revision",
+    "Team Management": "members",
+    Reports: "analytics",
     "Settings Profile": "profile",
     "Settings Tema": "theme",
   };
@@ -410,7 +410,7 @@ export default function MembersDashboard() {
                 {(!collapsed || isMobile) && (
                   <span className="flex-1 text-left">{menu.label}</span>
                 )}
-                {(!collapsed || isMobile) && menu.label === "Progress" && notificationCount > 0 && (
+                {(!collapsed || isMobile) && menu.label === "Project Review" && notificationCount > 0 && (
                   <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                     {notificationCount}
                   </span>
@@ -593,7 +593,7 @@ export default function MembersDashboard() {
           {selectedMenu === "Dashboard" && (
             <Dashboard userData={userData} theme={theme} />
           )}
-          {selectedMenu === "Progress" && (
+          {selectedMenu === "Project Review" && (
             <Progres 
               theme={theme} 
               setTheme={setTheme} 
@@ -602,7 +602,7 @@ export default function MembersDashboard() {
               key={`progress-${refreshKey}`}
             />
           )}
-          {selectedMenu === "Revision Issues" && (
+          {selectedMenu === "Issues" && (
             <Revision
               userRole={userData?.role || "FRONTEND"}
               userName={userData?.name || "User"}
@@ -610,11 +610,11 @@ export default function MembersDashboard() {
               setTheme={setTheme}
             />
           )}
-          {selectedMenu === "Analytics" && (
+          {selectedMenu === "Reports" && (
             <Analytics theme={theme} setTheme={setTheme} />
           )}
-          {selectedMenu === "Projects" && (
-            <UploadProjectPage theme={theme} setTheme={setTheme} />
+          {selectedMenu === "Project Management" && (
+            <UploadProjectPage theme={theme} setTheme={setTheme} userData={userData} />
           )}
           {selectedMenu === "Settings Profile" && (
             <Profile

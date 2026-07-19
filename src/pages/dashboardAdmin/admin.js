@@ -3,8 +3,8 @@
 
 // Halaman utama dashboard admin.
 // Alur: fetch data user dari /api/auth/me → jika bukan admin, redirect ke member dashboard
-// → sidebar dengan menu berkelompok (Dashboard, Project Management, User Management,
-//   Report & Analytics, Settings) → render komponen berdasarkan selectedMenu
+// → sidebar dengan menu berkelompok (Dashboard, Project Management, Team Management,
+//   Reports, Settings) → render komponen berdasarkan selectedMenu
 // → polling jumlah notifikasi setiap 30 detik
 // → mendukung URL params (tab, project, refresh) untuk deep linking dari notifikasi
 // → fungsi refreshData mengirim custom event ke komponen anak
@@ -32,11 +32,11 @@ import toast, { Toaster } from "react-hot-toast";
 
 // Components
 import Dashboard from "../componentsDashboard/dashboard";
-import UploadProjectPage from "../componentsDashboard/project";
-import Progres from "../componentsDashboard/progres";
-import Revision from "../componentsDashboard/revision";
-import Analytics from "../componentsDashboard/analytics";
-import MembersModul from "../componentsDashboard/membersModul";
+import UploadProjectPage from "../componentsDashboard/projectManagement";
+import Progres from "../componentsDashboard/projectReview";
+import Revision from "../componentsDashboard/issues";
+import Analytics from "../componentsDashboard/reports";
+import MembersModul from "../componentsDashboard/teamManagement";
 import Profile from "../settings/profile";
 import SettingsTema from "../settings/settingsTema";
 
@@ -90,11 +90,11 @@ export default function DashboardAdmin() {
 
     const tabMap = {
       dashboard: 'Dashboard',
-      projects: 'Projects',
-      progress: 'Progress',
-      revision: 'Revision Issues',
-      members: 'Member & Modul',
-      analytics: 'Analytics',
+      projects: 'Project Management',
+      progress: 'Project Review',
+      revision: 'Issues',
+      members: 'Team Management',
+      analytics: 'Reports',
       profile: 'Settings Profile',
       settings: 'Settings Profile',
       theme: 'Settings Tema',
@@ -105,7 +105,7 @@ export default function DashboardAdmin() {
       console.log(`📋 [DashboardAdmin] Setting selected menu to: ${tabMap[tab]}`);
       setSelectedMenu(tabMap[tab]);
     } else if (tab === 'progress') {
-      setSelectedMenu('Progress');
+      setSelectedMenu('Project Review');
     }
 
     // 🔥 Set project jika ada
@@ -310,21 +310,21 @@ export default function DashboardAdmin() {
     {
       title: "MENU PROJECT MANAGEMENT",
       items: [
-        { icon: <MdFolder size={22} />, label: "Projects" },
-        { icon: <MdTask size={22} />, label: "Progress" },
-        { icon: <RiGitPullRequestLine size={22} />, label: "Revision Issues" },
+        { icon: <MdFolder size={22} />, label: "Project Management" },
+        { icon: <MdTask size={22} />, label: "Project Review" },
+        { icon: <RiGitPullRequestLine size={22} />, label: "Issues" },
       ],
     },
     {
-      title: "MENU USER MANAGEMENT",
+      title: "MENU TEAM MANAGEMENT",
       items: [
-        { icon: <MdPeople size={22} />, label: "Member & Modul" },
+        { icon: <MdPeople size={22} />, label: "Team Management" },
       ],
     },
     {
-      title: "MENU REPORT & ANALYTICS",
+      title: "MENU REPORTS",
       items: [
-        { icon: <MdAnalytics size={22} />, label: "Analytics" },
+        { icon: <MdAnalytics size={22} />, label: "Reports" },
       ],
     },
   ];
@@ -337,11 +337,11 @@ export default function DashboardAdmin() {
   // 🔥 Mapping label menu ke URL tab param
   const menuToTab = {
     Dashboard: "dashboard",
-    Projects: "projects",
-    Progress: "progress",
-    "Revision Issues": "revision",
-    "Member & Modul": "members",
-    Analytics: "analytics",
+    "Project Management": "projects",
+    "Project Review": "progress",
+    Issues: "revision",
+    "Team Management": "members",
+    Reports: "analytics",
     "Settings Profile": "profile",
     "Settings Tema": "theme",
   };
@@ -417,7 +417,7 @@ export default function DashboardAdmin() {
                 {(!collapsed || isMobile) && (
                   <span className="flex-1 text-left">{menu.label}</span>
                 )}
-                {(!collapsed || isMobile) && menu.label === "Progress" && notificationCount > 0 && (
+                {(!collapsed || isMobile) && menu.label === "Project Review" && notificationCount > 0 && (
                   <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                     {notificationCount}
                   </span>
@@ -595,10 +595,10 @@ export default function DashboardAdmin() {
             {selectedMenu === "Dashboard" && (
               <Dashboard userData={userData} theme={theme} />
             )}
-            {selectedMenu === "Projects" && (
-              <UploadProjectPage theme={theme} />
+            {selectedMenu === "Project Management" && (
+              <UploadProjectPage theme={theme} userData={userData} />
             )}
-            {selectedMenu === "Progress" && (
+            {selectedMenu === "Project Review" && (
               <Progres 
                 theme={theme} 
                 setTheme={setTheme} 
@@ -607,17 +607,17 @@ export default function DashboardAdmin() {
                 key={`progress-${refreshKey}`}
               />
             )}
-            {selectedMenu === "Revision Issues" && (
+            {selectedMenu === "Issues" && (
               <Revision
                 userRole={userData?.role || "ADMIN"}
                 userName={userData?.name || "Administrator"}
                 theme={theme}
               />
             )}
-            {selectedMenu === "Member & Modul" && (
+            {selectedMenu === "Team Management" && (
               <MembersModul theme={theme} />
             )}
-            {selectedMenu === "Analytics" && <Analytics theme={theme} />}
+            {selectedMenu === "Reports" && <Analytics theme={theme} />}
             {selectedMenu === "Settings Profile" && (
               <Profile
                 userData={userData}

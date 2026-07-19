@@ -999,6 +999,7 @@ export namespace Prisma {
     imageDescription2: string | null
     imageUrl: string | null
     moduleUrl: string | null
+    teamMembers: string | null
     userId: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -1017,6 +1018,7 @@ export namespace Prisma {
     imageDescription2: string | null
     imageUrl: string | null
     moduleUrl: string | null
+    teamMembers: string | null
     userId: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -1035,6 +1037,7 @@ export namespace Prisma {
     imageDescription2: number
     imageUrl: number
     moduleUrl: number
+    teamMembers: number
     userId: number
     createdAt: number
     updatedAt: number
@@ -1063,6 +1066,7 @@ export namespace Prisma {
     imageDescription2?: true
     imageUrl?: true
     moduleUrl?: true
+    teamMembers?: true
     userId?: true
     createdAt?: true
     updatedAt?: true
@@ -1081,6 +1085,7 @@ export namespace Prisma {
     imageDescription2?: true
     imageUrl?: true
     moduleUrl?: true
+    teamMembers?: true
     userId?: true
     createdAt?: true
     updatedAt?: true
@@ -1099,6 +1104,7 @@ export namespace Prisma {
     imageDescription2?: true
     imageUrl?: true
     moduleUrl?: true
+    teamMembers?: true
     userId?: true
     createdAt?: true
     updatedAt?: true
@@ -1204,6 +1210,7 @@ export namespace Prisma {
     imageDescription2: string | null
     imageUrl: string | null
     moduleUrl: string | null
+    teamMembers: string | null
     userId: string
     createdAt: Date
     updatedAt: Date
@@ -1241,6 +1248,7 @@ export namespace Prisma {
     imageDescription2?: boolean
     imageUrl?: boolean
     moduleUrl?: boolean
+    teamMembers?: boolean
     userId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -1263,12 +1271,13 @@ export namespace Prisma {
     imageDescription2?: boolean
     imageUrl?: boolean
     moduleUrl?: boolean
+    teamMembers?: boolean
     userId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ProjectOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "position" | "repoLink" | "date" | "progress" | "decision" | "finished" | "imageDescription" | "imageDescription2" | "imageUrl" | "moduleUrl" | "userId" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+  export type ProjectOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "position" | "repoLink" | "date" | "progress" | "decision" | "finished" | "imageDescription" | "imageDescription2" | "imageUrl" | "moduleUrl" | "teamMembers" | "userId" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
   export type ProjectInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     attachments?: boolean | Project$attachmentsArgs<ExtArgs>
     _count?: boolean | ProjectCountOutputTypeDefaultArgs<ExtArgs>
@@ -1292,6 +1301,7 @@ export namespace Prisma {
       imageDescription2: string | null
       imageUrl: string | null
       moduleUrl: string | null
+      teamMembers: string | null
       userId: string
       createdAt: Date
       updatedAt: Date
@@ -1677,6 +1687,7 @@ export namespace Prisma {
     readonly imageDescription2: FieldRef<"Project", 'String'>
     readonly imageUrl: FieldRef<"Project", 'String'>
     readonly moduleUrl: FieldRef<"Project", 'String'>
+    readonly teamMembers: FieldRef<"Project", 'String'>
     readonly userId: FieldRef<"Project", 'String'>
     readonly createdAt: FieldRef<"Project", 'DateTime'>
     readonly updatedAt: FieldRef<"Project", 'DateTime'>
@@ -3099,6 +3110,7 @@ export namespace Prisma {
     imageDescription2: 'imageDescription2',
     imageUrl: 'imageUrl',
     moduleUrl: 'moduleUrl',
+    teamMembers: 'teamMembers',
     userId: 'userId',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
@@ -3148,6 +3160,7 @@ export namespace Prisma {
     imageDescription2: 'imageDescription2',
     imageUrl: 'imageUrl',
     moduleUrl: 'moduleUrl',
+    teamMembers: 'teamMembers',
     userId: 'userId'
   };
 
@@ -3225,6 +3238,7 @@ export namespace Prisma {
     imageDescription2?: StringNullableFilter<"Project"> | string | null
     imageUrl?: StringNullableFilter<"Project"> | string | null
     moduleUrl?: StringNullableFilter<"Project"> | string | null
+    teamMembers?: StringNullableFilter<"Project"> | string | null
     userId?: StringFilter<"Project"> | string
     createdAt?: DateTimeFilter<"Project"> | Date | string
     updatedAt?: DateTimeFilter<"Project"> | Date | string
@@ -3244,6 +3258,7 @@ export namespace Prisma {
     imageDescription2?: SortOrderInput | SortOrder
     imageUrl?: SortOrderInput | SortOrder
     moduleUrl?: SortOrderInput | SortOrder
+    teamMembers?: SortOrderInput | SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -3268,6 +3283,7 @@ export namespace Prisma {
     imageDescription2?: StringNullableFilter<"Project"> | string | null
     imageUrl?: StringNullableFilter<"Project"> | string | null
     moduleUrl?: StringNullableFilter<"Project"> | string | null
+    teamMembers?: StringNullableFilter<"Project"> | string | null
     userId?: StringFilter<"Project"> | string
     createdAt?: DateTimeFilter<"Project"> | Date | string
     updatedAt?: DateTimeFilter<"Project"> | Date | string
@@ -3287,6 +3303,7 @@ export namespace Prisma {
     imageDescription2?: SortOrderInput | SortOrder
     imageUrl?: SortOrderInput | SortOrder
     moduleUrl?: SortOrderInput | SortOrder
+    teamMembers?: SortOrderInput | SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -3313,6 +3330,7 @@ export namespace Prisma {
     imageDescription2?: StringNullableWithAggregatesFilter<"Project"> | string | null
     imageUrl?: StringNullableWithAggregatesFilter<"Project"> | string | null
     moduleUrl?: StringNullableWithAggregatesFilter<"Project"> | string | null
+    teamMembers?: StringNullableWithAggregatesFilter<"Project"> | string | null
     userId?: StringWithAggregatesFilter<"Project"> | string
     createdAt?: DateTimeWithAggregatesFilter<"Project"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Project"> | Date | string
@@ -3409,6 +3427,7 @@ export namespace Prisma {
     imageDescription2?: string | null
     imageUrl?: string | null
     moduleUrl?: string | null
+    teamMembers?: string | null
     userId: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -3428,6 +3447,7 @@ export namespace Prisma {
     imageDescription2?: string | null
     imageUrl?: string | null
     moduleUrl?: string | null
+    teamMembers?: string | null
     userId: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -3447,6 +3467,7 @@ export namespace Prisma {
     imageDescription2?: NullableStringFieldUpdateOperationsInput | string | null
     imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
     moduleUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    teamMembers?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -3466,6 +3487,7 @@ export namespace Prisma {
     imageDescription2?: NullableStringFieldUpdateOperationsInput | string | null
     imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
     moduleUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    teamMembers?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -3485,6 +3507,7 @@ export namespace Prisma {
     imageDescription2?: string | null
     imageUrl?: string | null
     moduleUrl?: string | null
+    teamMembers?: string | null
     userId: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -3503,6 +3526,7 @@ export namespace Prisma {
     imageDescription2?: NullableStringFieldUpdateOperationsInput | string | null
     imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
     moduleUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    teamMembers?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -3521,6 +3545,7 @@ export namespace Prisma {
     imageDescription2?: NullableStringFieldUpdateOperationsInput | string | null
     imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
     moduleUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    teamMembers?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -3702,6 +3727,7 @@ export namespace Prisma {
     imageDescription2?: SortOrder
     imageUrl?: SortOrder
     moduleUrl?: SortOrder
+    teamMembers?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -3724,6 +3750,7 @@ export namespace Prisma {
     imageDescription2?: SortOrder
     imageUrl?: SortOrder
     moduleUrl?: SortOrder
+    teamMembers?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -3742,6 +3769,7 @@ export namespace Prisma {
     imageDescription2?: SortOrder
     imageUrl?: SortOrder
     moduleUrl?: SortOrder
+    teamMembers?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -4218,6 +4246,7 @@ export namespace Prisma {
     imageDescription2?: string | null
     imageUrl?: string | null
     moduleUrl?: string | null
+    teamMembers?: string | null
     userId: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -4236,6 +4265,7 @@ export namespace Prisma {
     imageDescription2?: string | null
     imageUrl?: string | null
     moduleUrl?: string | null
+    teamMembers?: string | null
     userId: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -4270,6 +4300,7 @@ export namespace Prisma {
     imageDescription2?: NullableStringFieldUpdateOperationsInput | string | null
     imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
     moduleUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    teamMembers?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -4288,6 +4319,7 @@ export namespace Prisma {
     imageDescription2?: NullableStringFieldUpdateOperationsInput | string | null
     imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
     moduleUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    teamMembers?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string

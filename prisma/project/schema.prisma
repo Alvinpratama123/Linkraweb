@@ -28,6 +28,7 @@ model Project {
   imageDescription2 String?
   imageUrl          String?
   moduleUrl         String?
+  teamMembers       String?
 
   userId      String
   createdAt   DateTime @default(now())
