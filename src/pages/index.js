@@ -4,13 +4,16 @@
 // ALUR EKSEKUSI:
 // 1. Halaman publik — TIDAK memerlukan login/autentikasi
 // 2. Menampilkan informasi perusahaan, layanan, teknologi, dan kontak
-// 3. Terdapat tombol LOGIN (→ /components/login)
+// 3. Terdapat tombol LOGIN / Dashboard (bergantung status auth)
 // 4. TIDAK ada tombol Register — pendaftaran akun hanya dilakukan oleh admin
 // 5. Navbar berubah transparan → putih saat user scroll ke bawah
-// 6. Bagian utama: Navbar → Hero → About → Services → Technology → Footer
+// 6. Bagian utama: Navbar → Hero → About → Projects & Progress → Profile Teams → Footer
+// 7. Navbar links smooth-scroll ke section masing-masing
+// 8. Section Projects & Progress menampilkan grafik data real dari /api/stats/public
+// 9. Mendukung dark mode — toggle di navbar, tersimpan di localStorage
 // ============================================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Globe,
@@ -27,10 +30,35 @@ import {
   Users,
   Clock,
   ChevronRight,
+  FolderOpen,
+  TrendingUp,
+  CheckCircle2,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 export default function PTLintasWahanaLanding() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [projectStats, setProjectStats] = useState(null);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("lw-theme") === "dark";
+    }
+    return false;
+  });
+
+  const aboutRef = useRef(null);
+  const projectsRef = useRef(null);
+  const profileRef = useRef(null);
+  const contactRef = useRef(null);
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    localStorage.setItem("lw-theme", next ? "dark" : "light");
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -40,55 +68,68 @@ export default function PTLintasWahanaLanding() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const services = [
-    {
-      title: "Software Development",
-      desc: "Custom enterprise solutions with scalable architecture and cutting-edge technology.",
-      icon: <Cpu size={28} />,
-      color: "from-blue-500 to-cyan-500",
-    },
-    {
-      title: "Internet of Things (IoT)",
-      desc: "Reliable server and network monitoring solutions with 99.9% uptime guarantee.",
-      icon: <Database size={28} />,
-      color: "from-purple-500 to-pink-500",
-    },
-    {
-      title: "Data Analytics",
-      desc: "Helping businesses transform through technology and digital innovation.",
-      icon: <BarChart3 size={28} />,
-      color: "from-orange-500 to-red-500",
-    },
-    {
-      title: "UI/UX Design",
-      desc: "Advanced protection for critical company systems with military-grade encryption.",
-      icon: <ShieldCheck size={28} />,
-      color: "from-green-500 to-emerald-500",
-    },
-  ];
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          setIsLoggedIn(true);
+          setUserRole(data.user.role);
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch {
+        setIsLoggedIn(false);
+      }
+    };
+    checkAuth();
+  }, []);
 
-  const stats = [
-    { number: "150+", label: "Projects Completed", icon: <CheckCircle size={24} /> },
-    { number: "98.9%", label: "Client Satisfaction", icon: <Award size={24} /> },
-    { number: "24/7", label: "Support Service", icon: <Clock size={24} /> },
-    { number: "50+", label: "Expert Teams", icon: <Users size={24} /> },
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("/api/stats/public");
+        const data = await res.json();
+        if (data.success) setProjectStats(data.stats);
+      } catch {}
+    };
+    fetchStats();
+  }, []);
+
+  const getDashboardPath = () => {
+    if (userRole === "ADMIN") return "/dashboardAdmin/admin";
+    return "/memberDashboard/MemberDashboard";
+  };
+
+  const scrollTo = (ref) => {
+    ref.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const navLinks = [
+    { label: "About", ref: aboutRef },
+    { label: "Projects", ref: projectsRef },
+    { label: "Profile", ref: profileRef },
+    { label: "Contact", ref: contactRef },
   ];
 
   return (
-    <div className="bg-[#f5f7fb] text-gray-900 font-sans overflow-x-hidden">
+    <div className={`${isDark ? "bg-slate-950 text-gray-100" : "bg-[#f5f7fb] text-gray-900"} font-sans overflow-x-hidden transition-colors duration-300`}>
       {/* ─── NAVBAR ────────────────────────────────────────────── */}
-      {/* Navbar tetap di atas (fixed). Logo kiri, navigasi tengah, tombol Login kanan */}
       <header
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
-            ? "bg-white/95 backdrop-blur-md shadow-xl py-3"
-            : "bg-white shadow-sm py-5"
+            ? isDark
+              ? "bg-slate-900/95 backdrop-blur-md shadow-xl py-3"
+              : "bg-white/95 backdrop-blur-md shadow-xl py-3"
+            : isDark
+              ? "bg-slate-900 shadow-sm py-5"
+              : "bg-white shadow-sm py-5"
         }`}
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          {/* ─── LOGO ────────────────────────────────────────── */}
           <div className="flex items-center gap-2 group cursor-pointer flex-shrink-0">
-            <div className="block text-blue-700 font-bold text-lg md:text-xl leading-tight">PT</div>
+            <div className={`block font-bold text-lg md:text-xl leading-tight ${isDark ? "text-blue-400" : "text-blue-700"}`}>PT</div>
             <div className="relative">
               <img
                 src="/images/oip.png"
@@ -99,38 +140,53 @@ export default function PTLintasWahanaLanding() {
             </div>
             <div className="hidden sm:block">
               <h1 className="font-bold text-lg md:text-xl leading-tight">
-               
-                <span className="block text-blue-700">Wahana Teknologi</span>
+                <span className={`block ${isDark ? "text-blue-400" : "text-blue-700"}`}>Wahana Teknologi</span>
               </h1>
             </div>
           </div>
 
-          {/* ─── NAVIGATION ───────────────────────────────────── */}
           <nav className="hidden md:flex gap-8 text-sm font-medium">
-            {["Services", "Projects", "About", "Contact"].map((item) => (
-              <a
-                key={item}
-                href="#"
-                className="text-gray-700 hover:text-blue-700 transition-all duration-300 hover:scale-105"
+            {navLinks.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => scrollTo(item.ref)}
+                className={`${isDark ? "text-gray-300 hover:text-blue-400" : "text-gray-700 hover:text-blue-700"} transition-all duration-300 hover:scale-105`}
               >
-                {item}
-              </a>
+                {item.label}
+              </button>
             ))}
           </nav>
 
-          {/* ─── BUTTONS ───────────────────────────────────────── */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            <Link href="/components/login">
-              <button className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-5 py-2 rounded-full hover:from-blue-800 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium text-sm">
-                Login
-              </button>
-            </Link>
+            <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-full transition-all duration-300 ${
+                isDark
+                  ? "bg-slate-800 hover:bg-slate-700 text-yellow-400"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+              }`}
+              title={isDark ? "Light Mode" : "Dark Mode"}
+            >
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            {isLoggedIn ? (
+              <Link href={getDashboardPath()}>
+                <button className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-5 py-2 rounded-full hover:from-blue-800 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium text-sm">
+                  Dashboard
+                </button>
+              </Link>
+            ) : (
+              <Link href="/components/login">
+                <button className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-5 py-2 rounded-full hover:from-blue-800 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium text-sm">
+                  Login
+                </button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
 
       {/* ─── HERO SECTION ──────────────────────────────────────── */}
-      {/* Bagian utama: judul besar, deskripsi singkat, tombol "Learn More" & "Our Services" */}
       <section className="relative h-screen overflow-hidden">
         <div className="absolute inset-0">
           <img
@@ -157,19 +213,24 @@ export default function PTLintasWahanaLanding() {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 px-8 py-3.5 rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 flex items-center gap-2 group">
-                Learn More
+              <button
+                onClick={() => scrollTo(projectsRef)}
+                className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 px-8 py-3.5 rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 flex items-center gap-2 group"
+              >
+                Our Projects
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
-              <button className="border-2 border-white/50 backdrop-blur-sm px-8 py-3.5 rounded-full font-semibold hover:bg-white hover:text-black transition-all duration-300 hover:border-white">
+              <button
+                onClick={() => scrollTo(profileRef)}
+                className="border-2 border-white/50 backdrop-blur-sm px-8 py-3.5 rounded-full font-semibold hover:bg-white hover:text-black transition-all duration-300 hover:border-white"
+              >
                 Our Services
               </button>
             </div>
           </div>
         </div>
 
-        {/* Scroll Indicator */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center">
             <div className="w-1 h-2 bg-white rounded-full mt-2 animate-scroll"></div>
@@ -178,43 +239,29 @@ export default function PTLintasWahanaLanding() {
       </section>
 
       {/* ─── ABOUT SECTION ─────────────────────────────────────── */}
-      {/* Tentang perusahaan: deskripsi misi, statistik proyek/kepuasan/klien, gambar dashboard */}
-      <section className="py-28 bg-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-30"></div>
-        
+      <section ref={aboutRef} id="about" className={`py-28 relative overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-white"}`}>
+        <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-30 ${isDark ? "bg-blue-900" : "bg-blue-100"}`}></div>
+        <div className={`absolute bottom-0 left-0 w-96 h-96 rounded-full blur-3xl opacity-30 ${isDark ? "bg-purple-900" : "bg-purple-100"}`}></div>
+
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="animate-slideInLeft">
-              <div className="inline-flex items-center gap-2 bg-blue-100 rounded-full px-4 py-2 mb-6">
-                <ShieldCheck size={16} className="text-blue-700" />
-                <p className="text-blue-700 uppercase tracking-widest text-xs font-semibold">
+              <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 mb-6 ${isDark ? "bg-blue-950" : "bg-blue-100"}`}>
+                <ShieldCheck size={16} className={isDark ? "text-blue-400" : "text-blue-700"} />
+                <p className={`uppercase tracking-widest text-xs font-semibold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
                   About Us
                 </p>
               </div>
 
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                 Teknologi Digital PT Linkra Wahana Teknologi
               </h2>
 
-              <p className="text-gray-600 leading-8 mb-8 text-lg">
+              <p className={`leading-8 mb-8 text-lg ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                 PT Linkra Wahana Teknologi adalah perusahaan yang bergerak di bidang Teknologi Informasi dan Internet of Things (IoT). Kami hadir untuk memberikan solusi teknologi kelas enterprise yang inovatif, aman, dan berorientasi pada keunggulan operasional.
 
                 Misi kami adalah mempercepat transformasi digital melalui solusi yang skalabel dan terintegrasi. Di balik setiap solusi yang kami hadirkan, terdapat tim teknologi internal yang solid, kolaboratif, dan berdedikasi tinggi.
               </p>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {stats.map((stat, index) => (
-                  <div
-                    key={index}
-                    className="text-center p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-sm hover:shadow-xl transition-all duration-300 hover:scale-105"
-                  >
-                    <div className="text-blue-600 mb-2 flex justify-center">{stat.icon}</div>
-                    <h3 className="text-2xl font-bold text-blue-700">{stat.number}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div className="relative animate-slideInRight">
@@ -232,80 +279,154 @@ export default function PTLintasWahanaLanding() {
         </div>
       </section>
 
-      {/* ─── SERVICES SECTION ─────────────────────────────────── */}
-      {/* Daftar layanan: Software Dev, IoT, Data Analytics, UI/UX — masing-masing dengan ikon & deskripsi */}
-      <section className="py-28 bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="max-w-7xl mx-auto px-6">
+      {/* ─── PROJECTS & PROGRESS SECTION ──────────────────────── */}
+      <section ref={projectsRef} id="projects" className={`py-28 relative overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-950" : "bg-gradient-to-br from-gray-50 to-blue-50"}`}>
+        <div className={`absolute top-20 right-10 w-72 h-72 rounded-full blur-3xl opacity-20 ${isDark ? "bg-blue-900" : "bg-blue-200"}`}></div>
+        <div className={`absolute bottom-20 left-10 w-96 h-96 rounded-full blur-3xl opacity-20 ${isDark ? "bg-purple-900" : "bg-purple-200"}`}></div>
+
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-blue-100 rounded-full px-4 py-2 mb-4">
-              <Zap size={16} className="text-blue-700" />
-              <p className="text-blue-700 uppercase tracking-widest text-xs font-semibold">
-                Our Services
+            <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 mb-4 ${isDark ? "bg-blue-950" : "bg-blue-100"}`}>
+              <TrendingUp size={16} className={isDark ? "text-blue-400" : "text-blue-700"} />
+              <p className={`uppercase tracking-widest text-xs font-semibold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                Our Projects
               </p>
             </div>
-
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-              End-to-End Managed Solutions
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              Project Progress & Analytics
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Comprehensive technology solutions tailored to your business needs
+            <p className={`max-w-2xl mx-auto ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+              Real-time overview of all projects managed across the team
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {services.map((service, index) => (
-              <div
-                key={index}
-                className="group bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer animate-fadeInUp"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${service.color} text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}
-                >
-                  {service.icon}
+          {/* Program Analytics + Member Analytics */}
+          <div className="grid lg:grid-cols-2 gap-6 mb-8">
+            {/* Program Analytics */}
+            <div className={`rounded-2xl p-6 border hover:shadow-lg transition-all duration-300 ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-100"}`}>
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <p className={`text-sm font-semibold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    Program Analytics
+                  </p>
+                  <h2 className={`mt-1 text-2xl font-bold ${isDark ? "text-white" : "text-[#001d55]"}`}>
+                    {projectStats?.totalProjects || 0} Program
+                  </h2>
+                  <p className={`text-xs mt-0.5 ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                    Dikategorikan dari nama project
+                  </p>
                 </div>
-
-                <h3 className="text-xl font-bold mb-3 text-gray-900 group-hover:text-blue-700 transition-colors">
-                  {service.title}
-                </h3>
-
-                <p className="text-gray-600 leading-7">{service.desc}</p>
-                
-                <div className="mt-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <span className="text-blue-600 text-sm font-semibold inline-flex items-center gap-1">
-                    Learn More <ChevronRight size={16} />
-                  </span>
+                <div className="bg-gradient-to-r from-[#001d55] to-[#003d9e] text-white rounded-full px-3 py-1 text-xs font-semibold shadow-sm">
+                  Total
                 </div>
               </div>
-            ))}
+              {(!projectStats?.programs || projectStats.programs.length === 0) ? (
+                <div className={`h-64 flex items-center justify-center text-sm ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                  Belum ada data program
+                </div>
+              ) : (
+                <div className="mt-6 flex items-end justify-between gap-3 h-64">
+                  {projectStats.programs.map((item) => {
+                    const maxCat = Math.max(...projectStats.programs.map((p) => p.count), 1);
+                    const heightPercent = (item.count / maxCat) * 100;
+                    return (
+                      <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full group">
+                        <span className={`text-sm font-bold transition-transform group-hover:scale-110 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                          {item.count}
+                        </span>
+                        <div className={`relative w-full rounded-xl overflow-hidden flex items-end flex-1 ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
+                          <div
+                            className="absolute bottom-0 left-0 w-full transition-all duration-500 group-hover:opacity-90 rounded-xl"
+                            style={{ height: `${heightPercent}%`, background: "linear-gradient(180deg, #003d9e 0%, #001d55 100%)" }}
+                          >
+                            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-xl" />
+                          </div>
+                        </div>
+                        <span className={`text-xs font-medium text-center leading-tight ${isDark ? "text-slate-500" : "text-gray-600"}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Member Analytics */}
+            <div className={`rounded-2xl p-6 border hover:shadow-lg transition-all duration-300 ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-100"}`}>
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <p className={`text-sm font-semibold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                    Member Analytics
+                  </p>
+                  <h2 className={`mt-1 text-2xl font-bold ${isDark ? "text-white" : "text-[#001d55]"}`}>
+                    {projectStats?.totalMembers || 0} Member
+                  </h2>
+                  <p className={`text-xs mt-0.5 ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                    Berdasarkan posisi member terdaftar
+                  </p>
+                </div>
+                <div className="bg-gradient-to-r from-[#001d55] to-[#003d9e] text-white rounded-full px-3 py-1 text-xs font-semibold shadow-sm">
+                  Total
+                </div>
+              </div>
+              {(!projectStats?.members || projectStats.members.length === 0) ? (
+                <div className={`h-64 flex items-center justify-center text-sm ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+                  Belum ada data member
+                </div>
+              ) : (
+                <div className="mt-6 flex items-end justify-between gap-3 h-64">
+                  {projectStats.members.map((item) => {
+                    const maxMem = Math.max(...projectStats.members.map((m) => m.count), 1);
+                    const heightPercent = (item.count / maxMem) * 100;
+                    return (
+                      <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full group">
+                        <span className={`text-sm font-bold transition-transform group-hover:scale-110 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                          {item.count}
+                        </span>
+                        <div className={`relative w-full rounded-xl overflow-hidden flex items-end flex-1 ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
+                          <div
+                            className="absolute bottom-0 left-0 w-full transition-all duration-500 group-hover:opacity-90 rounded-xl"
+                            style={{ height: `${heightPercent}%`, background: "linear-gradient(180deg, #003d9e 0%, #001d55 100%)" }}
+                          >
+                            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-xl" />
+                          </div>
+                        </div>
+                        <span className={`text-xs font-medium text-center leading-tight ${isDark ? "text-slate-500" : "text-gray-600"}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ─── TECHNOLOGY SECTION ───────────────────────────────── */}
-      {/* Sorotan teknologi: Cloud Architecture ( kartu besar), Cybersecurity, Legacy Modernization */}
-      <section className="py-28 bg-white relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-full">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-blue-100 rounded-full blur-3xl opacity-40"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-40"></div>
+      {/* ─── PROFILE TEAMS SECTION ──────────────────────────────── */}
+      <section className={`py-28 relative overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-white"}`}>
+        <div className={`absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-full`}>
+          <div className={`absolute top-20 left-10 w-72 h-72 rounded-full blur-3xl opacity-40 ${isDark ? "bg-blue-900" : "bg-blue-100"}`}></div>
+          <div className={`absolute bottom-20 right-10 w-96 h-96 rounded-full blur-3xl opacity-40 ${isDark ? "bg-purple-900" : "bg-purple-100"}`}></div>
         </div>
 
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="mb-16 text-center">
-            <div className="inline-flex items-center gap-2 bg-blue-100 rounded-full px-4 py-2 mb-4">
-              <Cpu size={16} className="text-blue-700" />
-              <p className="text-blue-700 uppercase tracking-widest text-xs font-semibold">
-                Modern Technology
+            <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 mb-4 ${isDark ? "bg-blue-950" : "bg-blue-100"}`}>
+              <Cpu size={16} className={isDark ? "text-blue-400" : "text-blue-700"} />
+              <p ref={profileRef} id="profile" className={`uppercase tracking-widest text-xs font-semibold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                Profile Teams
               </p>
             </div>
 
-            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-              Mastering The Complexities of Modern Technology
+            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              Profile Teams Perusahaan
             </h2>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* BIG CARD */}
             <div className="lg:col-span-2 group relative overflow-hidden rounded-3xl shadow-2xl">
               <img
                 src="/images/ka.jpeg"
@@ -313,56 +434,25 @@ export default function PTLintasWahanaLanding() {
                 className="w-full h-[400px] object-cover object-center transition-transform duration-1000 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent"></div>
-              
+
               <div className="absolute bottom-0 left-0 right-0 p-10 text-white">
-                <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 mb-4">
-                  <Cloud size={14} />
-                  <p className="text-xs uppercase tracking-wider">Cloud Architecture</p>
-                </div>
-
                 <h3 className="text-3xl font-bold mb-4">
-                  Building Secure & Modern Cloud Infrastructure
+                  Pengembangan alat digital, Modern, dan Siap Mendukung Kebutuhan Digital Masa Kini bersama teams linkra
                 </h3>
-
-                <button className="bg-white text-blue-700 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-all duration-300 inline-flex items-center gap-2 group/btn">
-                  Learn More
-                  <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
-                </button>
               </div>
             </div>
 
-            {/* SIDE CARDS */}
             <div className="flex flex-col gap-8">
               <div className="group bg-gradient-to-br from-blue-700 to-indigo-800 text-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer">
                 <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <ShieldCheck size={32} />
                 </div>
 
-                <h3 className="text-2xl font-bold mb-4">Cybersecurity Solutions</h3>
+                <h3 className="text-2xl font-bold mb-4">Profile summary</h3>
 
                 <p className="text-blue-100 leading-7">
-                  Enterprise-grade protection for modern digital ecosystems with real-time threat detection.
+                  Tim Digital Linkra tidak hanya berfokus pada pengembangan aplikasi, tetapi juga menyediakan berbagai solusi Internet of Things (IoT). Dengan struktur tim yang terorganisir dan kolaboratif, setiap proyek dikerjakan secara sistematis untuk menghasilkan solusi teknologi yang inovatif, efektif, dan sesuai dengan kebutuhan pengguna.
                 </p>
-              </div>
-
-              <div className="group bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer">
-                <h3 className="text-2xl font-bold mb-4 text-gray-900">Legacy Modernization</h3>
-
-                <p className="text-gray-600 leading-7 mb-6">
-                  Upgrade outdated systems into scalable cloud-ready platforms with minimal disruption.
-                </p>
-
-                <div className="flex gap-4">
-                  <div className="bg-white rounded-2xl p-4 shadow-md text-center flex-1 group-hover:shadow-lg transition-all">
-                    <h4 className="text-2xl font-bold text-blue-700">30%</h4>
-                    <p className="text-xs text-gray-500">Faster Performance</p>
-                  </div>
-
-                  <div className="bg-white rounded-2xl p-4 shadow-md text-center flex-1 group-hover:shadow-lg transition-all">
-                    <h4 className="text-2xl font-bold text-blue-700">99%</h4>
-                    <p className="text-xs text-gray-500">Uptime Security</p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -370,18 +460,17 @@ export default function PTLintasWahanaLanding() {
       </section>
 
       {/* ─── FOOTER ────────────────────────────────────────────── */}
-      {/* Info perusahaan, tautan layanan, newsletter subscription, hak cipta */}
-      <footer className="bg-gradient-to-br from-[#04142c] to-[#061a3a] text-gray-300 pt-20 pb-10 relative overflow-hidden">
+      <footer ref={contactRef} id="contact" className="bg-gradient-to-br from-[#04142c] to-[#061a3a] text-gray-300 pt-20 pb-10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600 rounded-full blur-3xl opacity-10"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600 rounded-full blur-3xl opacity-10"></div>
-        
+
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid md:grid-cols-4 gap-12">
             <div>
               <div className="flex items-center gap-3 mb-5">
                 <img src="/images/oip.png" alt="Logo" className="h-10 w-auto" />
                 <div>
-                  <h2 className="text-xl font-bold text-white">PT Lintas Wahana</h2>
+                  <h2 className="text-xl font-bold text-white">PT Linkra Wahana</h2>
                   <p className="text-xs text-blue-300">Teknologi</p>
                 </div>
               </div>
@@ -393,46 +482,70 @@ export default function PTLintasWahanaLanding() {
             </div>
 
             <div>
-              <h3 className="text-white font-semibold text-lg mb-5">Services</h3>
-              <ul className="space-y-3 text-gray-400">
-                <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">Cloud Infrastructure</li>
-                <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">IT Consulting</li>
-                <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">Software Development</li>
-                <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">Cybersecurity</li>
-              </ul>
-            </div>
-
-            <div>
               <h3 className="text-white font-semibold text-lg mb-5">Company</h3>
               <ul className="space-y-3 text-gray-400">
-                <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">About Us</li>
-                <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">Projects</li>
+                <li>
+                  <button onClick={() => scrollTo(aboutRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
+                    About Us
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => scrollTo(projectsRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
+                    Projects
+                  </button>
+                </li>
                 <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">Careers</li>
-                <li className="hover:text-white hover:translate-x-1 transition-all cursor-pointer">Contact</li>
+                <li>
+                  <button onClick={() => scrollTo(contactRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
+                    Contact
+                  </button>
+                </li>
               </ul>
             </div>
 
             <div>
-              <h3 className="text-white font-semibold text-lg mb-5">Newsletter</h3>
-              <p className="text-gray-400 mb-4">
-                Subscribe to get technology updates and news.
-              </p>
+              <h3 className="text-white font-semibold text-lg mb-5">Services</h3>
+              <ul className="space-y-3 text-gray-400">
+                <li>
+                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
+                    Cloud Infrastructure
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
+                    Software Development
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
+                    IoT Solutions
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
+                    Data Analytics
+                  </button>
+                </li>
+              </ul>
+            </div>
 
-              <div className="flex">
-                <input
-                  type="email"
-                  placeholder="Email Address"
-                  className="w-full px-4 py-3 rounded-l-xl outline-none text-black bg-white/90 focus:bg-white transition-all"
-                />
-                <button className="bg-gradient-to-r from-blue-600 to-blue-500 px-5 rounded-r-xl hover:from-blue-700 hover:to-blue-600 transition-all duration-300 text-white">
-                  Send
-                </button>
-              </div>
+            <div>
+              <h3 className="text-white font-semibold text-lg mb-5">Contact</h3>
+              <ul className="space-y-3 text-gray-400 text-sm">
+                <li className="flex items-start gap-2">
+                  <Globe size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>www.linkrawahana.co.id</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Database size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>pt.linkra.wahana.teknologi@gmail.com</span>
+                </li>
+              </ul>
             </div>
           </div>
 
           <div className="border-t border-white/10 mt-16 pt-8 text-center text-gray-500">
-            <p>© {new Date().getFullYear()} PT Lintas Wahana Teknologi. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} PT Lintas Wahana Teknologi. All rights reserved.</p>
           </div>
         </div>
       </footer>
@@ -440,90 +553,36 @@ export default function PTLintasWahanaLanding() {
       {/* ─── ANIMATIONS CSS ────────────────────────────────────── */}
       <style jsx global>{`
         @keyframes slowZoom {
-          from {
-            transform: scale(1);
-          }
-          to {
-            transform: scale(1.1);
-          }
+          from { transform: scale(1); }
+          to { transform: scale(1.1); }
         }
-        
         @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        
         @keyframes slideInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-50px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+          from { opacity: 0; transform: translateX(-50px); }
+          to { opacity: 1; transform: translateX(0); }
         }
-        
         @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(50px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+          from { opacity: 0; transform: translateX(50px); }
+          to { opacity: 1; transform: translateX(0); }
         }
-        
         @keyframes scroll {
-          0% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-          100% {
-            opacity: 0;
-            transform: translateY(10px);
-          }
+          0% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(10px); }
         }
-        
-        .animate-slowZoom {
-          animation: slowZoom 20s ease-out forwards;
-        }
-        
-        .animate-fadeInUp {
-          animation: fadeInUp 0.8s ease-out forwards;
-        }
-        
-        .animate-slideInLeft {
-          animation: slideInLeft 0.8s ease-out forwards;
-        }
-        
-        .animate-slideInRight {
-          animation: slideInRight 0.8s ease-out forwards;
-        }
-        
-        .animate-scroll {
-          animation: scroll 1.5s ease-in-out infinite;
-        }
-        
-        .animate-bounce {
-          animation: bounce 2s infinite;
-        }
-        
+        .animate-slowZoom { animation: slowZoom 20s ease-out forwards; }
+        .animate-fadeInUp { animation: fadeInUp 0.8s ease-out forwards; }
+        .animate-slideInLeft { animation: slideInLeft 0.8s ease-out forwards; }
+        .animate-slideInRight { animation: slideInRight 0.8s ease-out forwards; }
+        .animate-scroll { animation: scroll 1.5s ease-in-out infinite; }
+        .animate-bounce { animation: bounce 2s infinite; }
         @keyframes bounce {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
         }
+        html { scroll-behavior: smooth; }
       `}</style>
     </div>
   );

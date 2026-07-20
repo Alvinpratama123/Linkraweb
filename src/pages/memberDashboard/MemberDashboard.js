@@ -25,6 +25,7 @@ import {
   HiUserCircle,
   HiSun,
   HiKey,
+  HiHome,
 } from "react-icons/hi2";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -43,7 +44,12 @@ export default function MembersDashboard() {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("Dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [theme, setTheme] = useState("light");
+  const [theme, setThemeState] = useState("light");
+
+  const setTheme = (t) => {
+    setThemeState(t);
+    localStorage.setItem("lw-theme", t);
+  };
   const [loggingOut, setLoggingOut] = useState(false);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +59,11 @@ export default function MembersDashboard() {
   const [selectedProject, setSelectedProject] = useState(null);
 
   const isDark = theme === "dark";
+
+  useEffect(() => {
+    const saved = localStorage.getItem("lw-theme");
+    if (saved === "dark" || saved === "light") setTheme(saved);
+  }, []);
 
   const getDisplayPosition = (user) => {
     if (!user) return "Member";
@@ -469,7 +480,14 @@ export default function MembersDashboard() {
         </div>
       </div>
 
-      <div className="px-3 pb-3 mt-4">
+      <div className="px-3 pb-3 mt-4 space-y-1">
+        <button
+          onClick={() => router.push("/")}
+          className="w-full flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-xl text-blue-300 hover:bg-blue-500/20 transition-all"
+        >
+          <HiHome size={22} />
+          {(!collapsed || isMobile) && <span>Halaman Utama</span>}
+        </button>
         <button
           onClick={handleLogout}
           disabled={loggingOut}
