@@ -158,17 +158,7 @@ export default function PTLintasWahanaLanding() {
           </nav>
 
           <div className="flex items-center gap-3 flex-shrink-0">
-            <button
-              onClick={toggleTheme}
-              className={`p-2 rounded-full transition-all duration-300 ${
-                isDark
-                  ? "bg-slate-800 hover:bg-slate-700 text-yellow-400"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-              }`}
-              title={isDark ? "Light Mode" : "Dark Mode"}
-            >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+          
             {isLoggedIn ? (
               <Link href={getDashboardPath()}>
                 <button className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-5 py-2 rounded-full hover:from-blue-800 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium text-sm">
@@ -213,20 +203,6 @@ export default function PTLintasWahanaLanding() {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => scrollTo(projectsRef)}
-                className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 px-8 py-3.5 rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 flex items-center gap-2 group"
-              >
-                Our Projects
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => scrollTo(profileRef)}
-                className="border-2 border-white/50 backdrop-blur-sm px-8 py-3.5 rounded-full font-semibold hover:bg-white hover:text-black transition-all duration-300 hover:border-white"
-              >
-                Our Services
-              </button>
             </div>
           </div>
         </div>
@@ -503,31 +479,7 @@ export default function PTLintasWahanaLanding() {
               </ul>
             </div>
 
-            <div>
-              <h3 className="text-white font-semibold text-lg mb-5">Services</h3>
-              <ul className="space-y-3 text-gray-400">
-                <li>
-                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
-                    Cloud Infrastructure
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
-                    Software Development
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
-                    IoT Solutions
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => scrollTo(profileRef)} className="hover:text-white hover:translate-x-1 transition-all cursor-pointer text-left">
-                    Data Analytics
-                  </button>
-                </li>
-              </ul>
-            </div>
+          
 
             <div>
               <h3 className="text-white font-semibold text-lg mb-5">Contact</h3>
