@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 
 export default function UploadProjectPage({ theme, setTheme, userData }) {
   const [projectName, setProjectName] = useState("");
-  const [position, setPosition] = useState("Frontend");
+  const userPosition = userData?.position || userData?.role || "Frontend";
+  const [position, setPosition] = useState(userPosition);
   const [repoLink, setRepoLink] = useState("");
   const [inputDate, setInputDate] = useState("");
   const [imageFile, setImageFile] = useState(null);
@@ -150,7 +151,6 @@ export default function UploadProjectPage({ theme, setTheme, userData }) {
 
       setSavedMessage("Project berhasil disimpan! Progress akan dihitung otomatis berdasarkan status attachment.");
       setProjectName("");
-      setPosition("Frontend");
       setRepoLink("");
       setImageFile(null);
       setImageData("");
@@ -208,23 +208,17 @@ export default function UploadProjectPage({ theme, setTheme, userData }) {
             />
           </div>
 
-          {/* POSISI PROJECT */}
+          {/* POSISI PROJECT — otomatis dari role user */}
           <div className="mb-6">
             <label className={`block text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-              POSISI PROJECT <span className="text-red-500">*</span>
+              POSISI PROJECT <span className="text-blue-500 text-xs">(otomatis)</span>
             </label>
-            <select
+            <input
+              type="text"
               value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              className={`w-full h-12 border ${theme === 'dark' ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors duration-200`}
-            >
-              <option value="" disabled>Pilih Posisi</option>
-              <option value="Frontend">Frontend</option>
-              <option value="Backend">Backend</option>
-              <option value="UI/UX">UI/UX</option>
-              <option value="QA">QA</option>
-              <option value="PM">PM</option>
-            </select>
+              readOnly
+              className={`w-full h-12 border rounded-xl px-4 cursor-not-allowed opacity-80 ${theme === 'dark' ? 'border-gray-600 bg-gray-800 text-gray-300' : 'border-gray-200 bg-gray-100 text-gray-600'}`}
+            />
           </div>
 
           {/* UPLOAD GAMBAR */}

@@ -8,7 +8,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { FaSearch, FaBell, FaUsers } from "react-icons/fa";
-import { HiSparkles, HiFolder, HiCheckCircle, HiClock, HiFlag } from "react-icons/hi2";
+import { HiSparkles, HiFolder, HiCheckCircle, HiClock, HiFlag, HiXCircle } from "react-icons/hi2";
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
  
@@ -282,6 +282,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
   const approvedProjects = projects.filter((p) => p.decision === "approved").length;
   const pendingProjects  = projects.filter((p) => !p.decision || p.decision === "pending").length;
   const finishedProjects = projects.filter((p) => p.finished).length;
+  const rejectedProjects = projects.filter((p) => p.decision === "rejected").length;
   const totalMembers     = members.length;
 
   // ─── GROUP PROJECTS BY MODULE ──────────────────────────────
@@ -384,6 +385,19 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
       lightIcon:   "bg-amber-100",
       darkIcon:    "bg-amber-900",
       icon: <HiClock size={22} className="text-amber-500" />,
+    },
+    {
+      title: "Rejected",
+      value: String(rejectedProjects),
+      lightText:   "text-red-700",
+      darkText:    "text-red-300",
+      lightBg:     "bg-red-50",
+      darkBg:      "bg-red-950",
+      lightBorder: "border-red-200",
+      darkBorder:  "border-red-800",
+      lightIcon:   "bg-red-100",
+      darkIcon:    "bg-red-900",
+      icon: <HiXCircle size={22} className="text-red-500" />,
     },
   ];
  
@@ -659,7 +673,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
       <div className="px-6 pb-6">
  
         {/* ── STATS CARDS ─────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 mb-6">
           {stats.map((item) => (
             <div
               key={item.title}
