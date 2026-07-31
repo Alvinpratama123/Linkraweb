@@ -273,7 +273,7 @@ function getEmailTemplate({
       ${showAudio ? `
       <!-- Audio Notification -->
       <div class="audio-player">
-        <span class="label">🔊 Notifikasi Suara</span>
+        <span class="label">Notifikasi Suara</span>
         <audio controls>
           <source src="${audioUrl}" type="audio/mpeg">
           Browser Anda tidak mendukung pemutar audio.
@@ -422,7 +422,6 @@ export async function sendNotificationEmail({ to, name, title, message, type, li
     };
 
     const typeInfo = typeLabels[type] || typeLabels.system;
-    const iconDisplay = icon || '📢';
 
     const html = getEmailTemplate({
       title: title,
@@ -459,7 +458,7 @@ export async function sendNotificationEmail({ to, name, title, message, type, li
     const info = await transporter.sendMail({
       from: `"PT Lintas Wahana Teknologi" <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME}>`,
       to: to,
-      subject: `${iconDisplay} ${title}`,
+      subject: `${title}`,
       html,
     });
 

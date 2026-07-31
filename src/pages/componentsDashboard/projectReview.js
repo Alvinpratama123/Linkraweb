@@ -196,7 +196,7 @@ const addNotificationToUser = async (userId, title, message, type = "info", link
         message,
         type,
         link: link || `/memberDashboard/MemberDashboard?tab=progress&refresh=${Date.now()}`,
-        icon: type === "success" ? "✓" : type === "error" ? "✗" : type === "warning" ? "⚠" : "📢",
+        icon: "",
         color: type === "success" ? "green" : type === "error" ? "red" : type === "warning" ? "orange" : "blue",
       }),
     });

@@ -171,11 +171,11 @@ export default async function handler(req, res) {
         try {
           await createNotification({
             userId: targetUserData.id,
-            title: `📝 Revisi Baru: ${projectName}`,
+            title: `Revisi Baru: ${projectName}`,
             message: `Anda menerima revisi dari ${senderRole} untuk project "${projectName}".`,
             type: "revision",
             link: "/dashboardAdmin/admin?tab=revision",
-            icon: "📝",
+            icon: "",
             color: "blue",
           });
         } catch (notifError) {

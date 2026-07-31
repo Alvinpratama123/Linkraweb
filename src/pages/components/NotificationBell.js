@@ -101,18 +101,17 @@ export default function NotificationBell({ theme = "light" }) {
     }
   };
 
-  const getIcon = (type, icon) => {
-    if (icon) return icon;
-    const icons = {
-      project: '📁',
-      member: '👤',
-      revision: '📝',
-      system: '🔔',
-      approved: '✅',
-      rejected: '❌',
-      finished: '🎉',
+  const getLetter = (type) => {
+    const letters = {
+      project: 'P',
+      member: 'M',
+      revision: 'R',
+      system: 'S',
+      approved: '✓',
+      rejected: 'X',
+      finished: '✓',
     };
-    return icons[type] || '📢';
+    return letters[type] || 'N';
   };
 
   const getColor = (type, color) => {
@@ -187,7 +186,7 @@ export default function NotificationBell({ theme = "light" }) {
               <div className="text-center py-8 text-gray-400">Memuat...</div>
             ) : notifications.length === 0 ? (
               <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
-                <span className="text-4xl block mb-2">🔔</span>
+                <span className="text-4xl block mb-2">-</span>
                 Tidak ada notifikasi
               </div>
             ) : (
@@ -220,8 +219,8 @@ export default function NotificationBell({ theme = "light" }) {
                     } ${!notif.isRead ? 'border-l-4 ' + borderColor : ''}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${bgColor}`}>
-                        {getIcon(notif.type, notif.icon)}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0 ${bgColor}`}>
+                        {getLetter(notif.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-800'} ${!notif.isRead ? 'font-semibold' : ''}`}>

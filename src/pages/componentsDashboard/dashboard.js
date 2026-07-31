@@ -121,18 +121,17 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     }
   };
 
-  const getNotifIcon = (type, icon) => {
-    if (icon) return icon;
-    const icons = {
-      project: '📁',
-      member: '👤',
-      revision: '📝',
-      system: '🔔',
-      approved: '✅',
-      rejected: '❌',
-      finished: '🎉',
+  const getNotifLetter = (type) => {
+    const letters = {
+      project: 'P',
+      member: 'M',
+      revision: 'R',
+      system: 'S',
+      approved: '✓',
+      rejected: 'X',
+      finished: '✓',
     };
-    return icons[type] || '📢';
+    return letters[type] || 'N';
   };
 
   const getNotifColor = (type, color) => {
@@ -175,7 +174,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
     const expiryTime = new Date(created.getTime() + 24 * 60 * 60 * 1000);
     const diff = expiryTime - now;
     
-    if (diff <= 0) return '⏳ Kedaluwarsa';
+    if (diff <= 0) return 'Kedaluwarsa';
     
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -473,18 +472,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
           : "bg-white/95 backdrop-blur-md border-gray-100"
       }`}>
         <div className="flex items-center gap-4">
-          <div className={`hidden md:flex items-center px-4 py-2 rounded-xl border w-80 transition-all duration-300 ${
-            isDark ? "bg-slate-800 border-slate-700" : "bg-gray-50 border-gray-200"
-          }`}>
-            <FaSearch className={isDark ? "text-slate-500" : "text-gray-400"} />
-            <input
-              type="text"
-              placeholder="Search..."
-              className={`bg-transparent outline-none ml-3 w-full text-sm ${
-                isDark ? "text-white placeholder-slate-600" : "text-gray-700 placeholder-gray-400"
-              }`}
-            />
-          </div>
+         
         </div>
  
         <div className="flex items-center gap-4">
@@ -535,12 +523,12 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                 <div className="overflow-y-auto max-h-[400px]">
                   {notifError ? (
                     <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
-                      <span className="text-4xl block mb-2">🔔</span>
+                      <span className="text-4xl block mb-2">!</span>
                       {notifError}
                     </div>
                   ) : filteredNotifications.length === 0 ? (
                     <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
-                      <span className="text-4xl block mb-2">✨</span>
+                      <span className="text-4xl block mb-2">-</span>
                       Tidak ada notifikasi baru (24 jam terakhir)
                       <p className="text-xs mt-1">Notifikasi akan otomatis terhapus setelah 1 hari</p>
                     </div>
@@ -574,8 +562,8 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                           } ${!notif.isRead ? 'border-l-4 ' + borderColor : ''}`}
                         >
                           <div className="flex items-start gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${bgColor}`}>
-                              {getNotifIcon(notif.type, notif.icon)}
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0 ${bgColor}`}>
+                              {getNotifLetter(notif.type)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-800'} ${!notif.isRead ? 'font-semibold' : ''}`}>
@@ -589,7 +577,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                                   {formatTime(notif.createdAt)}
                                 </p>
                                 <span className={`text-[10px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-                                  ⏱ {getTimeRemaining(notif.createdAt)}
+                                  {getTimeRemaining(notif.createdAt)}
                                 </span>
                               </div>
                             </div>
@@ -607,7 +595,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
                 <div className={`px-4 py-2 border-t text-center text-[10px] ${
                   isDark ? 'border-slate-700 text-slate-500' : 'border-gray-200 text-gray-400'
                 }`}>
-                  🔄 Notifikasi otomatis terhapus setelah 1 hari
+                  Notifikasi otomatis terhapus setelah 1 hari
                 </div>
               </div>
             )}
@@ -661,11 +649,7 @@ export default function Dashboard({ userData = {}, theme = "light" }) {
               Semoga harimu menyenangkan. Berikut ringkasan aktivitas hari ini.
             </p>
           </div>
-          <div className={`hidden md:flex w-11 h-11 rounded-full items-center justify-center backdrop-blur-sm flex-shrink-0 border ${
-            isDark ? "bg-white/5 border-white/10" : "bg-white/10 border-white/10"
-          }`}>
-            <HiSparkles size={22} className={isDark ? "text-slate-300" : "text-white"} />
-          </div>
+          
         </div>
       </div>
  

@@ -161,7 +161,7 @@ export default async function handler(req, res) {
         message,
         type: type || "system",
         link: link || null,
-        icon: icon || "📢",
+        icon: icon || "",
         color: color || "blue",
       });
 

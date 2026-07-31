@@ -28,19 +28,6 @@ const roleLabels = {
   'MEMBER': 'Member',
 };
 
-// Icon berdasarkan tipe aksi
-const iconMap = {
-  upload: '📁',
-  approved: '✅',
-  rejected: '❌',
-  finished: '🎉',
-  member_added: '👤',
-  revision: '📝',
-  system: '🔔',
-  project: '📁',
-  member: '👤',
-};
-
 // Warna berdasarkan tipe aksi
 const colorMap = {
   upload: '#3b82f6',
@@ -110,7 +97,6 @@ export async function sendInfoNotification({
       second: '2-digit'
     });
 
-    const icon = iconMap[actionType] || '📢';
     const color = colorMap[actionType] || '#001d55';
     const actionLabel = actionLabels[actionType] || 'INFORMATION';
 
@@ -119,16 +105,16 @@ export async function sendInfoNotification({
 
     // Subject berdasarkan tipe
     const subjectMap = {
-      upload: `📁 Project Baru: ${projectName || 'Project'}`,
-      approved: `✅ Project Disetujui: ${projectName || 'Project'}`,
-      rejected: `❌ Project Ditolak: ${projectName || 'Project'}`,
-      finished: `🎉 Project Selesai: ${projectName || 'Project'}`,
-      member_added: `👤 Member Baru Ditambahkan`,
-      revision: `📝 Revisi Baru: ${projectName || 'Project'}`,
-      system: `🔔 Notifikasi Sistem`,
+      upload: `Project Baru: ${projectName || 'Project'}`,
+      approved: `Project Disetujui: ${projectName || 'Project'}`,
+      rejected: `Project Ditolak: ${projectName || 'Project'}`,
+      finished: `Project Selesai: ${projectName || 'Project'}`,
+      member_added: `Member Baru Ditambahkan`,
+      revision: `Revisi Baru: ${projectName || 'Project'}`,
+      system: `Notifikasi Sistem`,
     };
 
-    const emailSubject = subjectMap[actionType] || `🔔 ${title}`;
+    const emailSubject = subjectMap[actionType] || `Notifikasi: ${title}`;
 
     const html = `
 <!DOCTYPE html>
@@ -158,11 +144,6 @@ export async function sendInfoNotification({
       padding: 30px 40px;
       border-radius: 16px 16px 0 0;
       text-align: center;
-    }
-    .header-icon {
-      font-size: 48px;
-      display: block;
-      margin-bottom: 8px;
     }
     .header h1 { 
       color: #ffffff; 
@@ -274,7 +255,6 @@ export async function sendInfoNotification({
   <div class="container">
     <!-- HEADER -->
     <div class="header">
-      <span class="header-icon">${icon}</span>
       <h1>${title}</h1>
       <p>PT Lintas Wahana Teknologi</p>
     </div>
@@ -292,25 +272,25 @@ export async function sendInfoNotification({
       <!-- INFO CARD -->
       <div class="info-card">
         <div class="info-row">
-          <span class="info-label">📌 Status</span>
+          <span class="info-label">Status</span>
           <span class="info-value">
             <span class="badge badge-status">${actionLabel}</span>
           </span>
         </div>
         ${senderRole ? `
         <div class="info-row">
-          <span class="info-label">👤 Dari</span>
+          <span class="info-label">Dari</span>
           <span class="info-value">${senderDisplay}</span>
         </div>
         ` : ''}
         ${projectName ? `
         <div class="info-row">
-          <span class="info-label">📁 Project</span>
+          <span class="info-label">Project</span>
           <span class="info-value">${projectName}</span>
         </div>
         ` : ''}
         <div class="info-row">
-          <span class="info-label">⏰ Waktu</span>
+          <span class="info-label">Waktu</span>
           <span class="info-value">${dateStr} • ${timeStr}</span>
         </div>
       </div>
@@ -319,7 +299,7 @@ export async function sendInfoNotification({
       ${link ? `
       <div style="text-align: center;">
         <a href="${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}${link}" class="btn">
-          🔗 Lihat Detail
+          Lihat Detail
         </a>
       </div>
       ` : ''}
@@ -327,7 +307,7 @@ export async function sendInfoNotification({
       <!-- FOOTER NOTE -->
       <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
         <p style="color: #9ca3af; font-size: 11px; line-height: 1.6; margin: 0;">
-          ⚡ Email ini dikirim secara otomatis oleh sistem notifikasi.
+          Email ini dikirim secara otomatis oleh sistem notifikasi.
           <br>Mohon tidak membalas email ini.
         </p>
       </div>
@@ -391,20 +371,20 @@ export async function sendProjectNotification({
   additionalMessage
 }) {
   const titles = {
-    upload: '📁 Project Baru Diupload',
-    approved: '✅ Project Disetujui',
-    rejected: '❌ Project Ditolak',
-    finished: '🎉 Project Selesai',
+    upload: 'Project Baru Diupload',
+    approved: 'Project Disetujui',
+    rejected: 'Project Ditolak',
+    finished: 'Project Selesai',
   };
 
   const messages = {
     upload: `Project "${projectName}" telah berhasil diupload oleh ${senderRole || 'User'}. Silakan tinjau project tersebut.`,
     approved: `Project "${projectName}" telah disetujui oleh ${senderRole || 'Admin'}. Project siap untuk dilanjutkan.`,
     rejected: `Project "${projectName}" telah ditolak oleh ${senderRole || 'Admin'}. Silakan periksa kembali project tersebut.`,
-    finished: `Project "${projectName}" telah selesai dikerjakan. Selamat! 🎉`,
+    finished: `Project "${projectName}" telah selesai dikerjakan. Selamat!`,
   };
 
-  const title = titles[actionType] || '🔔 Notifikasi Project';
+  const title = titles[actionType] || 'Notifikasi Project';
   const message = additionalMessage || messages[actionType] || `Ada update pada project "${projectName}"`;
 
   return await sendInfoNotification({

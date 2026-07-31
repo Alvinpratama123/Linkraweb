@@ -414,7 +414,7 @@ export default function MembersModul({ theme = "light" }) {
                   Menyimpan...
                 </>
               ) : (
-                '💾 Simpan Member'
+                ' Simpan Member'
               )}
             </button>
           </div>
@@ -543,14 +543,14 @@ export default function MembersModul({ theme = "light" }) {
                           onClick={() => handleResendEmail(member.id, member.name)}
                           className="text-blue-500 hover:text-blue-700 text-sm font-medium transition"
                         >
-                          📧 Kirim Ulang
+                           Kirim Ulang
                         </button>
                       )}
                       <button
                         onClick={() => handleDeleteMember(member.id)}
                         className="text-red-500 hover:text-red-700 text-sm font-medium transition"
                       >
-                        🗑️ Hapus
+                         Hapus
                       </button>
                     </div>
                   </td>
@@ -655,7 +655,7 @@ export default function MembersModul({ theme = "light" }) {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300">
-                      👑 Admin
+                       Admin
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
@@ -663,7 +663,7 @@ export default function MembersModul({ theme = "light" }) {
                       onClick={() => handleDeleteMember(admin.id)}
                       className="text-red-500 hover:text-red-700 text-sm font-medium transition"
                     >
-                      🗑️ Hapus
+                       Hapus
                     </button>
                   </td>
                 </tr>

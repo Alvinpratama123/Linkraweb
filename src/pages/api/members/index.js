@@ -219,11 +219,11 @@ export default async function handler(req, res) {
         for (const admin of admins) {
           await createNotification({
             userId: admin.id,
-            title: `👤 Member Baru: ${newMember.name}`,
+            title: `Member Baru: ${newMember.name}`,
             message: `Member "${newMember.name}" telah ditambahkan dengan posisi ${position} dan role ${userRole.toUpperCase()}.`,
             type: "member",
             link: "/dashboardAdmin/admin?tab=members",
-            icon: "👤",
+            icon: "",
             color: "purple",
           });
         }
@@ -231,11 +231,11 @@ export default async function handler(req, res) {
         // Kirim notifikasi ke member baru bahwa akunnya telah dibuat
         await createNotification({
           userId: newMember.id,
-          title: `👤 Akun Anda Telah Dibuat`,
+          title: `Akun Anda Telah Dibuat`,
           message: `Akun Anda berhasil dibuat sebagai member dengan posisi ${position}. Silakan cek email untuk informasi login.`,
           type: "member",
           link: "/memberDashboard/MemberDashboard",
-          icon: "👤",
+          icon: "",
           color: "purple",
         });
       } catch (notificationError) {

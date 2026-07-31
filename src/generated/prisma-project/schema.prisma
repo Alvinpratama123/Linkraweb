@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../../src/generated/prisma-project"
+  provider      = "prisma-client-js"
+  output        = "../../src/generated/prisma-project"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -27,6 +28,7 @@ model Project {
   imageDescription2 String?
   imageUrl          String?
   moduleUrl         String?
+  teamMembers       String?
 
   userId    String
   createdAt DateTime @default(now())

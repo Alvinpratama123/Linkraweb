@@ -323,7 +323,7 @@ function getEmailTemplate({ title, content, buttonText, buttonLink, showAudio = 
       <!-- 🔥 AUDIO NOTIFICATION -->
       <div class="audio-player">
         <div class="header-audio">
-          <span style="font-size: 20px;">🔊</span>
+          <span style="font-size: 20px; font-weight: 700;">NOTIFIKASI SUARA</span>
           <div>
             <div class="label">Notifikasi Suara</div>
             <div class="sub-label">Klik tombol play untuk mendengar notifikasi</div>
@@ -341,7 +341,7 @@ function getEmailTemplate({ title, content, buttonText, buttonLink, showAudio = 
         
         <!-- Fallback link jika audio tidak bisa diputar -->
         <div class="audio-fallback">
-          ⚠️ Tidak bisa memutar audio? 
+          Tidak bisa memutar audio?
           <a href="${audioUrls.mp3}" download="notification.mp3" style="color: #001d55; font-weight: 600;">
             Download file audio
           </a>
@@ -385,18 +385,18 @@ export async function testSMTPConnection() {
 // ─── SEND REVISION NOTIFICATION ──────────────────────────────
 export async function sendRevisionNotification(report, targetUsers) {
   if (!targetUsers || targetUsers.length === 0) {
-    console.log('📧 Tidak ada user target untuk dikirim notifikasi');
+    console.log(' Tidak ada user target untuk dikirim notifikasi');
     return { success: false, message: 'Tidak ada user target' };
   }
 
   const usersWithEmail = targetUsers.filter(user => user.email && user.email.trim() !== '');
   
   if (usersWithEmail.length === 0) {
-    console.log('📧 Tidak ada user dengan email yang valid');
+    console.log(' Tidak ada user dengan email yang valid');
     return { success: false, message: 'Tidak ada email valid' };
   }
 
-  console.log(`📧 Mengirim ke ${usersWithEmail.length} user:`, usersWithEmail.map(u => u.email).join(', '));
+  console.log(` Mengirim ke ${usersWithEmail.length} user:`, usersWithEmail.map(u => u.email).join(', '));
 
   const subject = `Revisi Baru: ${report.projectName}`;
   const senderLabel = roleLabels[report.senderRole] || report.senderRole;
@@ -462,7 +462,7 @@ export async function sendRevisionNotification(report, targetUsers) {
   
   for (const user of usersWithEmail) {
     try {
-      console.log(`📧 Mengirim ke ${user.email}...`);
+      console.log(` Mengirim ke ${user.email}...`);
       
       const info = await transporter.sendMail({
         from: `"PT Lintas Wahana Teknologi" <${process.env.SMTP_USER || 'no-reply@aiturbo.id'}>`,
@@ -500,7 +500,7 @@ export async function sendRevisionNotification(report, targetUsers) {
 // ─── SEND NOTIFICATION TO ROLE ──────────────────────────────
 export async function sendNotificationToRole(report, targetRole, prisma) {
   try {
-    console.log(`📧 Mencari user dengan role: ${targetRole}`);
+    console.log(` Mencari user dengan role: ${targetRole}`);
     
     const users = await prisma.user.findMany({
       where: { 
@@ -514,11 +514,11 @@ export async function sendNotificationToRole(report, targetRole, prisma) {
       }
     });
 
-    console.log(`📧 Ditemukan ${users.length} user dengan role ${targetRole}`);
-    console.log(`📧 User details:`, users.map(u => ({ name: u.name, email: u.email, role: u.role })));
+    console.log(` Ditemukan ${users.length} user dengan role ${targetRole}`);
+    console.log(` User details:`, users.map(u => ({ name: u.name, email: u.email, role: u.role })));
 
     if (users.length === 0) {
-      console.log(`📧 Tidak ada user dengan role ${targetRole}`);
+      console.log(` Tidak ada user dengan role ${targetRole}`);
       return { 
         success: false, 
         message: `Tidak ada user dengan role ${targetRole}`,

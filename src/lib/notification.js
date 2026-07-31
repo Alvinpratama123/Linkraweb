@@ -7,49 +7,41 @@ import { sendRevisionNotification, sendNotificationToRole } from "./email";
 const typeLabels = {
   project: {
     label: 'Project',
-    icon: '📁',
     color: '#3b82f6',
     bgColor: '#dbeafe',
   },
   member: {
     label: 'Member',
-    icon: '👤',
     color: '#8b5cf6',
     bgColor: '#ede9fe',
   },
   revision: {
     label: 'Revisi',
-    icon: '📝',
     color: '#f59e0b',
     bgColor: '#fef3c7',
   },
   system: {
     label: 'Sistem',
-    icon: '🔔',
     color: '#6b7280',
     bgColor: '#f3f4f6',
   },
   approved: {
     label: 'Disetujui',
-    icon: '✅',
     color: '#22c55e',
     bgColor: '#dcfce7',
   },
   rejected: {
     label: 'Ditolak',
-    icon: '❌',
     color: '#ef4444',
     bgColor: '#fee2e2',
   },
   finished: {
     label: 'Selesai',
-    icon: '🎉',
     color: '#22c55e',
     bgColor: '#dcfce7',
   },
   upload: {
     label: 'Upload',
-    icon: '📤',
     color: '#3b82f6',
     bgColor: '#dbeafe',
   },
@@ -146,7 +138,6 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
     });
 
     const typeInfo = typeLabels[type] || typeLabels.system;
-    const iconDisplay = icon || typeInfo.icon || '🔔';
     const roleDisplay = roleLabels[user.role?.toLowerCase()] || user.role || 'Member';
 
     // 🔥 Pastikan link menggunakan base URL
@@ -181,11 +172,6 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
       background: linear-gradient(135deg, #001d55, #003d9e);
       padding: 30px 40px;
       text-align: center;
-    }
-    .header-icon {
-      font-size: 48px;
-      display: block;
-      margin-bottom: 8px;
     }
     .header h1 {
       color: #ffffff;
@@ -302,7 +288,6 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
 <body>
   <div class="container">
     <div class="header">
-      <span class="header-icon">${iconDisplay}</span>
       <h1>${title}</h1>
       <p>PT Lintas Wahana Teknologi</p>
     </div>
@@ -354,10 +339,10 @@ async function sendEmailNotification(user, title, message, type, link, icon) {
     await transporter.sendMail({
       from: `"PT Lintas Wahana Teknologi" <${process.env.SMTP_USER || 'no-reply@aiturbo.id'}>`,
       to: user.email,
-      subject: `${iconDisplay} ${title}`,
+      subject: `${title}`,
       html: html,
     });
-    console.log(`📧 [Notif] Email ke ${user.email}: ${title}`);
+    console.log(` [Notif] Email ke ${user.email}: ${title}`);
   } catch (error) {
     console.error(`❌ [Notif] Gagal kirim email ke ${user?.email}:`, error.message);
     console.error(`❌ [Notif] SMTP config: host=${process.env.SMTP_HOST}, port=${process.env.SMTP_PORT}, user=${process.env.SMTP_USER}`);
@@ -423,7 +408,7 @@ export async function sendNotificationToAllUsers({ title, message, type, link, i
           message,
           type: type || "system",
           link: userLink,
-          icon: icon || "📢",
+          icon: icon || "",
           color: color || "blue",
           isRead: false,
         },
@@ -456,28 +441,28 @@ export async function sendProjectNotificationToAllUsers(project, action, senderR
       title: `Project Baru: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah diupload oleh ${senderDisplay}. Silakan tinjau project tersebut.`,
       type: "project",
-      icon: "📁",
+      icon: "",
       color: "blue",
     },
     approved: {
       title: `Project Disetujui: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah disetujui oleh ${senderDisplay}. Project siap untuk dilanjutkan.`,
       type: "approved",
-      icon: "✅",
+      icon: "",
       color: "green",
     },
     rejected: {
       title: `Project Ditolak: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah ditolak oleh ${senderDisplay}. Silakan periksa kembali project tersebut.`,
       type: "rejected",
-      icon: "❌",
+      icon: "",
       color: "red",
     },
     finished: {
       title: `Project Selesai: ${project.name}`,
-      message: `Project "${project.name}" (${category}) telah selesai dikerjakan! Selamat! 🎉`,
+      message: `Project "${project.name}" (${category}) telah selesai dikerjakan! Selamat!`,
       type: "finished",
-      icon: "🎉",
+      icon: "",
       color: "green",
     },
   };
@@ -513,28 +498,28 @@ export async function createProjectNotification(project, userId, action, senderR
       title: `Project Baru: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah diupload oleh ${senderDisplay}.`,
       type: "project",
-      icon: "📁",
+      icon: "",
       color: "blue",
     },
     approved: {
       title: `Project Disetujui: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah disetujui oleh ${senderDisplay}.`,
       type: "approved",
-      icon: "✅",
+      icon: "",
       color: "green",
     },
     rejected: {
       title: `Project Ditolak: ${project.name}`,
       message: `Project "${project.name}" (${category}) telah ditolak oleh ${senderDisplay}.`,
       type: "rejected",
-      icon: "❌",
+      icon: "",
       color: "red",
     },
     finished: {
       title: `Project Selesai: ${project.name}`,
-      message: `Project "${project.name}" (${category}) telah selesai dikerjakan! 🎉`,
+      message: `Project "${project.name}" (${category}) telah selesai dikerjakan!`,
       type: "finished",
-      icon: "🎉",
+      icon: "",
       color: "green",
     },
   };
@@ -570,7 +555,7 @@ export async function createMemberNotification(member, userId, action) {
       message: `Member "${member.name}" telah ditambahkan dengan posisi ${positionDisplay}.`,
       type: "member",
       link: link,
-      icon: "👤",
+      icon: "",
       color: "purple",
     });
   }
@@ -593,7 +578,7 @@ export async function createRevisionNotification(revision, userId, action) {
       message: `Ada revisi baru untuk project "${revision.projectName}". Silakan periksa dan tindak lanjuti.`,
       type: "revision",
       link: link,
-      icon: "📝",
+      icon: "",
       color: "orange",
     });
   }

@@ -208,6 +208,10 @@ const config = {
         "fromEnvVar": null,
         "value": "windows",
         "native": true
+      },
+      {
+        "fromEnvVar": null,
+        "value": "debian-openssl-3.0.x"
       }
     ],
     "previewFeatures": [],
@@ -233,8 +237,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../../src/generated/prisma-monitoring\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_MONITORING_URL\")\n}\n\n// ============================================\n// REVISION REPORT MODEL\n// Relasi ke User di auth_db dijaga manual\n// (sentById, targetUserId = String biasa)\n// ============================================\nmodel RevisionReport {\n  id             String   @id @default(cuid())\n  projectName    String\n  issueType      String   @default(\"MODUL\")\n  description    String?  @db.Text\n  progress       String   @default(\"BELUM_DILAKUKAN\")\n  approval       String   @default(\"PENDING\")\n  approvalNote   String?  @db.Text\n  senderRole     String\n  targetRole     String\n  targetUserId   String?\n  sentById       String?\n  attachmentName String?\n  attachmentUrl  String?\n  attachmentData String?  @db.LongText\n  createdAt      DateTime @default(now())\n  updatedAt      DateTime @updatedAt\n\n  comments RevisionComment[]\n\n  @@index([targetRole])\n  @@index([senderRole])\n  @@index([approval])\n  @@index([createdAt])\n  @@index([targetUserId])\n  @@index([sentById])\n}\n\n// ============================================\n// REVISION COMMENT MODEL\n// Relasi ke User di auth_db dijaga manual\n// (authorId = String biasa)\n// ============================================\nmodel RevisionComment {\n  id        String   @id @default(cuid())\n  content   String   @db.Text\n  authorId  String\n  reportId  String\n  createdAt DateTime @default(now())\n\n  report RevisionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)\n\n  @@index([reportId])\n  @@index([authorId])\n}\n\n// ============================================\n// NOTIFICATION MODEL\n// Relasi ke User di auth_db dijaga manual\n// (userId = String biasa)\n// ============================================\nmodel Notification {\n  id        String   @id @default(cuid())\n  userId    String\n  title     String\n  message   String   @db.Text\n  type      String   @default(\"system\")\n  link      String?\n  isRead    Boolean  @default(false)\n  icon      String?\n  color     String?\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@index([userId])\n  @@index([isRead])\n  @@index([createdAt])\n  @@index([userId, isRead])\n}\n",
-  "inlineSchemaHash": "527ae0c1f5f2e9c7db3e0ae4838412a46ae73afdb39091f00c52cd0bb0978c85",
+  "inlineSchema": "generator client {\n  provider      = \"prisma-client-js\"\n  output        = \"../../src/generated/prisma-monitoring\"\n  binaryTargets = [\"native\", \"debian-openssl-3.0.x\"]\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_MONITORING_URL\")\n}\n\n// ============================================\n// REVISION REPORT MODEL\n// Relasi ke User di auth_db dijaga manual\n// (sentById, targetUserId = String biasa)\n// ============================================\nmodel RevisionReport {\n  id             String   @id @default(cuid())\n  projectName    String\n  issueType      String   @default(\"MODUL\")\n  description    String?  @db.Text\n  progress       String   @default(\"BELUM_DILAKUKAN\")\n  approval       String   @default(\"PENDING\")\n  approvalNote   String?  @db.Text\n  senderRole     String\n  targetRole     String\n  targetUserId   String?\n  sentById       String?\n  attachmentName String?\n  attachmentUrl  String?\n  attachmentData String?  @db.LongText\n  createdAt      DateTime @default(now())\n  updatedAt      DateTime @updatedAt\n\n  comments RevisionComment[]\n\n  @@index([targetRole])\n  @@index([senderRole])\n  @@index([approval])\n  @@index([createdAt])\n  @@index([targetUserId])\n  @@index([sentById])\n}\n\n// ============================================\n// REVISION COMMENT MODEL\n// Relasi ke User di auth_db dijaga manual\n// (authorId = String biasa)\n// ============================================\nmodel RevisionComment {\n  id        String   @id @default(cuid())\n  content   String   @db.Text\n  authorId  String\n  reportId  String\n  createdAt DateTime @default(now())\n\n  report RevisionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)\n\n  @@index([reportId])\n  @@index([authorId])\n}\n\n// ============================================\n// NOTIFICATION MODEL\n// Relasi ke User di auth_db dijaga manual\n// (userId = String biasa)\n// ============================================\nmodel Notification {\n  id        String   @id @default(cuid())\n  userId    String\n  title     String\n  message   String   @db.Text\n  type      String   @default(\"system\")\n  link      String?\n  isRead    Boolean  @default(false)\n  icon      String?\n  color     String?\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@index([userId])\n  @@index([isRead])\n  @@index([createdAt])\n  @@index([userId, isRead])\n}\n",
+  "inlineSchemaHash": "6d1bb7c9f5ed3eb987ff2e83e6afc5b3b8d7ede26b38af05776162e639e5f660",
   "copyEngine": true
 }
 
@@ -275,6 +279,10 @@ Object.assign(exports, Prisma)
 // file annotations for bundling tools to include these files
 path.join(__dirname, "query_engine-windows.dll.node");
 path.join(process.cwd(), "src/generated/prisma-monitoring/query_engine-windows.dll.node")
+
+// file annotations for bundling tools to include these files
+path.join(__dirname, "libquery_engine-debian-openssl-3.0.x.so.node");
+path.join(process.cwd(), "src/generated/prisma-monitoring/libquery_engine-debian-openssl-3.0.x.so.node")
 // file annotations for bundling tools to include these files
 path.join(__dirname, "schema.prisma");
 path.join(process.cwd(), "src/generated/prisma-monitoring/schema.prisma")

@@ -51,7 +51,61 @@ export default function Analytics({ theme = "light" }) {
     fetchData();
   }, []);
 
-  // Program Analytics
+  // ─── FILTER BULANAN / TAHUNAN ─────────────────────────────
+  const [filterType, setFilterType] = useState('bulanan');
+  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [periodOptions, setPeriodOptions] = useState([]);
+
+  const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+  // Derive available periods from project dates
+  useEffect(() => {
+    if (!projects.length) return;
+
+    const months = new Set();
+    const years = new Set();
+    projects.forEach((p) => {
+      const d = new Date(p.date);
+      if (isNaN(d.getTime())) return;
+      months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+      years.add(String(d.getFullYear()));
+    });
+
+    const opts = filterType === 'bulanan'
+      ? Array.from(months).sort().reverse()
+      : Array.from(years).sort().reverse();
+
+    setPeriodOptions(opts);
+    setSelectedPeriod((prev) => (opts.includes(prev) ? prev : (opts[0] || '')));
+  }, [projects, filterType]);
+
+  // Projects filtered by selected period (members NOT filtered)
+  const filteredProjects = (() => {
+    if (!selectedPeriod) return projects;
+    return projects.filter((p) => {
+      const d = new Date(p.date);
+      if (isNaN(d.getTime())) return false;
+      if (filterType === 'bulanan') {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === selectedPeriod;
+      }
+      return String(d.getFullYear()) === selectedPeriod;
+    });
+  })();
+
+  const formatPeriodLabel = (period) => {
+    if (!period) return 'Semua Data';
+    if (filterType === 'bulanan') {
+      const [y, m] = period.split('-');
+      return `${monthNames[Number(m) - 1]} ${y}`;
+    }
+    return period;
+  };
+
+  const handleFilterTypeChange = (type) => {
+    setFilterType(type);
+  };
+
+  // Program Analytics (uses filteredProjects)
   const categoryKeywords = {
     IoT: ['iot', 'sensor', 'arduino', 'raspberry'],
     Website: ['web', 'website', 'landing', 'portal', 'dashboard', 'erp', 'hr', 'cms'],
@@ -60,13 +114,13 @@ export default function Analytics({ theme = "light" }) {
   };
 
   const categoryCounts = Object.entries(categoryKeywords).reduce((acc, [cat, keywords]) => {
-    acc[cat] = projects.filter((p) =>
+    acc[cat] = filteredProjects.filter((p) =>
       keywords.some((kw) => p.name?.toLowerCase().includes(kw))
     ).length;
     return acc;
   }, {});
 
-  const otherCount = projects.filter((p) => {
+  const otherCount = filteredProjects.filter((p) => {
     const allKw = Object.values(categoryKeywords).flat();
     return !allKw.some((kw) => p.name?.toLowerCase().includes(kw));
   }).length;
@@ -77,7 +131,7 @@ export default function Analytics({ theme = "light" }) {
     .map(([label, count]) => ({ label, count }));
   const maxProgram = Math.max(...programStats.map((item) => item.count), 1);
 
-  // Member Analytics - dari data members
+  // Member Analytics - dari data members (tidak terfilter)
   const memberPositionCounts = members.reduce((acc, member) => {
     const pos = member.position || 'Lainnya';
     acc[pos] = (acc[pos] || 0) + 1;
@@ -93,7 +147,7 @@ export default function Analytics({ theme = "light" }) {
   const moduleProjects = (() => {
     const grouped = new Map();
 
-    projects.forEach((project) => {
+    filteredProjects.forEach((project) => {
       const moduleName = (project.name || "Untitled Module").trim();
 
       if (!grouped.has(moduleName)) {
@@ -168,7 +222,9 @@ export default function Analytics({ theme = "light" }) {
         ['LAPORAN ANALYTICS'],
         [''],
         ['METRIK', 'NILAI'],
-        ['Total Program', projects.length],
+        ['Periode Filter', formatPeriodLabel(selectedPeriod)],
+        ['Tipe Filter', filterType === 'bulanan' ? 'Bulanan' : 'Tahunan'],
+        ['Total Program', filteredProjects.length],
         ['Total Member', members.length],
         ['Program Terbanyak', programStats[0]?.label || '-'],
         ['Program Terbanyak (Jumlah)', programStats[0]?.count || 0],
@@ -192,9 +248,9 @@ export default function Analytics({ theme = "light" }) {
           index + 1,
           item.label,
           item.count,
-          `${((item.count / (projects.length || 1)) * 100).toFixed(1)}%`
+          `${((item.count / (filteredProjects.length || 1)) * 100).toFixed(1)}%`
         ]),
-        ['', 'TOTAL', projects.length, '100%']
+        ['', 'TOTAL', filteredProjects.length, '100%']
       ];
 
       const ws2 = XLSX.utils.aoa_to_sheet(programData);
@@ -219,12 +275,12 @@ export default function Analytics({ theme = "light" }) {
       ws3['!cols'] = [{ wch: 8 }, { wch: 30 }, { wch: 15 }, { wch: 15 }];
       XLSX.utils.book_append_sheet(wb, ws3, 'Member Stats');
 
-      // Project Details
+      // Project Details (data terfilter)
       const projectDetailData = [
         ['PROJECT DETAILS'],
         [''],
         ['No', 'Nama Project', 'Posisi', 'Progress', 'Status', 'Tanggal'],
-        ...projects.map((p, index) => [
+        ...filteredProjects.map((p, index) => [
           index + 1,
           p.name,
           p.position || '-',
@@ -274,8 +330,8 @@ export default function Analytics({ theme = "light" }) {
       ws6['!cols'] = [{ wch: 6 }, { wch: 35 }, { wch: 15 }, { wch: 20 }, { wch: 15 }];
       XLSX.utils.book_append_sheet(wb, ws6, 'Module Progress');
 
-      XLSX.writeFile(wb, `Analytics_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
-      toast.success(`Laporan Excel berhasil diekspor. Total Program: ${projects.length}, Total Member: ${members.length}`, {
+      XLSX.writeFile(wb, `Analytics_Report_${selectedPeriod}_${new Date().toISOString().slice(0,10)}.xlsx`);
+      toast.success(`Laporan Excel berhasil diekspor. Total Program: ${filteredProjects.length}, Total Member: ${members.length}`, {
         duration: 3000,
         position: 'top-center',
       });
@@ -304,6 +360,8 @@ export default function Analytics({ theme = "light" }) {
       doc.setFontSize(11);
       doc.setTextColor(100);
       doc.text(`Generated: ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`, 15, currentY);
+      currentY += 6;
+      doc.text(`Periode: ${formatPeriodLabel(selectedPeriod)} (${filterType === 'bulanan' ? 'Bulanan' : 'Tahunan'})`, 15, currentY);
       currentY += 15;
 
       // Summary
@@ -314,7 +372,8 @@ export default function Analytics({ theme = "light" }) {
 
       const summaryData = [
         ['Metrik', 'Nilai'],
-        ['Total Program', projects.length],
+        ['Periode Filter', formatPeriodLabel(selectedPeriod)],
+        ['Total Program', filteredProjects.length],
         ['Total Member', members.length],
         ['Program Terbanyak', programStats[0]?.label || '-'],
         ['Program Terbanyak (Jumlah)', programStats[0]?.count || 0],
@@ -343,7 +402,7 @@ export default function Analytics({ theme = "light" }) {
       const programTableData = programStats.map((item) => [
         item.label,
         item.count,
-        `${((item.count / (projects.length || 1)) * 100).toFixed(1)}%`
+        `${((item.count / (filteredProjects.length || 1)) * 100).toFixed(1)}%`
       ]);
 
       autoTable(doc, {
@@ -354,7 +413,7 @@ export default function Analytics({ theme = "light" }) {
         styles: { cellPadding: 4, fontSize: 10 },
         headStyles: { fillColor: [0, 29, 85], textColor: 255, fontSize: 11 },
         alternateRowStyles: { fillColor: [240, 244, 248] },
-        foot: [['TOTAL', projects.length, '100%']],
+        foot: [['TOTAL', filteredProjects.length, '100%']],
         footStyles: { fillColor: [220, 230, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
       });
 
@@ -414,6 +473,35 @@ export default function Analytics({ theme = "light" }) {
         currentY = doc.lastAutoTable.finalY + 15;
       }
 
+      // Detail Project (tabel)
+      if (filteredProjects.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(0, 29, 85);
+        doc.text('DETAIL PROJECT', 15, currentY);
+        currentY += 8;
+
+        const projectTableData = filteredProjects.map((p, index) => [
+          index + 1,
+          p.name,
+          p.position || '-',
+          `${p.progress || 0}%`,
+          p.decision || 'pending',
+          new Date(p.date).toLocaleDateString('id-ID')
+        ]);
+
+        autoTable(doc, {
+          head: [['No', 'Nama Project', 'Posisi', 'Progress', 'Status', 'Tanggal']],
+          body: projectTableData,
+          startY: currentY,
+          margin: { left: 15, right: 15 },
+          styles: { cellPadding: 4, fontSize: 10 },
+          headStyles: { fillColor: [0, 29, 85], textColor: 255, fontSize: 11 },
+          alternateRowStyles: { fillColor: [240, 244, 248] },
+        });
+
+        currentY = doc.lastAutoTable.finalY + 15;
+      }
+
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -423,7 +511,7 @@ export default function Analytics({ theme = "light" }) {
         doc.text(`Page ${i} of ${pageCount} | Generated: ${new Date().toLocaleDateString('id-ID')}`, 15, pageHeight - 10);
       }
 
-      doc.save(`Analytics_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+      doc.save(`Analytics_Report_${selectedPeriod}_${new Date().toISOString().slice(0,10)}.pdf`);
       toast.success('Laporan PDF berhasil diekspor.', {
         duration: 3000,
         position: 'top-center',
@@ -467,36 +555,63 @@ export default function Analytics({ theme = "light" }) {
             </h1>
             <div className="mt-2 flex flex-wrap gap-4 text-sm">
               <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-600'}`}>
-                📊 Total Program: <strong>{projects.length}</strong>
+                 Total Program: <strong>{filteredProjects.length}</strong>
               </span>
               <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${isDark ? 'bg-green-900/30 text-green-300' : 'bg-green-50 text-green-600'}`}>
-                👥 Total Member: <strong>{members.length}</strong>
+                 Total Member: <strong>{members.length}</strong>
+              </span>
+              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-600'}`}>
+                 Periode: <strong>{formatPeriodLabel(selectedPeriod)}</strong>
               </span>
             </div>
           </div>
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-2 bg-[#001d55] hover:bg-[#001d55]/90 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200"
-            >
-              <span>📥 Export</span>
-            </button>
-            {showExportMenu && (
-              <div className={`absolute right-0 mt-2 w-52 rounded-lg shadow-lg z-10 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-                <button 
-                  onClick={exportToExcel} 
-                  className={`w-full text-left px-4 py-3 font-medium transition-colors border-b flex items-center gap-2 ${isDark ? 'text-slate-200 hover:bg-slate-700 border-slate-700' : 'text-gray-700 hover:bg-gray-50 border-gray-200'}`}
-                >
-                  <span>📊</span> Export Excel
-                </button>
-                <button 
-                  onClick={exportToPDF} 
-                  className={`w-full text-left px-4 py-3 font-medium transition-colors flex items-center gap-2 ${isDark ? 'text-slate-200 hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  <span>📄</span> Export PDF
-                </button>
-              </div>
-            )}
+
+          {/* Filter + Export */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+            <div className="flex gap-2">
+              <select
+                value={filterType}
+                onChange={(e) => handleFilterTypeChange(e.target.value)}
+                className={`px-4 py-3 rounded-lg font-medium border transition-all duration-200 text-sm cursor-pointer ${isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-gray-300 text-gray-700'}`}
+              >
+                <option value="bulanan">Bulanan</option>
+                <option value="tahunan">Tahunan</option>
+              </select>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className={`px-4 py-3 rounded-lg font-medium border transition-all duration-200 text-sm cursor-pointer ${isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-gray-300 text-gray-700'}`}
+              >
+                {periodOptions.length === 0 && <option value="">Tidak ada data</option>}
+                {periodOptions.map((opt) => (
+                  <option key={opt} value={opt}>{formatPeriodLabel(opt)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center gap-2 bg-[#001d55] hover:bg-[#001d55]/90 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 w-full md:w-auto justify-center"
+              >
+                <span> Export</span>
+              </button>
+              {showExportMenu && (
+                <div className={`absolute right-0 mt-2 w-52 rounded-lg shadow-lg z-10 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+                  <button 
+                    onClick={exportToExcel} 
+                    className={`w-full text-left px-4 py-3 font-medium transition-colors border-b flex items-center gap-2 ${isDark ? 'text-slate-200 hover:bg-slate-700 border-slate-700' : 'text-gray-700 hover:bg-gray-50 border-gray-200'}`}
+                  >
+                    <span></span> Export Excel
+                  </button>
+                  <button 
+                    onClick={exportToPDF} 
+                    className={`w-full text-left px-4 py-3 font-medium transition-colors flex items-center gap-2 ${isDark ? 'text-slate-200 hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span></span> Export PDF
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -510,7 +625,7 @@ export default function Analytics({ theme = "light" }) {
                     Program Terbanyak
                   </p>
                   <h2 className={`mt-3 text-2xl font-bold ${isDark ? 'text-white' : 'text-[#001d55]'}`}>
-                    {projects.length} Program
+                    {filteredProjects.length} Program
                   </h2>
                   <p className={`mt-2 text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
                     Analisis jenis program yang paling sering dibuat.
@@ -585,6 +700,77 @@ export default function Analytics({ theme = "light" }) {
                           />
                         </div>
                         <span className={`text-sm font-medium text-center ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Comparison Charts */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className={`rounded-3xl border p-6 shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                Perbandingan Program
+              </h3>
+              <p className={`mt-2 text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                {programStats[0]?.label || 'Belum ada data'} menjadi kategori program terbanyak.
+              </p>
+              <div className="mt-6 flex items-end justify-between gap-3 h-72">
+                {programStats.length === 0 ? (
+                  <div className={`w-full text-center ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>Belum ada data</div>
+                ) : (
+                  programStats.map((item) => {
+                    const color = colorMap[item.label] || { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]' };
+                    return (
+                      <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
+                        <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          {item.count}
+                        </span>
+                        <div className={`w-full rounded-t-md overflow-hidden flex items-end flex-1 ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                          <div
+                            className={`${color.bg} w-full transition-all duration-300 hover:opacity-80 cursor-pointer rounded-t-md`}
+                            style={{ height: `${(item.count / maxProgram) * 100}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-medium text-center ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className={`rounded-3xl border p-6 shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                Perbandingan Member
+              </h3>
+              <p className={`mt-2 text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                {memberStats[0]?.label || 'Belum ada data'} memiliki jumlah member tertinggi.
+              </p>
+              <div className="mt-6 flex items-end justify-between gap-3 h-72">
+                {memberStats.length === 0 ? (
+                  <div className={`w-full text-center ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>Belum ada data</div>
+                ) : (
+                  memberStats.map((item) => {
+                    const color = colorMap[item.label] || { bg: isDark ? 'bg-blue-500' : 'bg-[#001d55]' };
+                    return (
+                      <div key={item.label} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
+                        <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          {item.count}
+                        </span>
+                        <div className={`w-full rounded-t-md overflow-hidden flex items-end flex-1 ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                          <div
+                            className={`${color.bg} w-full transition-all duration-300 hover:opacity-80 cursor-pointer rounded-t-md`}
+                            style={{ height: `${(item.count / maxMember) * 100}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-medium text-center ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
                           {item.label}
                         </span>
                       </div>
@@ -675,3 +861,4 @@ export default function Analytics({ theme = "light" }) {
   </>
   );
 }
+

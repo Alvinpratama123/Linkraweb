@@ -189,9 +189,7 @@ export default function PTLintasWahanaLanding() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex items-center">
           <div className="max-w-3xl text-white animate-fadeInUp">
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
-              <Sparkles size={16} className="text-yellow-400" />
-            </div>
+           
 
             <h1 className="text-4xl md:text-7xl font-bold leading-tight mb-6 bg-gradient-to-r from-white via-blue-200 to-white bg-clip-text text-transparent">
               Platform Digital Tim Pengembangan Teknologi Linkra Wahana
